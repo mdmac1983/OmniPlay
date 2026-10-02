@@ -74,7 +74,8 @@ object Gallery {
         items.groupBy { it.bucketId }.map { (id, l) -> GAlbum("b:$id", l.first().bucket, l, false) }.sortedByDescending { it.items.size }
 
     fun customAlbums(st: AppState, items: List<GItem>): List<GAlbum> {
-        val byUri = items.associateBy { it.uri }
+        // your own albums keep showing their photos even when the folder they live in is hidden
+        val byUri = (st.gallery.all ?: items).associateBy { it.uri }
         return jsonList(st.pref("gAlbums", "[]")).map { o ->
             val uris = o.optJSONArray("uris")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
             GAlbum("c:" + o.optString("id"), o.optString("name"), uris.mapNotNull { byUri[it] }, true)
@@ -108,6 +109,11 @@ object Gallery {
     fun deleteGroup(st: AppState, id: String) { val l = groups(st).filter { it.id != id }
         st.setPref("gGroups", JSONArray(l.map { JSONObject().put("id", it.id).put("name", it.name).put("albums", JSONArray(it.albums)) }).toString()) }
 
+    // ---------- folders shown in the Gallery ----------
+    /** Device folders (bucket IDs) left out of the Gallery. New folders are shown until you hide them. */
+    fun hidden(st: AppState): Set<String> = try { JSONArray(st.pref("gHidden", "[]")).let { a -> (0 until a.length()).map { a.getString(it) }.toSet() } } catch (_: Exception) { emptySet() }
+    fun setHidden(st: AppState, ids: Set<String>) { st.setPref("gHidden", JSONArray(ids.toList()).toString()); st.applyGalleryFilter() }
+
     // ---------- covers & view rotation ----------
     fun cover(st: AppState, a: GAlbum): GItem? {
         val u = try { JSONObject(st.pref("gCovers", "{}")).optString(a.key) } catch (_: Exception) { "" }
@@ -138,6 +144,9 @@ object Gallery {
 
 // ---------- Gallery state on AppState ----------
 class GalleryState {
+    /** everything in the media store, including hidden folders */
+    var all by androidx.compose.runtime.mutableStateOf<List<GItem>?>(null)
+    /** what the Gallery shows (hidden folders left out) */
     var items by androidx.compose.runtime.mutableStateOf<List<GItem>?>(null)
     var trash by androidx.compose.runtime.mutableStateOf<List<GItem>>(emptyList())
     /** the list the viewer pages through */
@@ -149,8 +158,16 @@ class GalleryState {
 fun AppState.loadGallery() {
     scope.launch {
         val (a, t) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Gallery.load(ctx) to Gallery.load(ctx, trashed = true) }
-        gallery.items = a; gallery.trash = t; gallery.tick++
+        gallery.all = a; gallery.trash = t; applyGalleryFilter()
     }
+}
+
+fun AppState.applyGalleryFilter() {
+    val a = gallery.all ?: return
+    val hide = Gallery.hidden(this)
+    gallery.items = if (hide.isEmpty()) a else a.filter { it.bucketId !in hide }
+    gallery.sel.retainAll(gallery.items.orEmpty().map { it.key }.toSet())
+    gallery.tick++
 }
 
 /** Moves items to the trash (Android 11+, kept 30 days) or deletes them after confirming (older Android). */

@@ -117,10 +117,13 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
   10 filters, undo, and **AI Eraser** — paint over people, objects or text and tap **Erase**; an AI model (MI-GAN) rebuilds the background. The first time, tap **Get AI Eraser** to download the model once (~28 MB, internet needed); after that it runs fully offline on the phone. **Basic** is a quick non-AI fill for small spots.
 - **Stickers:** press and hold on a photo — the main subject is cut out on your phone (Google ML Kit) and saved as a
   transparent sticker in Pictures/OmniPlay/Stickers.
+- **Videos** play right in the viewer (seek bar, pause); **Full player** opens the video player with subtitles.
+- **Folders:** tap the folder icon in Gallery to tick which phone folders appear (e.g. hide WhatsApp or Screenshots);
+  or open a folder's menu → *Hide this folder from Gallery*. Nothing is moved or deleted.
 - **Create:** **Collage** (2–9 photos, layouts, shapes, spacing, rounded corners, background), **Animated GIF** (from
   photos or part of a video; frames, speed, size), **Long exposure** (blend a video or burst into one shot),
   **Movie & Reel** (join photos and video clips: trim, reorder, fade transitions, slow zoom on photos, title,
-  captions, background music from your library with volume controls; Reel 9:16, Movie 16:9, Square or Portrait 4:5;
+  captions, background music from your library — tap ▶ to preview songs and the chosen start point — with volume controls; Reel 9:16, Movie 16:9, Square or Portrait 4:5;
   saved to Movies/OmniPlay — made fully on the phone, no internet).
 - **Trash:** deleted items wait 30 days in Android's trash (Android 11+) — restore or delete for good any time.
 - Coming next: Movies & Reels editor, and AI object moving, colorization and reflection removal.

@@ -71,8 +71,10 @@ fun GalleryScreen(st: AppState, pad: PaddingValues) {
     var sub by remember { mutableStateOf(st.pref("gTab", "timeline")) }
     var newAlbum by remember { mutableStateOf(false) }
     var newGroup by remember { mutableStateOf(false) }
+    var folders by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         if (g.sel.isNotEmpty()) SelectionBar(st) else TopBar(st, "Gallery", actions = {
+            IconBtn(Ic.folder, { folders = true })
             IconBtn(Ic.trash, { st.open(Page.GTrash) })
             IconBtn(Ic.sync, { st.loadGallery() })
         })
@@ -80,6 +82,7 @@ fun GalleryScreen(st: AppState, pad: PaddingValues) {
         val items = g.items
         when {
             items == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Progress(null) }
+            items.isEmpty() && sub != "groups" && !g.all.isNullOrEmpty() -> Empty("Every folder is hidden.\nChoose which folders the Gallery shows.", "Choose folders") { folders = true }
             items.isEmpty() && sub != "groups" -> Empty("No photos or videos found.\nAllow OmniPlay to access photos and videos when Android asks, then tap refresh.", "Refresh") { st.loadGallery() }
             sub == "timeline" -> Timeline(st, items, pad)
             sub == "albums" -> AlbumsGrid(st, items, pad) { newAlbum = true }
@@ -89,6 +92,47 @@ fun GalleryScreen(st: AppState, pad: PaddingValues) {
     }
     if (newAlbum) NameDialog("New album", "Album name", { newAlbum = false }) { n -> Gallery.createAlbum(st, n, g.sel.toList().mapNotNull { k -> g.items?.firstOrNull { it.key == k }?.uri }); g.sel.clear(); st.say("Album \"$n\" created") }
     if (newGroup) GroupEditor(st, null) { newGroup = false }
+    if (folders) FoldersDialog(st) { folders = false }
+}
+
+/** Choose which device folders appear in the Gallery (Timeline, Albums, pickers). Nothing is moved or deleted. */
+@Composable
+private fun FoldersDialog(st: AppState, onDone: () -> Unit) {
+    val all = st.gallery.all.orEmpty()
+    val folders = remember(all) { Gallery.deviceAlbums(all).sortedBy { it.name.lowercase() } }
+    val hidden = remember { mutableStateListOf<String>().apply { addAll(Gallery.hidden(st)) } }
+    fun id(a: GAlbum) = a.key.removePrefix("b:")
+    Dialog(onDone, DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.85f).clip(RoundedCornerShape(16.dp)).background(C.s1).padding(14.dp)) {
+            Text("Folders in Gallery", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            Muted("Ticked folders are shown. Unticked ones are hidden from the Gallery only — nothing is moved or deleted, and photos you added to your own albums stay in them.", Modifier.padding(vertical = 6.dp), 12.sp)
+            Row(Modifier.padding(bottom = 6.dp)) {
+                Btn("Show all", { hidden.clear() }, small = true, kind = BtnKind.Ghost); Spacer(Modifier.width(6.dp))
+                Btn("Hide all", { hidden.clear(); hidden.addAll(folders.map { id(it) }) }, small = true, kind = BtnKind.Ghost)
+                Spacer(Modifier.weight(1f))
+                Muted("${folders.count { id(it) !in hidden }} of ${folders.size}", Modifier.align(Alignment.CenterVertically), 12.sp)
+            }
+            if (folders.isEmpty()) Muted("No folders found yet.", Modifier.padding(8.dp))
+            LazyColumn(Modifier.weight(1f)) {
+                items(folders, key = { it.key }) { a ->
+                    val on = id(a) !in hidden
+                    Row(Modifier.fillMaxWidth().clickable { if (on) hidden.add(id(a)) else hidden.remove(id(a)) }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Thumb(a.items.firstOrNull()?.let { Img.Thumb(it.uri, it.video) }, a.name, Modifier.size(44.dp), px = 120, corner = 6.dp)
+                        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                            Text(a.name, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (on) C.tx else C.mu)
+                            Muted("${a.items.count { !it.video }} photos · ${a.items.count { it.video }} videos", size = 11.sp)
+                        }
+                        androidx.compose.material3.Checkbox(on, { v -> if (v) hidden.remove(id(a)) else hidden.add(id(a)) },
+                            colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = C.ac, uncheckedColor = C.mu))
+                    }
+                }
+            }
+            Row(Modifier.padding(top = 8.dp)) {
+                Btn("Cancel", onDone, Modifier.weight(1f), kind = BtnKind.Ghost); Spacer(Modifier.width(8.dp))
+                Btn("Save", { Gallery.setHidden(st, hidden.toSet()); onDone() }, Modifier.weight(1f))
+            }
+        }
+    }
 }
 
 @Composable
@@ -198,6 +242,10 @@ private fun AlbumMenu(st: AppState, a: GAlbum, onDone: () -> Unit) {
                 Btn("Set cover image…", { pickCover = true }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
                 Btn("Add to a group…", { toGroup = true }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
                 Btn("Share all", { st.shareItems(a.items.take(100)); onDone() }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
+                if (!a.custom) Btn("Hide this folder from Gallery", {
+                    Gallery.setHidden(st, Gallery.hidden(st) + a.key.removePrefix("b:")); st.say("\"${a.name}\" hidden — bring it back with the folder button"); onDone()
+                    if (st.pages.lastOrNull() is Page.GAlbumPage) st.back()
+                }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
                 if (a.custom) {
                     Btn("Rename", { rename = true }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
                     Btn("Delete album (photos are kept)", { Gallery.deleteAlbum(st, a.key); onDone() }, Modifier.fillMaxWidth(), kind = BtnKind.Danger)
@@ -344,7 +392,7 @@ fun GViewerScreen(st: AppState, p: Page.GViewer) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { list[it].key }) { i ->
             val x = list[i]
-            ZoomImage(st, x, onTap = { chrome = !chrome }, onLong = {
+            if (!(x.video && i == pager.settledPage)) ZoomImage(st, x, onTap = { chrome = !chrome }, onLong = {
                 if (x.video || cutting) return@ZoomImage
                 cutting = true; st.say("Cutting out the subject…")
                 scope.launch {
@@ -354,8 +402,10 @@ fun GViewerScreen(st: AppState, p: Page.GViewer) {
                     if (cut == null) st.say("Couldn't find a subject to cut out (needs Google Play services; the first time it downloads a small model).") else sticker = cut
                 }
             })
-            if (x.video) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(72.dp).clip(CircleShape).background(Color(0xAA000000)).clickable { st.playGalleryVideo(x) }, contentAlignment = Alignment.Center) { Icon(Ic.play, "Play", tint = Color.White, modifier = Modifier.size(44.dp)) }
+            // videos play right here once their page is on screen (one player at a time)
+            if (x.video && i == pager.settledPage) GalleryVideo(x, onChrome = { chrome = it })
+            else if (x.video) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(72.dp).clip(CircleShape).background(Color(0xAA000000)), contentAlignment = Alignment.Center) { Icon(Ic.play, "Play", tint = Color.White, modifier = Modifier.size(44.dp)) }
             }
         }
         if (cutting) Box(Modifier.align(Alignment.Center)) { androidx.compose.material3.CircularProgressIndicator(color = C.ac) }
@@ -369,6 +419,7 @@ fun GViewerScreen(st: AppState, p: Page.GViewer) {
                 IconBtn(Ic.info, { info = true }, tint = Color.White)
             }
             Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().background(Color(0x88000000)).padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                if (cur.video) Act(Ic.expand, "Full player") { st.playGalleryVideo(cur) }
                 if (!cur.video) Act(Ic.tune, "Edit") { st.open(Page.GEditor(cur)) }
                 if (!cur.video) Act(Ic.rotate, "Rotate") { Gallery.rotate(st, cur.uri, 90) }
                 Act(Ic.send, "Share") { st.shareItems(listOf(cur)) }
@@ -400,6 +451,40 @@ fun GViewerScreen(st: AppState, p: Page.GViewer) {
 }
 
 /** Full-size photo with pinch-zoom / pan / double-tap zoom. */
+/** Plays a gallery video inline (media3 player with its own seek bar / play / pause controls). */
+@Composable
+private fun GalleryVideo(x: GItem, onChrome: (Boolean) -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val player = remember(x.uri) {
+        androidx.media3.exoplayer.ExoPlayer.Builder(ctx)
+            .setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE).build(), /* handleAudioFocus = */ true)
+            .setHandleAudioBecomingNoisy(true).build().apply {
+                setMediaItem(androidx.media3.common.MediaItem.fromUri(x.uri)); prepare(); playWhenReady = true
+            }
+    }
+    DisposableEffect(player) { onDispose { player.release() } }
+    // pause when the app goes to the background
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(owner, player) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) player.pause() }
+        owner.lifecycle.addObserver(obs); onDispose { owner.lifecycle.removeObserver(obs) }
+    }
+    androidx.compose.ui.viewinterop.AndroidView(
+        factory = { c ->
+            androidx.media3.ui.PlayerView(c).apply {
+                this.player = player
+                setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                setControllerVisibilityListener(androidx.media3.ui.PlayerView.ControllerVisibilityListener { v -> onChrome(v == android.view.View.VISIBLE) })
+                setBackgroundColor(android.graphics.Color.BLACK)
+            }
+        },
+        update = { it.player = player },
+        // keep the seek bar clear of the viewer's top and bottom bars
+        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(top = 52.dp, bottom = 60.dp),
+    )
+}
+
 @Composable
 private fun ZoomImage(st: AppState, x: GItem, onTap: () -> Unit, onLong: () -> Unit) {
     var bmp by remember(x.uri) { mutableStateOf<Bitmap?>(null) }

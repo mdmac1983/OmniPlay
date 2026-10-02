@@ -44,6 +44,7 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
     }
     var sel by remember(picked) { mutableIntStateOf(0) }
     var pickMusic by remember { mutableStateOf(false) }
+    val preview = rememberMusicPreview()
     var titleEdit by remember { mutableStateOf(false) }
     var captionEdit by remember { mutableStateOf(false) }
     var prog by remember { mutableStateOf<Float?>(null) }
@@ -63,6 +64,7 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
             }
             Btn("Export", {
                 if (reel.clips.isEmpty()) { st.say("Add some photos or videos first"); return@Btn }
+                preview.stop()
                 prog = 0f
                 job = scope.launch {
                     try { done = MovieMaker.export(st.ctx, st, reel) { prog = it }; st.loadGallery() }
@@ -147,17 +149,23 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Ic.music, null, tint = C.mu); Spacer(Modifier.width(8.dp))
                 Text(reel.music?.let { "${it.title} — ${it.artist}" } ?: "No music", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (reel.music != null) IconBtn(Ic.close, { reel = reel.copy(music = null) }, size = 34.dp, iconSize = 20.dp)
+                reel.music?.let { m ->
+                    val on = preview.playing == m.u
+                    IconBtn(if (on) Ic.stop else Ic.play, { if (on) preview.stop() else preview.play(m.u, reel.musicStartMs, reel.musicVol) }, size = 34.dp, iconSize = 22.dp, tint = C.ac)
+                    IconBtn(Ic.close, { preview.stop(); reel = reel.copy(music = null) }, size = 34.dp, iconSize = 20.dp)
+                }
                 Btn(if (reel.music == null) "Add music" else "Change", { pickMusic = true }, small = true, kind = BtnKind.Ghost)
             }
             reel.music?.let { m ->
                 if (m.d > 10_000) Row(verticalAlignment = Alignment.CenterVertically) {
                     Muted("Start at ${mmss(reel.musicStartMs)}", Modifier.width(110.dp), 12.sp)
-                    Slider(reel.musicStartMs.toFloat(), { reel = reel.copy(musicStartMs = it.toLong()) }, valueRange = 0f..(m.d - 5_000).toFloat(), modifier = Modifier.weight(1f), colors = sliderColors)
+                    Slider(reel.musicStartMs.toFloat(), { reel = reel.copy(musicStartMs = it.toLong()) }, valueRange = 0f..(m.d - 5_000).toFloat(), modifier = Modifier.weight(1f), colors = sliderColors,
+                        // hear the new starting point straight away
+                        onValueChangeFinished = { preview.play(m.u, reel.musicStartMs, reel.musicVol) })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Muted("Music ${(reel.musicVol * 100).toInt()}%", Modifier.width(110.dp), 12.sp)
-                    Slider(reel.musicVol, { reel = reel.copy(musicVol = it) }, modifier = Modifier.weight(1f), colors = sliderColors)
+                    Slider(reel.musicVol, { reel = reel.copy(musicVol = it); preview.volume(it) }, modifier = Modifier.weight(1f), colors = sliderColors)
                 }
             }
             if (reel.clips.any { it.item.video }) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -169,7 +177,7 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
 
     if (titleEdit) ReelTextDialog("Title", "Shown over the first clip", reel.title, { titleEdit = false }) { reel = reel.copy(title = it) }
     if (captionEdit) reel.clips.getOrNull(sel)?.let { c -> ReelTextDialog("Caption", "Shown along the bottom of this clip", c.caption, { captionEdit = false }) { setClip(sel, c.copy(caption = it)) } }
-    if (pickMusic) MusicPickDialog(st, { pickMusic = false }) { reel = reel.copy(music = it, musicStartMs = 0); pickMusic = false }
+    if (pickMusic) MusicPickDialog(st, preview, { preview.stop(); pickMusic = false }) { preview.stop(); reel = reel.copy(music = it, musicStartMs = 0); pickMusic = false }
 
     prog?.let { p ->
         Dialog({}, DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
@@ -211,7 +219,7 @@ private fun ReelTextDialog(title: String, hint: String, initial: String, onDone:
 
 /** Songs on this phone (cloud songs need streaming, so they're left out — download them first). */
 @Composable
-private fun MusicPickDialog(st: AppState, onDone: () -> Unit, onPick: (Item) -> Unit) {
+private fun MusicPickDialog(st: AppState, preview: MusicPreview, onDone: () -> Unit, onPick: (Item) -> Unit) {
     var q by remember { mutableStateOf("") }
     val all = remember { st.songs().filter { !it.isCloud }.sortedBy { it.title.lowercase() } }
     val list = remember(q) { if (q.isBlank()) all else all.filter { (it.title + " " + it.artist).contains(q, true) } }
@@ -222,13 +230,56 @@ private fun MusicPickDialog(st: AppState, onDone: () -> Unit, onPick: (Item) -> 
             if (all.isEmpty()) Muted("No songs on this phone yet — add a music folder in Music, or download songs from your cloud.", Modifier.padding(8.dp))
             LazyColumn(Modifier.weight(1f)) {
                 items(list.take(500), key = { it.i }) { s ->
-                    Column(Modifier.fillMaxWidth().clickable { onPick(s) }.padding(vertical = 8.dp, horizontal = 4.dp)) {
-                        Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Muted("${s.artist}${if (s.d > 0) " · " + mmss(s.d) else ""}", size = 12.sp)
+                    val on = preview.playing == s.u
+                    Row(Modifier.fillMaxWidth().clickable { onPick(s) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // listen before choosing (starts a little way in, where songs usually get going)
+                        IconBtn(if (on) Ic.stop else Ic.play, { if (on) preview.stop() else preview.play(s.u, if (s.d > 90_000) 30_000 else 0, 1f) }, size = 40.dp, iconSize = 24.dp, tint = if (on) C.ac else C.tx)
+                        Column(Modifier.weight(1f).padding(start = 6.dp)) {
+                            Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (on) C.ac else C.tx)
+                            Muted("${s.artist}${if (s.d > 0) " · " + mmss(s.d) else ""}", size = 12.sp)
+                        }
+                        Btn("Use", { onPick(s) }, small = true, kind = BtnKind.Ghost)
                     }
                 }
             }
             Btn("Cancel", onDone, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
         }
     }
+}
+
+/** A small player for trying out background music while making a reel (one song at a time). */
+internal class MusicPreview(private val ctx: android.content.Context) {
+    var playing by mutableStateOf<String?>(null); private set
+    private var p: androidx.media3.exoplayer.ExoPlayer? = null
+    private fun player() = p ?: androidx.media3.exoplayer.ExoPlayer.Builder(ctx)
+        .setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().setUsage(androidx.media3.common.C.USAGE_MEDIA)
+            .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC).build(), /* handleAudioFocus = */ true)
+        .build().also { pl ->
+            pl.addListener(object : androidx.media3.common.Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) { if (state == androidx.media3.common.Player.STATE_ENDED) playing = null }
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) { playing = null }
+            })
+            p = pl
+        }
+    fun play(uri: String, fromMs: Long, vol: Float) {
+        val pl = player()
+        if (playing != uri) { pl.setMediaItem(androidx.media3.common.MediaItem.fromUri(uri)); pl.prepare() }
+        pl.seekTo(fromMs); pl.volume = vol; pl.play(); playing = uri
+    }
+    fun volume(v: Float) { p?.volume = v }
+    fun stop() { p?.stop(); playing = null }
+    fun release() { p?.release(); p = null; playing = null }
+}
+
+@Composable
+internal fun rememberMusicPreview(): MusicPreview {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val mp = remember { MusicPreview(ctx.applicationContext) }
+    DisposableEffect(mp) { onDispose { mp.release() } }
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) mp.stop() }
+        owner.lifecycle.addObserver(obs); onDispose { owner.lifecycle.removeObserver(obs) }
+    }
+    return mp
 }
