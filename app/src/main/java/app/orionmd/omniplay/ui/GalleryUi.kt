@@ -676,9 +676,17 @@ fun GEditorScreen(st: AppState, p: Page.GEditor) {
                     }
                 }
                 "erase" -> Column {
-                    var aiReady by remember { mutableStateOf(AiEraser.isReady(st.ctx)) }
+                    val lastRun = remember { AiEraser.checkLastRun(st.ctx) }   // before the support check below
+                    LaunchedEffect(Unit) { lastRun?.let { st.say(it) } }
+                    var aiReady by remember { mutableStateOf(AiEraser.isReady(st.ctx) && AiEraser.supported(st.ctx)) }
+                    val aiOk = remember { AiEraser.supported(st.ctx) }
                     var dl by remember { mutableStateOf<Float?>(null) }
-                    Muted(if (aiReady) "AI Eraser: paint over what to remove, then tap Erase — the background is regenerated."
+                    if (!aiOk) {
+                        Muted(AiEraser.unsupportedReason(st.ctx) ?: "", size = 12.sp)
+                        // free the space if the model was downloaded before this phone was found too small
+                        if (AiEraser.isReady(st.ctx)) Btn("Remove AI model (${AiEraser.SIZE_MB} MB)", { AiEraser.remove(st.ctx); st.say("AI model removed") }, small = true, kind = BtnKind.Ghost)
+                    }
+                    else Muted(if (aiReady) "AI Eraser: paint over what to remove, then tap Erase — the background is regenerated."
                         else "Paint over what to remove. The AI Eraser regenerates the background realistically (one-time ${AiEraser.SIZE_MB} MB download, then works offline); Basic fills from the surroundings.", size = 12.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Muted("Brush", Modifier.width(56.dp)); Slider(brush, { brush = it }, valueRange = .01f..0.12f, modifier = Modifier.weight(1f), colors = SliderDefaults.colors(thumbColor = C.ac, activeTrackColor = C.ac))
@@ -686,6 +694,7 @@ fun GEditorScreen(st: AppState, p: Page.GEditor) {
                     dl?.let { Progress(it); Muted("Downloading AI Eraser… ${(it * 100).toInt()}%", size = 12.sp) }
                     fun run(ai: Boolean) {
                         val b = base ?: return; if (strokes.isEmpty()) { st.say("Paint over the object first"); return }
+                        if (ai) AiEraser.memoryWarning(st.ctx)?.let { st.say(it); return }
                         busy = true; val pts = strokes.toList(); val r = brush
                         scope.launch {
                             val out = withContext(Dispatchers.Default) {
@@ -703,11 +712,11 @@ fun GEditorScreen(st: AppState, p: Page.GEditor) {
                     Row {
                         Btn("Clear", { strokes.clear() }, small = true, kind = BtnKind.Ghost); Spacer(Modifier.width(8.dp))
                         if (aiReady) Btn("Erase", { run(true) }, small = true, icon = Ic.claude)
-                        else if (dl == null) Btn("Get AI Eraser", {
+                        else if (dl == null && aiOk) Btn("Get AI Eraser", {
                             dl = 0f
                             scope.launch {
                                 val err = withContext(Dispatchers.IO) { AiEraser.download(st.ctx) { p -> scope.launch { dl = p } } }
-                                dl = null; aiReady = AiEraser.isReady(st.ctx)
+                                dl = null; aiReady = AiEraser.isReady(st.ctx) && AiEraser.supported(st.ctx)
                                 st.say(err?.let { "AI Eraser download failed: $it" } ?: "AI Eraser ready")
                             }
                         }, small = true, icon = Ic.download)

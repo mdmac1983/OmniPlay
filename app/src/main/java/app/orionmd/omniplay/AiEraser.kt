@@ -23,8 +23,42 @@ object AiEraser {
     private const val URL = "https://huggingface.co/andraniksargsyan/migan/resolve/main/migan_pipeline_v2.onnx"
     private const val SHA256 = "6f1f3530a1a2324b19752018ce756088b07973cda8d7d890034ace5c8a48c40b"
     const val SIZE_MB = 28
-    /** Long side the photo is processed at (keeps memory and time reasonable on phones). */
-    private const val MAX_SIDE = 1536
+    /** Long side the photo is worked on at; low-memory phones use less (the Java-side buffers scale with it). */
+    private fun maxSide(ctx: Context) = if (lowRam(ctx)) 1024 else 1536
+    /** The model needs ~300 MB of extra memory while it runs (measured; it works at 512 px inside, so photo size barely matters). */
+    private const val NEED_MB = 450L
+
+    private fun prefs(ctx: Context) = ctx.getSharedPreferences("ai_eraser", Context.MODE_PRIVATE)
+    private fun am(ctx: Context) = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+    private fun lowRam(ctx: Context) = am(ctx).let { it.isLowRamDevice || it.memoryClass < 256 } || android.os.Build.SUPPORTED_64_BIT_ABIS.isEmpty()
+    private fun totalMb(ctx: Context) = android.app.ActivityManager.MemoryInfo().also { am(ctx).getMemoryInfo(it) }.totalMem / 1_048_576
+
+    /**
+     * Whether this phone can run the AI Eraser: not on Android Go / phones with under ~2 GB RAM (Android closes the app
+     * mid-run), and not after it has closed the app twice here. Returns null if OK, otherwise the reason.
+     */
+    fun unsupportedReason(ctx: Context): String? = when {
+        prefs(ctx).getInt("crashes", 0) >= 2 -> "The AI Eraser closed the app on this phone, so it's turned off. Basic still works."
+        am(ctx).isLowRamDevice || totalMb(ctx) < 1800 ->
+            "The AI Eraser needs a phone with at least 2 GB of memory — this one has ${"%.1f".format(totalMb(ctx) / 1024f)} GB. Basic still works."
+        else -> null
+    }
+    fun supported(ctx: Context) = unsupportedReason(ctx) == null
+
+    /** Free memory right now is too low (other apps open) — returns a message, or null to go ahead. */
+    fun memoryWarning(ctx: Context): String? {
+        val mi = android.app.ActivityManager.MemoryInfo().also { am(ctx).getMemoryInfo(it) }
+        return if (mi.availMem / 1_048_576 < NEED_MB) "Not enough free memory for the AI Eraser right now — close some apps and try again, or use Basic." else null
+    }
+
+    /** Call when the editor opens: if the last AI run never finished (the system closed the app), counts it. */
+    fun checkLastRun(ctx: Context): String? {
+        val p = prefs(ctx); if (!p.getBoolean("running", false)) return null
+        val n = p.getInt("crashes", 0) + 1
+        p.edit().putBoolean("running", false).putInt("crashes", n).commit()
+        return if (n >= 2) "The AI Eraser closed the app again, so it's been turned off on this phone. Basic still works."
+        else "The AI Eraser closed the app last time (out of memory). Close other apps before trying again."
+    }
 
     private fun file(ctx: Context) = File(File(ctx.filesDir, "models").apply { mkdirs() }, "migan_v2.onnx")
     fun isReady(ctx: Context) = file(ctx).let { it.exists() && it.length() > 20_000_000 }
@@ -56,14 +90,26 @@ object AiEraser {
     fun remove(ctx: Context) { session?.close(); session = null; file(ctx).delete() }
 
     @Synchronized private fun session(ctx: Context): OrtSession =
-        session ?: OrtEnvironment.getEnvironment().createSession(file(ctx).path, OrtSession.SessionOptions().apply { setIntraOpNumThreads(4) }).also { session = it }
+        session ?: OrtEnvironment.getEnvironment().createSession(file(ctx).path, OrtSession.SessionOptions().apply {
+            val low = lowRam(ctx)
+            setIntraOpNumThreads(if (low) 2 else 4)
+            // smaller peak memory: no pre-allocated arena / memory patterns
+            if (low) { setCPUArenaAllocator(false); setMemoryPatternOptimization(false) }
+        }).also { session = it }
 
     /**
      * Removes the [mask]ed area (true = erase; same size as [src]) and fills it in. Blocking (Dispatchers.Default).
      * The result has [src]'s size; only the erased area changes.
      */
     fun erase(ctx: Context, src: Bitmap, mask: BooleanArray): Bitmap {
-        val scale = minOf(1f, MAX_SIDE.toFloat() / maxOf(src.width, src.height))
+        // mark the run; if the system kills the app mid-run, checkLastRun() sees this next time and steps down
+        prefs(ctx).edit().putBoolean("running", true).commit()
+        try { return eraseAt(ctx, src, mask, maxSide(ctx)) }
+        finally { prefs(ctx).edit().putBoolean("running", false).commit() }
+    }
+
+    private fun eraseAt(ctx: Context, src: Bitmap, mask: BooleanArray, maxSideAllowed: Int): Bitmap {
+        val scale = minOf(1f, maxSideAllowed.toFloat() / maxOf(src.width, src.height))
         val w = maxOf(8, (src.width * scale).toInt()); val h = maxOf(8, (src.height * scale).toInt())
         val work = if (scale < 1f) Bitmap.createScaledBitmap(src, w, h, true) else src.copy(Bitmap.Config.ARGB_8888, false)
         val px = IntArray(w * h); work.getPixels(px, 0, w, 0, 0, w, h)
