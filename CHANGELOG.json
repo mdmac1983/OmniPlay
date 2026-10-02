@@ -1,5 +1,10 @@
 [
  {
+  "version": "1.2",
+  "date": "2026-10-02",
+  "notes": "Fix API keys not taking effect; split artist from song titles; auto-lookup"
+ },
+ {
   "version": "1.1",
   "date": "2026-10-02",
   "notes": "Merge main (signing key uploads, v1.0 changelog) into the branch"
