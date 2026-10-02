@@ -1,5 +1,10 @@
 [
  {
+  "version": "1.9",
+  "date": "2026-10-02",
+  "notes": "Gallery: Movies & Reels editor"
+ },
+ {
   "version": "1.8",
   "date": "2026-10-02",
   "notes": "Gallery: on-device AI Eraser (MI-GAN), smaller APK"
