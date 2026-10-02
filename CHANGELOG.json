@@ -1,5 +1,10 @@
 [
  {
+  "version": "1.7",
+  "date": "2026-10-02",
+  "notes": "Merge CI changelog update"
+ },
+ {
   "version": "1.5",
   "date": "2026-10-02",
   "notes": "Switch activation to the OrionMD standard gate (v4)"
