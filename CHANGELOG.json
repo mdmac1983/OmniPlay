@@ -1,5 +1,10 @@
 [
  {
+  "version": "1.4",
+  "date": "2026-10-02",
+  "notes": "Merge CI changelog update"
+ },
+ {
   "version": "1.2",
   "date": "2026-10-02",
   "notes": "Fix API keys not taking effect; split artist from song titles; auto-lookup"
