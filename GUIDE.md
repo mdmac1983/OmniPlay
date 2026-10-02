@@ -112,7 +112,7 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
   image**, **Add to a group**, Share, Rename / Delete (own albums).
 - **Groups:** combine several albums into one, e.g. "Holidays" = Beach + Camera + WhatsApp Images.
 - **Viewer:** swipe, pinch / double-tap to zoom, **Edit, Rotate, Share, Set as wallpaper** (home, lock or both),
-  add to album, set as album cover, info, trash. Videos play in the video player.
+  add to album, set as album cover, info, trash.
 - **Editor** (always saves a copy): crop with aspect presets, rotate, flip, brightness / contrast / saturation / warmth,
   10 filters, undo, and **AI Eraser** — paint over people, objects or text and tap **Erase**; an AI model (MI-GAN) rebuilds the background. The first time, tap **Get AI Eraser** to download the model once (~28 MB, internet needed); after that it runs fully offline on the phone. **Basic** is a quick non-AI fill for small spots.
 - **Stickers:** press and hold on a photo — the main subject is cut out on your phone (Google ML Kit) and saved as a
@@ -126,7 +126,6 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
   captions, background music from your library — tap ▶ to preview songs and the chosen start point — with volume controls; Reel 9:16, Movie 16:9, Square or Portrait 4:5;
   saved to Movies/OmniPlay — made fully on the phone, no internet).
 - **Trash:** deleted items wait 30 days in Android's trash (Android 11+) — restore or delete for good any time.
-- Coming next: Movies & Reels editor, and AI object moving, colorization and reflection removal.
 
 ---
 
@@ -181,6 +180,8 @@ Each provider shows step-by-step instructions and the redirect address to regist
 | Sound engine, visualizers, skins, playlists, sleep timer | Discover previews |
 | Everything saved by **Sync all**: album art, song info, lyrics, album details, TMDB details, posters, cast, episode info, subtitles | First-time look-ups for new songs/videos (they fill in next time you're online) |
 | Subtitle and `.lrc` files next to your media | Running Sync all |
+| The whole Gallery: viewing, video playback, editing, stickers, collages, GIFs, long exposure, Movies & Reels | Downloading the AI Eraser model (once, ~28 MB) |
+| AI Eraser after its one-time download | |
 | Entering a key (held as *Pending* for 14 days until you're online) | Confirming a key, buying a key |
 
 ### Without any API keys
