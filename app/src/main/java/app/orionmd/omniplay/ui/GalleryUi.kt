@@ -589,27 +589,42 @@ fun GEditorScreen(st: AppState, p: Page.GEditor) {
                     }
                 }
                 "erase" -> Column {
-                    Muted("Paint over the object to remove, then tap Erase. Best for small objects on simple backgrounds.", size = 12.sp)
+                    var aiReady by remember { mutableStateOf(AiEraser.isReady(st.ctx)) }
+                    var dl by remember { mutableStateOf<Float?>(null) }
+                    Muted(if (aiReady) "AI Eraser: paint over what to remove, then tap Erase — the background is regenerated."
+                        else "Paint over what to remove. The AI Eraser regenerates the background realistically (one-time ${AiEraser.SIZE_MB} MB download, then works offline); Basic fills from the surroundings.", size = 12.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Muted("Brush", Modifier.width(56.dp)); Slider(brush, { brush = it }, valueRange = .01f..0.12f, modifier = Modifier.weight(1f), colors = SliderDefaults.colors(thumbColor = C.ac, activeTrackColor = C.ac))
                     }
+                    dl?.let { Progress(it); Muted("Downloading AI Eraser… ${(it * 100).toInt()}%", size = 12.sp) }
+                    fun run(ai: Boolean) {
+                        val b = base ?: return; if (strokes.isEmpty()) { st.say("Paint over the object first"); return }
+                        busy = true; val pts = strokes.toList(); val r = brush
+                        scope.launch {
+                            val out = withContext(Dispatchers.Default) {
+                                val work = if (ai) b else PhotoOps.fit(b, 1280)
+                                val w = work.width; val h = work.height; val mask = BooleanArray(w * h)
+                                val rad = (r * w).toInt().coerceAtLeast(2)
+                                for (s in pts) { val cx = (s.x * w).toInt(); val cy = (s.y * h).toInt()
+                                    for (y in max(0, cy - rad)..min(h - 1, cy + rad)) for (x in max(0, cx - rad)..min(w - 1, cx + rad)) if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= rad * rad) mask[y * w + x] = true }
+                                try { if (ai) AiEraser.erase(st.ctx, work, mask) else PhotoOps.erase(work, mask) } catch (e: Throwable) { null }
+                            }
+                            busy = false
+                            if (out != null) { push(out); strokes.clear() } else st.say("Couldn't erase — try a smaller area")
+                        }
+                    }
                     Row {
                         Btn("Clear", { strokes.clear() }, small = true, kind = BtnKind.Ghost); Spacer(Modifier.width(8.dp))
-                        Btn("Erase", {
-                            val b = base ?: return@Btn; if (strokes.isEmpty()) return@Btn
-                            busy = true; val pts = strokes.toList(); val r = brush
+                        if (aiReady) Btn("Erase", { run(true) }, small = true, icon = Ic.claude)
+                        else if (dl == null) Btn("Get AI Eraser", {
+                            dl = 0f
                             scope.launch {
-                                val out = withContext(Dispatchers.Default) {
-                                    val work = PhotoOps.fit(b, 1280)
-                                    val w = work.width; val h = work.height; val mask = BooleanArray(w * h)
-                                    val rad = (r * w).toInt().coerceAtLeast(2)
-                                    for (s in pts) { val cx = (s.x * w).toInt(); val cy = (s.y * h).toInt()
-                                        for (y in max(0, cy - rad)..min(h - 1, cy + rad)) for (x in max(0, cx - rad)..min(w - 1, cx + rad)) if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= rad * rad) mask[y * w + x] = true }
-                                    PhotoOps.erase(work, mask)
-                                }
-                                push(out); strokes.clear(); busy = false
+                                val err = withContext(Dispatchers.IO) { AiEraser.download(st.ctx) { p -> scope.launch { dl = p } } }
+                                dl = null; aiReady = AiEraser.isReady(st.ctx)
+                                st.say(err?.let { "AI Eraser download failed: $it" } ?: "AI Eraser ready")
                             }
-                        }, small = true)
+                        }, small = true, icon = Ic.download)
+                        Spacer(Modifier.width(8.dp)); Btn("Basic", { run(false) }, small = true, kind = BtnKind.Ghost)
                     }
                 }
             }

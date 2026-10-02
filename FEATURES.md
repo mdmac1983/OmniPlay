@@ -28,7 +28,7 @@ A standalone, offline-first hybrid **music + video player** by OrionMD.
 
 ## Gallery
 - Timeline (day / month / year), device albums, your own albums, groups of albums, custom covers, 30-day trash.
-- Viewer with zoom, rotate, share, set as wallpaper; editor (crop, rotate, flip, light & colour, filters, eraser), saved as copies.
+- Viewer with zoom, rotate, share, set as wallpaper; editor (crop, rotate, flip, light & colour, filters, on-device AI Eraser — MI-GAN, one-time 28 MB download, then offline), saved as copies.
 - Create collages, animated GIFs and long-exposure shots; press-and-hold to cut out stickers (on-device ML Kit).
 
 ## Offline & cloud

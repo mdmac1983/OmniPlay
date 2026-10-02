@@ -114,7 +114,7 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
 - **Viewer:** swipe, pinch / double-tap to zoom, **Edit, Rotate, Share, Set as wallpaper** (home, lock or both),
   add to album, set as album cover, info, trash. Videos play in the video player.
 - **Editor** (always saves a copy): crop with aspect presets, rotate, flip, brightness / contrast / saturation / warmth,
-  10 filters, undo, and **Eraser** — paint over a small object and it's filled in from its surroundings.
+  10 filters, undo, and **AI Eraser** — paint over people, objects or text and tap **Erase**; an AI model (MI-GAN) rebuilds the background. The first time, tap **Get AI Eraser** to download the model once (~28 MB, internet needed); after that it runs fully offline on the phone. **Basic** is a quick non-AI fill for small spots.
 - **Stickers:** press and hold on a photo — the main subject is cut out on your phone (Google ML Kit) and saved as a
   transparent sticker in Pictures/OmniPlay/Stickers.
 - **Create:** **Collage** (2–9 photos, layouts, shapes, spacing, rounded corners, background), **Animated GIF** (from
