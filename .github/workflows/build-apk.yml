@@ -1,0 +1,102 @@
+# Build a signed release APK on every push. The OmniPlay keystore lives in this (private) repo, so each build is a
+# ready-to-install release that updates over the last one. Each build bumps the version by 0.1, tags vX.Y and publishes
+# OmniPlay-vX.Y.apk under Releases.
+name: Build APK
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md', 'CHANGELOG.json', 'scripts/**']
+  workflow_dispatch:
+    inputs:
+      notes: { description: 'Changelog note (optional)', required: false, default: '' }
+permissions:
+  contents: write
+concurrency:
+  group: build-apk
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+
+      # Releases must be signed with the OmniPlay key (the app's integrity check pins its certificate). Until the owner
+      # commits keystore/release.keystore + keystore/keystore.properties (or sets the secrets below), skip publishing
+      # instead of shipping a differently-signed APK that would lock itself.
+      - name: Check signing key
+        id: sign
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ -f keystore/release.keystore ] && { [ -f keystore/keystore.properties ] || [ -n "$KEYSTORE_PASSWORD" ]; }; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Signing keystore not in the repo yet (keystore/release.keystore + keystore/keystore.properties) — skipping the release build."
+          fi
+
+      - name: Bump version (+0.1) and update changelog
+        if: steps.sign.outputs.ok == 'true'
+        id: ver
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, datetime
+          path = 'CHANGELOG.json'
+          log = json.load(open(path)) if os.path.exists(path) else []
+          def tenths(v):
+              a, b = (v.lstrip('v').split('.') + ['0'])[:2]; return int(a) * 10 + int(b)
+          last = tenths(log[0]['version']) if log else 9
+          for t in subprocess.run(['git','tag','--list','v*'], capture_output=True, text=True).stdout.split():
+              try: last = max(last, tenths(t))
+              except ValueError: pass
+          n = last + 1; ver = f"{n//10}.{n%10}"
+          notes = os.environ.get('INPUT_NOTES','').strip() or subprocess.run(['git','log','-1','--pretty=%s'], capture_output=True, text=True).stdout.strip() or 'Build'
+          log.insert(0, {"version": ver, "date": datetime.date.today().isoformat(), "notes": notes})
+          json.dump(log, open(path,'w'), indent=1)
+          open(os.environ['GITHUB_OUTPUT'],'a').write(f"version={ver}\ncode={n}\n")
+          open('release-notes.md','w').write(f"## OmniPlay v{ver}\n\n{notes}\n\nInstall **OmniPlay-v{ver}.apk**. It updates over the previous version and keeps your data.\n")
+          print("Version", ver)
+          PY
+        env: { INPUT_NOTES: "${{ github.event.inputs.notes }}" }
+
+      - name: Build release APK
+        if: steps.sign.outputs.ok == 'true'
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon -PappVersionCode=${{ steps.ver.outputs.code }} -PappVersionName=${{ steps.ver.outputs.version }}
+          mkdir -p out && cp app/build/outputs/apk/release/app-release.apk "out/OmniPlay-v${{ steps.ver.outputs.version }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.sign.outputs.ok == 'true'
+        with:
+          name: OmniPlay-v${{ steps.ver.outputs.version }}
+          path: out/OmniPlay-v${{ steps.ver.outputs.version }}.apk
+
+      - name: Save changelog
+        if: steps.sign.outputs.ok == 'true'
+        id: save
+        run: |
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add CHANGELOG.json
+          git commit -m "v${{ steps.ver.outputs.version }} [skip ci]" || true
+          git pull --rebase || true
+          git push || true
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        if: steps.sign.outputs.ok == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ steps.save.outputs.sha }}
+          name: OmniPlay v${{ steps.ver.outputs.version }}
+          body_path: release-notes.md
+          files: out/OmniPlay-v${{ steps.ver.outputs.version }}.apk
+          make_latest: true
