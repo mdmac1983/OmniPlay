@@ -2,6 +2,7 @@ package app.orionmd.omniplay.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -44,4 +45,28 @@ fun SplashArt(modifier: Modifier = Modifier) {
     }
     if (bmp != null) Image(bmp, null, modifier, contentScale = ContentScale.Fit)
     else Image(painterResource(R.drawable.brand_emblem), null, modifier, contentScale = ContentScale.Fit)
+}
+
+/**
+ * Full-screen OrionMD OmniPlay splash shown each time the app opens (portrait or landscape artwork to fit the screen),
+ * fading out after [ms] or on tap. Settings → Appearance can turn it off.
+ */
+@Composable
+fun SplashScreen(ms: Long = 2200, onDone: () -> Unit) {
+    val ctx = LocalContext.current
+    val wide = androidx.compose.ui.platform.LocalConfiguration.current.let { it.screenWidthDp > it.screenHeightDp }
+    val bmp = remember(wide) {
+        try { ctx.assets.open(if (wide) "brand/splash_wide.jpg" else "brand/splash.jpg").use { android.graphics.BitmapFactory.decodeStream(it) }?.asImageBitmap() } catch (_: Exception) { null }
+    }
+    val alpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        alpha.animateTo(1f, androidx.compose.animation.core.tween(350))
+        kotlinx.coroutines.delay(ms)
+        alpha.animateTo(0f, androidx.compose.animation.core.tween(300))
+        onDone()
+    }
+    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0B0820))
+        .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { onDone() }) {
+        if (bmp != null) Image(bmp, "OrionMD OmniPlay", Modifier.fillMaxSize().alpha(alpha.value), contentScale = if (wide) ContentScale.Fit else ContentScale.Crop)
+    }
 }

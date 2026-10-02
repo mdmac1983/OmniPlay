@@ -30,7 +30,9 @@ class MainActivity : ComponentActivity(), Host {
         setContent {
             AppTheme {
                 var gate by remember { mutableStateOf(gateState()) }
-                if (gate == "ok") { Started(); OmniApp(st) }
+                var splash by remember { mutableStateOf(savedInstanceState == null && st.store.getPref("splash", "1") == "1") }
+                if (splash) app.orionmd.omniplay.ui.SplashScreen { splash = false }
+                else if (gate == "ok") { Started(); OmniApp(st) }
                 else GateScreen(st, gate) { gate = gateState() }
             }
         }

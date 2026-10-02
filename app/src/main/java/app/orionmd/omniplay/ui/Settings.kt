@@ -212,6 +212,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
 
 // ---------------- appearance ----------------
 @Composable private fun Appearance(st: AppState) {
+    Toggle(st, "splash", "Splash screen when the app opens", "The OrionMD OmniPlay artwork, tap to skip", "1")
     Pick(st, "watermark", "Background watermark", listOf("off" to "Off", "light" to "Light", "medium" to "Medium", "strong" to "Strong"), "medium")
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text("Player skin"); Muted(skinOf(st.pref("playerSkin", "midnight")).name, size = 12.sp) }
