@@ -44,7 +44,7 @@ sealed class Page {
     data class GGroupPage(val id: String) : Page()
     data class GViewer(val start: Int, val albumKey: String = "") : Page()
     data class GEditor(val item: GItem) : Page()
-    data class GCreate(val kind: String, val items: List<GItem>) : Page()   // collage | gif | exposure
+    data class GCreate(val kind: String, val items: List<GItem>) : Page()   // collage | gif | exposure | movie
     object GTrash : Page()
 }
 

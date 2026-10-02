@@ -42,6 +42,7 @@ object Ic {
     val prev = Icons.Rounded.SkipPrevious
     val next = Icons.Rounded.SkipNext
     val back = Icons.AutoMirrored.Rounded.ArrowBack
+    val forward = Icons.AutoMirrored.Rounded.ArrowForward
     val down = Icons.Rounded.KeyboardArrowDown
     val shuffle = Icons.Rounded.Shuffle
     val repeat = Icons.Rounded.Repeat

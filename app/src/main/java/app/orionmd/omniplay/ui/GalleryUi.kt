@@ -108,6 +108,7 @@ private fun SelectionBar(st: AppState) {
             val photos = chosen.filter { !it.video }
             Btn("Collage", { st.open(Page.GCreate("collage", photos.take(9))) }, small = true, kind = BtnKind.Pill, modifier = Modifier.padding(end = 6.dp))
             Btn("GIF", { st.open(Page.GCreate("gif", chosen.take(60))) }, small = true, kind = BtnKind.Pill, modifier = Modifier.padding(end = 6.dp))
+            Btn("Movie", { st.open(Page.GCreate("movie", chosen.take(60))) }, small = true, kind = BtnKind.Pill, modifier = Modifier.padding(end = 6.dp))
             Btn("Long exposure", { st.open(Page.GCreate("exposure", chosen.take(60))) }, small = true, kind = BtnKind.Pill, modifier = Modifier.padding(end = 6.dp))
         }
     }
@@ -302,6 +303,7 @@ private fun CreateHub(st: AppState, pad: PaddingValues) {
             Muted("Select photos or videos in Timeline or an album (long-press), then pick a tool from the bar at the top — or start here and choose.", Modifier.padding(vertical = 8.dp), 13.sp)
         }
         val tools = listOf(
+            Triple("movie", "Movie & Reel", "Join photos and video clips into a video — trim, reorder, fades, slow zoom on photos, title, captions and background music. Reel (9:16), Movie (16:9), Square or Portrait."),
             Triple("collage", "Collage", "Arrange 2–9 photos in a grid layout — spacing, rounded corners, background, shape."),
             Triple("gif", "Animated GIF", "Turn photos, or a stretch of a video, into a looping GIF — choose speed, frames and size."),
             Triple("exposure", "Long exposure", "Blend a video (or a burst of photos) into one shot — water turns silky, traffic becomes light trails."),
@@ -318,7 +320,7 @@ private fun CreateHub(st: AppState, pad: PaddingValues) {
             }
             Card {
                 Text("Edit & eraser", fontWeight = FontWeight.Bold)
-                Muted("Open a photo → Edit: crop, rotate, flip, light & colour, filters, and Erase — paint over a small object to fill it in from its surroundings.", size = 12.sp)
+                Muted("Open a photo → Edit: crop, rotate, flip, light & colour, filters, and AI Eraser — paint over people or objects and the background is rebuilt (on the phone, after a one-time 28 MB download).", size = 12.sp)
             }
         }
     }
@@ -689,14 +691,15 @@ private fun CropOverlay(r: RectF, aspect: Float, onChange: (RectF) -> Unit) {
 fun GCreateScreen(st: AppState, p: Page.GCreate, pad: PaddingValues) {
     var picked by remember { mutableStateOf(p.items) }
     var picking by remember { mutableStateOf(p.items.isEmpty()) }
-    val title = when (p.kind) { "collage" -> "Collage"; "gif" -> "Animated GIF"; else -> "Long exposure" }
+    val title = when (p.kind) { "collage" -> "Collage"; "gif" -> "Animated GIF"; "movie" -> "Movie & Reel"; else -> "Long exposure" }
     if (picking) {
-        MultiPick(st, title, if (p.kind == "collage") "Choose 2–9 photos" else "Choose one video, or several photos", videos = p.kind != "collage", onCancel = { if (picked.isEmpty()) st.back() else picking = false }) { picked = it; picking = false }
+        MultiPick(st, title, when (p.kind) { "collage" -> "Choose 2–9 photos"; "movie" -> "Choose photos and videos, in order"; else -> "Choose one video, or several photos" }, videos = p.kind != "collage", onCancel = { if (picked.isEmpty()) st.back() else picking = false }) { picked = it; picking = false }
         return
     }
     when (p.kind) {
         "collage" -> CollageTool(st, picked.filter { !it.video }) { picking = true }
         "gif" -> FramesTool(st, picked, gif = true) { picking = true }
+        "movie" -> ReelTool(st, picked) { picking = true }
         else -> FramesTool(st, picked, gif = false) { picking = true }
     }
 }
