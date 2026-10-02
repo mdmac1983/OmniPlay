@@ -107,7 +107,13 @@ fun PodcastShowPage(st: AppState, p: Page.PodcastShow, pad: PaddingValues) {
                         { Podcasts.play(st, s, list, i) }, highlight = playingId == e.id, downloaded = saved)
                 }
                 when {
-                    podBusy[e.id] == true -> androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp).padding(2.dp), color = C.ac, strokeWidth = 2.dp)
+                    podBusy[e.id] == true -> {
+                        val p = podProg[e.id] ?: -1f
+                        Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+                            if (p < 0f) androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp), color = C.ac, strokeWidth = 2.dp)
+                            else androidx.compose.material3.CircularProgressIndicator(progress = { p }, modifier = Modifier.size(24.dp), color = C.ac, strokeWidth = 2.dp, trackColor = C.s3)
+                        }
+                    }
                     saved -> IconBtn(Ic.trash, { st.removeEpisode(e.id) }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
                     else -> IconBtn(Ic.download, { st.downloadEpisode(s, e) }, tint = C.ac, size = 34.dp, iconSize = 20.dp)
                 }

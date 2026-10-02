@@ -50,6 +50,51 @@ object Downloads {
         onDone(ok)
     }
 
+    /**
+     * Downloads a web file (a podcast episode) through Android's download manager — keeps going in the background, shows
+     * a progress notification, follows redirects and retries. Blocks until finished (call from Dispatchers.IO);
+     * [progress] gets 0..1 (or -1 while the size is unknown). Returns null on success, or the reason it failed.
+     */
+    fun downloadWithManager(ctx: Context, id: Long, url: String, ext: String, title: String, progress: (Float) -> Unit): String? {
+        if (isDownloaded(ctx, id)) return null
+        val dm = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+        val dest = File(dir(ctx), "$id.$ext"); dest.delete()
+        val req = android.app.DownloadManager.Request(Uri.parse(url))
+            .setTitle(title).setDescription("OmniPlay · saving for offline")
+            .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationUri(Uri.fromFile(dest))
+            .addRequestHeader("User-Agent", Net.UA)
+            .setAllowedOverMetered(Store(ctx).getPref("podMetered", "1") == "1").setAllowedOverRoaming(false)
+        val dlId = try { dm.enqueue(req) } catch (e: Exception) { return "the download couldn't start (${e.message})" }
+        while (true) {
+            Thread.sleep(700)
+            val c = dm.query(android.app.DownloadManager.Query().setFilterById(dlId)) ?: return "the download was cancelled"
+            c.use {
+                if (!it.moveToFirst()) return "the download was cancelled"
+                val status = it.getInt(it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_STATUS))
+                val done = it.getLong(it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                val total = it.getLong(it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                when (status) {
+                    android.app.DownloadManager.STATUS_SUCCESSFUL -> {
+                        if (!dest.exists() || dest.length() == 0L) return "the file was empty"
+                        val o = index(ctx); o.put(id.toString(), dest.path); save(ctx, o); progress(1f); return null
+                    }
+                    android.app.DownloadManager.STATUS_FAILED -> {
+                        val r = it.getInt(it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_REASON))
+                        dest.delete()
+                        return when (r) {
+                            in 400..599 -> "the podcast host refused it (HTTP $r)"
+                            android.app.DownloadManager.ERROR_INSUFFICIENT_SPACE -> "the phone is out of storage space"
+                            android.app.DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "too many redirects"
+                            else -> "the connection failed (code $r)"
+                        }
+                    }
+                    else -> progress(if (total > 0) done.toFloat() / total else -1f)
+                }
+            }
+        }
+    }
+
     /** Saves a web file (e.g. a podcast episode) for offline under [id]. */
     fun saveUrl(ctx: Context, id: Long, url: String, ext: String): Boolean {
         if (isDownloaded(ctx, id)) return true

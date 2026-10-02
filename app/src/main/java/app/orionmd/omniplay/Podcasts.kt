@@ -16,7 +16,7 @@ object Podcasts {
     private const val BASE = "https://api.podcastindex.org/api/1.0"
 
     data class Show(val id: Long, val title: String, val author: String, val image: String, val description: String, val episodes: Int)
-    data class Episode(val id: Long, val title: String, val url: String, val image: String, val date: Long, val duration: Long, val description: String)
+    data class Episode(val id: Long, val title: String, val url: String, val image: String, val date: Long, val duration: Long, val description: String, val orig: String = url)
 
     fun hasKeys(st: AppState) = st.store.secret("podKey").isNotBlank() && st.store.secret("podSecret").isNotBlank()
 
@@ -55,7 +55,7 @@ object Podcasts {
         val a = get(st.store.secret("podKey"), st.store.secret("podSecret"), "/episodes/byfeedid?id=$feedId&max=100").optJSONArray("items") ?: JSONArray()
         return (0 until a.length()).mapNotNull { k -> a.optJSONObject(k)?.let { o ->
             Episode(o.optLong("id"), o.optString("title").trim(), https(o.optString("enclosureUrl")), image(o.optString("image").ifBlank { o.optString("feedImage") }).ifBlank { fallbackImage },
-                o.optLong("datePublished") * 1000, o.optLong("duration") * 1000, o.optString("description").replace(Regex("<[^>]+>"), "").trim())
+                o.optLong("datePublished") * 1000, o.optLong("duration") * 1000, o.optString("description").replace(Regex("<[^>]+>"), "").trim(), o.optString("enclosureUrl"))
         } }.filter { it.url.startsWith("https://") }
     }
 

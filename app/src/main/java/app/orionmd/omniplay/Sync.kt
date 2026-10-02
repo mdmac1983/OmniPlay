@@ -156,28 +156,36 @@ fun AppState.offlineEpisodes(): List<JSONObject> { prefGen; return try { JSONArr
 fun AppState.isEpisodeSaved(id: Long) = offlineEpisodes().any { it.optLong("id") == id } && Downloads.isDownloaded(ctx, id)
 val podBusy = androidx.compose.runtime.mutableStateMapOf<Long, Boolean>()
 
+/** Download progress per episode (0..1, -1 = starting / size unknown). */
+val podProg = androidx.compose.runtime.mutableStateMapOf<Long, Float>()
+
 fun AppState.downloadEpisode(show: Podcasts.Show, e: Podcasts.Episode) {
     if (podBusy[e.id] == true) return
-    podBusy[e.id] = true
-    say("Downloading \"${e.title}\"…")
+    podBusy[e.id] = true; podProg[e.id] = -1f
+    say("Downloading \"${e.title}\" — see the notification for progress")
     scope.launch {
-        val ok = withContext(Dispatchers.IO) {
-            try {
-                val ext = e.url.substringBefore('?').substringAfterLast('.', "mp3").takeIf { it.length in 2..4 } ?: "mp3"
-                val ok = Downloads.saveUrl(ctx, e.id, e.url, ext)
-                if (ok && e.image.isNotEmpty()) try { MusicMeta.cover(store, e.image) } catch (_: Exception) {}
-                if (ok && show.image.isNotEmpty()) try { MusicMeta.cover(store, show.image) } catch (_: Exception) {}
-                ok
-            } catch (_: Exception) { false }
+        val err = withContext(Dispatchers.IO) {
+            val ext = e.url.substringBefore('?').substringAfterLast('.', "mp3").takeIf { it.length in 2..4 && it.all { c -> c.isLetterOrDigit() } } ?: "mp3"
+            val urls = listOf(e.url, e.orig).filter { it.isNotBlank() }.distinct()
+            var last: String? = "no download link in the feed"
+            for (u in urls) {
+                last = try { Downloads.downloadWithManager(ctx, e.id, u, ext, e.title) { p -> scope.launch { podProg[e.id] = p } } } catch (x: Exception) { x.message ?: "unknown error" }
+                if (last == null) break
+            }
+            if (last == null) {
+                if (e.image.isNotEmpty()) try { MusicMeta.cover(store, e.image) } catch (_: Exception) {}
+                if (show.image.isNotEmpty()) try { MusicMeta.cover(store, show.image) } catch (_: Exception) {}
+            }
+            last
         }
-        podBusy.remove(e.id)
-        if (ok) {
+        podBusy.remove(e.id); podProg.remove(e.id)
+        if (err == null) {
             val l = offlineEpisodes().filter { it.optLong("id") != e.id }.toMutableList()
             l.add(0, JSONObject().put("id", e.id).put("title", e.title).put("url", e.url).put("image", e.image).put("date", e.date).put("duration", e.duration)
                 .put("show", JSONObject().put("id", show.id).put("title", show.title).put("author", show.author).put("image", show.image)))
             setPref("podDl", JSONArray(l).toString()); refreshDownloads()
             say("Saved for offline: ${e.title}")
-        } else say("Couldn't download that episode")
+        } else dialog = Dlg.Message("Couldn't download the episode", "\"${e.title}\" couldn't be saved: $err.\n\nYou can still stream it, or try again later.")
     }
 }
 
