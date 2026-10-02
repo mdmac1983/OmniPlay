@@ -27,9 +27,9 @@ class MainActivity : ComponentActivity(), Host {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         st = AppState(this, this)
+        gate = gateState()
         setContent {
             AppTheme {
-                var gate by remember { mutableStateOf(gateState()) }
                 var splash by remember { mutableStateOf(savedInstanceState == null && st.store.getPref("splash", "1") == "1") }
                 if (splash) app.orionmd.omniplay.ui.SplashScreen { splash = false }
                 else if (gate == "ok") { Started(); OmniApp(st) }
@@ -38,15 +38,23 @@ class MainActivity : ComponentActivity(), Host {
         }
     }
 
+    private var gate by mutableStateOf("")
+
     @Composable private fun Started() { LaunchedEffect(Unit) { st.start() } }
 
+    /** "tamper" (re-signed copy), "ok" (key, owner, or trial days left), "expired" (trial over), "activate" (first run). */
     private fun gateState(): String = when {
         Guard.tampered(this) && st.store.secret("ownerUnlocked") != "1" -> "tamper"
-        !Activation.isActivated(st.store) -> "activate"
-        else -> "ok"
+        Activation.isActivated(st.store) -> "ok"
+        Activation.trialActive(st.store) -> "ok"
+        Activation.trialStart(st.store) > 0 -> "expired"
+        else -> "activate"
     }
 
-    override fun onResume() { super.onResume(); if (::st.isInitialized) st.onResume() }
+    override fun onResume() {
+        super.onResume()
+        if (::st.isInitialized) { gate = gateState(); if (gate != "ok") { Player.stop() }; st.onResume() }
+    }
     override fun openTree(cb: (Uri?) -> Unit) { treeCb = cb; try { treePicker.launch(null) } catch (_: Exception) { cb(null) } }
     override fun launch(intent: Intent) { startActivity(intent) }
 }

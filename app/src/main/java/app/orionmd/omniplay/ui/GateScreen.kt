@@ -54,8 +54,19 @@ fun GateScreen(st: AppState, mode: String, onPass: () -> Unit) {
                 }, Modifier.fillMaxWidth().padding(top = 12.dp))
                 if (mode != "tamper") Btn("Use an activation key instead", { ownerMode = false; msg = null }, Modifier.fillMaxWidth().padding(top = 8.dp), kind = BtnKind.Ghost)
             } else {
-                Text("Activate OmniPlay", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Muted("Enter your activation key to unlock the app.", Modifier.padding(vertical = 10.dp), 13.sp)
+                if (mode == "expired") {
+                    Text("Your free trial has ended", fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Muted("Thanks for trying OmniPlay! Buy an activation key to keep using it. Your library, playlists and downloads are kept and come back as soon as you activate.", Modifier.padding(vertical = 10.dp), 13.sp)
+                    Btn("Buy an activation key", { st.openUrl(Activation.BUY_URL) }, Modifier.fillMaxWidth(), icon = Ic.key)
+                    Muted("buymeacoffee.com/orionmd — after buying you'll receive your key. Paste it below.", Modifier.padding(top = 6.dp, bottom = 14.dp), 12.sp)
+                } else {
+                    Text("Welcome to OmniPlay", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Muted("Try everything free for ${Activation.TRIAL_DAYS} days — no key needed. When the trial ends, buy a key to keep using the app.", Modifier.padding(vertical = 10.dp), 13.sp)
+                    Btn("Start ${Activation.TRIAL_DAYS}-day free trial", { Activation.startTrial(st.store); onPass() }, Modifier.fillMaxWidth(), icon = Ic.play)
+                    Btn("Buy an activation key", { st.openUrl(Activation.BUY_URL) }, Modifier.fillMaxWidth().padding(top = 8.dp), kind = BtnKind.Ghost, icon = Ic.key)
+                    Text("Already have a key?", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 20.dp))
+                }
+                Muted("Enter your activation key to unlock the app.", Modifier.padding(vertical = 8.dp), 13.sp)
                 Field(key, { key = it; msg = null }, "Activation key", Modifier.fillMaxWidth())
                 msg?.let { Text(it, color = if (it.startsWith("Activated")) C.ac2 else C.danger, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
                 Btn("Activate", {

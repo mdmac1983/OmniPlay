@@ -55,6 +55,21 @@ fun DashboardScreen(st: AppState, pad: PaddingValues) {
                 IconBtn(Ic.sync, { st.sync() })
             }
         }
+        if (!Activation.isLicensed(st.store)) item {
+            val d = Activation.trialDaysLeft(st.store)
+            Card {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Ic.key, null, tint = if (d <= 3) C.warn else C.ac)
+                    Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                        Text("Free trial — $d day${if (d == 1) "" else "s"} left", fontWeight = FontWeight.SemiBold)
+                        Muted("Buy an activation key to keep OmniPlay after the trial.", size = 12.sp)
+                    }
+                    Btn("Buy key", { st.openUrl(Activation.BUY_URL) }, small = true)
+                }
+                Text("Have a key? Enter it", color = C.ac, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp).clickable {
+                    st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> val (_, m) = Activation.activate(st.store, k); st.say(m); st.prefGen++ } })
+            }
+        }
         item {
             Tiles(listOf(fmt(songs.size) to "Songs", fmt(albums) to "Albums", fmt(artists) to "Artists", fmt(vids.size) to "Videos",
                 fmt(movies) to "Movies", fmt(shows) to "TV shows", fmt(st.dl.count { it.value }) to "Saved offline", fmt(eps.size) to "Podcast episodes saved"))

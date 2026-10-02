@@ -227,9 +227,18 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
 // ---------------- security ----------------
 @Composable private fun Security(st: AppState) {
     val holder = remember(st.prefGen) { Activation.holder(st.store) }
-    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Ic.shield, null, tint = C.ac2); Spacer(Modifier.width(10.dp)); Column { Text("Activated", fontWeight = FontWeight.SemiBold); Muted(if (holder.isNotEmpty()) "for $holder" else "yes", size = 12.sp) } }
+    val licensed = remember(st.prefGen) { Activation.isLicensed(st.store) }
+    val days = remember(st.prefGen) { Activation.trialDaysLeft(st.store) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Ic.shield, null, tint = if (licensed) C.ac2 else C.warn); Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(if (licensed) "Activated" else "Free trial", fontWeight = FontWeight.SemiBold)
+            Muted(if (licensed) (if (holder.isNotEmpty()) "for $holder" else "full version") else "$days day${if (days == 1) "" else "s"} left", size = 12.sp)
+        }
+        if (!licensed) Btn("Buy key", { st.openUrl(Activation.BUY_URL) }, small = true, icon = Ic.key)
+    }
     val tampered = remember { Guard.tampered(st.ctx) }
     if (tampered) Muted("⚠ This copy isn't signed with the OrionMD key.", Modifier.padding(vertical = 6.dp), 12.sp)
     Muted("OmniPlay is proprietary. It only runs when activated, and it verifies it hasn't been re-signed or modified; a tampered copy is locked behind the owner password and erases its own data after 3 wrong tries.", Modifier.padding(vertical = 8.dp), 12.sp)
-    Btn("Enter a different activation key", { st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> val (ok, m) = Activation.activate(st.store, k); st.say(m); st.prefGen++ } }, small = true, kind = BtnKind.Ghost)
+    Btn(if (licensed) "Enter a different activation key" else "Enter activation key", { st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> val (ok, m) = Activation.activate(st.store, k); st.say(m); st.prefGen++ } }, small = true, kind = BtnKind.Ghost)
 }

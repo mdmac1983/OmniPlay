@@ -40,6 +40,41 @@ object Activation {
         } catch (_: Exception) { false to "Couldn't read that activation key." }
     }
 
+    // ---------- 14-day free trial (no key) ----------
+    const val TRIAL_DAYS = 14
+    const val BUY_URL = "https://buymeacoffee.com/orionmd"
+    private const val DAY = 86_400_000L
+
+    /** When the trial started (ms), 0 = never. Kept encrypted, with a second copy so one wiped setting doesn't reset it. */
+    fun trialStart(store: Store): Long {
+        val a = store.secret("trialStart").toLongOrNull() ?: 0L
+        val b = try { Vault.readText(java.io.File(store.filesDir, ".ts"))?.toLongOrNull() } catch (_: Exception) { null } ?: 0L
+        return listOf(a, b).filter { it > 0 }.minOrNull() ?: 0L
+    }
+    fun startTrial(store: Store) {
+        if (trialStart(store) > 0) return
+        val now = System.currentTimeMillis()
+        store.setSecret("trialStart", now.toString())
+        try { Vault.writeText(java.io.File(store.filesDir, ".ts"), now.toString()) } catch (_: Exception) {}
+        noteClock(store)
+    }
+    /** Remembers the latest time seen, so setting the phone's clock back doesn't extend the trial. */
+    fun noteClock(store: Store) {
+        val now = System.currentTimeMillis()
+        if (now > (store.secret("clockMax").toLongOrNull() ?: 0L)) store.setSecret("clockMax", now.toString())
+    }
+    private fun clockRolledBack(store: Store): Boolean = System.currentTimeMillis() < (store.secret("clockMax").toLongOrNull() ?: 0L) - DAY
+    /** Whole days left (0 when expired or never started). */
+    fun trialDaysLeft(store: Store): Int {
+        val s = trialStart(store); if (s <= 0) return 0
+        if (clockRolledBack(store)) return 0
+        val left = s + TRIAL_DAYS * DAY - System.currentTimeMillis()
+        return if (left <= 0) 0 else ((left + DAY - 1) / DAY).toInt()
+    }
+    fun trialActive(store: Store): Boolean { if (trialDaysLeft(store) > 0) { noteClock(store); return true }; return false }
+    /** Licensed with a key or the owner password (not just on trial). */
+    fun isLicensed(store: Store) = isActivated(store)
+
     fun activate(store: Store, key: String): Pair<Boolean, String> {
         val r = check(key); if (r.first) store.setSecret("activationKey", key.trim()); return r
     }
