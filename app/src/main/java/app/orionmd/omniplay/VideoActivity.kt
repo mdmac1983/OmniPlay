@@ -200,7 +200,12 @@ class VideoActivity : Activity() {
                 .setLanguage(o.optString("lang").ifEmpty { null }).setLabel(o.optString("label").ifEmpty { name })
                 .setSelectionFlags(if (k == 0 && auto) C.SELECTION_FLAG_DEFAULT else 0).setId("sub$k").build()
         }
-        return MediaItem.Builder().setUri(src).setMediaId(id.toString()).setSubtitleConfigurations(confs).build()
+        // subtitles downloaded by "Sync all" (Wyzie Subs) — saved encrypted, decrypted to a temp copy for the player
+        val lang = store.getPref("subLang", "en")
+        val online = try { Subs.playable(store, cacheDir, id, lang) } catch (_: Exception) { null }
+        val all = if (online != null) confs + MediaItem.SubtitleConfiguration.Builder(Uri.fromFile(online)).setMimeType(MimeTypes.APPLICATION_SUBRIP)
+            .setLanguage(lang).setLabel("Online ($lang)").setSelectionFlags(if (confs.isEmpty() && auto) C.SELECTION_FLAG_DEFAULT else 0).setId("subOnline").build() else confs
+        return MediaItem.Builder().setUri(src).setMediaId(id.toString()).setSubtitleConfigurations(all).build()
     }
 
     private fun resolve(u: String, id: Long): Uri {

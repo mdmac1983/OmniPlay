@@ -27,7 +27,7 @@ fun OmniApp(st: AppState) {
     if (st.soundOpen) { SoundScreen(st); return }
     if (st.sheetOpen && st.player.track != null) { NowPlaying(st); Dialogs(st); return }
 
-    val tabs = listOf("home" to ("Music" to Ic.lib), "video" to ("Video" to Ic.movie), "search" to ("Discover" to Ic.search), "set" to ("Settings" to Ic.settings))
+    val tabs = listOf("dash" to ("Home" to Ic.home), "home" to ("Music" to Ic.lib), "video" to ("Video" to Ic.movie), "search" to ("Discover" to Ic.search), "set" to ("Settings" to Ic.settings))
     Scaffold(
         bottomBar = {
             Column {
@@ -50,6 +50,7 @@ fun OmniApp(st: AppState) {
             val top = st.pages.lastOrNull()
             if (top != null) Router(st, top, pad)
             else when (st.tab) {
+                "dash" -> DashboardScreen(st, pad)
                 "home" -> MusicLibrary(st, pad)
                 "video" -> VideoLibrary(st, pad)
                 "search" -> DiscoverScreen(st, pad)

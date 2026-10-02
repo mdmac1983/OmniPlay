@@ -154,7 +154,16 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
 
 // ---------------- library tools ----------------
 @Composable private fun LibraryTools(st: AppState) {
-    Muted("Enrich your library using free online sources.", Modifier.padding(bottom = 6.dp), 12.sp)
+    Muted("Enrich your library using free online sources. “Sync all” saves everything on the device so it shows offline.", Modifier.padding(bottom = 6.dp), 12.sp)
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) { Text("Music — sync all for offline"); Muted(st.sync.music?.let { "${it.step} · ${it.done} / ${it.total}" } ?: "Album art, info, album details, lyrics · last ${ago(st.sync.musicAt)}", size = 12.sp) }
+        Btn("Sync", { st.syncMusic() }, small = true)
+    }
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) { Text("Videos — sync all for offline"); Muted(st.sync.video?.let { "${it.step} · ${it.done} / ${it.total}" } ?: "TMDB details, posters, cast, episodes, subtitles · last ${ago(st.sync.videoAt)}", size = 12.sp) }
+        Btn("Sync", { st.syncVideos() }, small = true)
+    }
+    Pick(st, "subLang", "Subtitle language to download", listOf("en" to "English", "es" to "Spanish", "fr" to "French", "de" to "German", "it" to "Italian", "pt" to "Portuguese", "tl" to "Filipino", "ja" to "Japanese", "ko" to "Korean", "zh" to "Chinese", "ar" to "Arabic", "hi" to "Hindi", "ru" to "Russian"), "en")
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text("Look up song info (covers, genre, year)"); st.metaProg?.let { (d, t, m) -> Muted("$d / $t · $m matched", size = 12.sp) } ?: Muted("Deezer + iTunes", size = 12.sp) }
         Btn("Run", { st.lookupMeta() }, small = true)

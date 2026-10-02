@@ -29,8 +29,10 @@ fun MusicLibrary(st: AppState, pad: PaddingValues) {
     Column(Modifier.fillMaxSize()) {
         TopBar(st, "OmniPlay", actions = {
             IconBtn(Ic.podcast, { st.open(Page.Podcasts) })
+            IconBtn(Ic.download, { st.dialog = Dlg.Confirm("Sync all music for offline?", "Downloads album art, song info (genre, year, length), album details and lyrics for every song and saves them on the device. Already-saved items are skipped.") { st.syncMusic() } })
             IconBtn(Ic.sync, { st.sync() })
         })
+        st.sync.music?.let { p -> Column(Modifier.padding(horizontal = 16.dp)) { Progress(if (p.total > 0) p.done.toFloat() / p.total else null); Muted("${p.step} · ${p.done} / ${p.total}", size = 12.sp) } }
         st.scanProg?.let { (name, n) -> Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) { Progress(null); Spacer(Modifier.width(10.dp)); Muted("Scanning $name — $n items", size = 12.sp) } }
         Field(q, { q = it }, "Search songs, artists, albums…", Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth())
         Seg(listOf("songs" to "Songs", "albums" to "Albums", "artists" to "Artists", "genres" to "Genres", "playlists" to "Playlists", "folders" to "Folders"), sub) { sub = it }
@@ -166,7 +168,11 @@ fun VideoLibrary(st: AppState, pad: PaddingValues) {
         if (q.isBlank()) v else v.filter { st.vtitle(it).contains(q, true) || it.n.contains(q, true) }
     }
     Column(Modifier.fillMaxSize()) {
-        TopBar(st, "Video", actions = { IconBtn(Ic.sync, { st.sync() }) })
+        TopBar(st, "Video", actions = {
+            IconBtn(Ic.download, { st.dialog = Dlg.Confirm("Sync all videos for offline?", "Downloads TMDB details, posters, backdrops, cast, episode info and subtitles (with a Wyzie key) for every video and saves them on the device. Already-saved items are skipped.") { st.syncVideos() } })
+            IconBtn(Ic.sync, { st.sync() })
+        })
+        st.sync.video?.let { p -> Column(Modifier.padding(horizontal = 16.dp)) { Progress(if (p.total > 0) p.done.toFloat() / p.total else null); Muted("${p.step} · ${p.done} / ${p.total}", size = 12.sp) } }
         Field(q, { q = it }, "Search videos…", Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth())
         Seg(listOf("all" to "All", "movies" to "Movies", "tv" to "TV", "mv" to "Music video"), sub) { sub = it }
         if (st.videos().isEmpty()) { EmptyLibrary(st); return@Column }

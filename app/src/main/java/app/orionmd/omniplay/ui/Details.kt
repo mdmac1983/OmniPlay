@@ -27,7 +27,14 @@ fun AlbumPage(st: AppState, p: Page.Album, pad: PaddingValues) {
     val list = remember(st.allItems, p.key) { st.songs().filter { it.albKey == p.key }.sortedWith(compareBy({ it.tr.takeIf { t -> t > 0 } ?: 9999 }, { it.title.lowercase() })) }
     val art = list.firstOrNull { it.th } ?: list.firstOrNull()
     var info by remember(p.key) { mutableStateOf<JSONObject?>(null) }
-    LaunchedEffect(p.key, st.online) { if (st.online) info = withContext(Dispatchers.IO) { try { MusicMeta.album(list.firstOrNull()?.artist ?: "", p.name) } catch (_: Exception) { null } } }
+    LaunchedEffect(p.key, st.online) {
+        // saved by "Sync all" (works offline); otherwise look it up and save it
+        info = withContext(Dispatchers.IO) {
+            st.store.albumInfo().optJSONObject(p.key)?.takeIf { !it.optBoolean("none") } ?: if (!st.online) null else try {
+                MusicMeta.album(list.firstOrNull()?.artist ?: "", p.name)?.also { r -> st.store.updateAlbumInfo { it.put(p.key, r) } }
+            } catch (_: Exception) { null }
+        }
+    }
     LazyColumn(contentPadding = contentPad(pad)) {
         item { BackBar(st) }
         item {
@@ -50,6 +57,20 @@ fun AlbumPage(st: AppState, p: Page.Album, pad: PaddingValues) {
         } }
         item { SectionHeader("${list.size} songs") }
         items(list, key = { it.i }) { x -> SongRow(st, x, list) }
+        // the full album from Deezer / iTunes, with what you have marked
+        info?.optJSONArray("tracks")?.takeIf { it.length() > 0 }?.let { t ->
+            val mine = list.map { MusicMeta.norm(it.title) }.toSet()
+            item { SectionHeader("Full album · ${info?.optString("src")?.replaceFirstChar { it.uppercase() }}") }
+            items(t.length()) { k -> val o = t.getJSONObject(k); val have = MusicMeta.norm(o.optString("t")) in mine
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${o.optInt("n")}", color = C.mu, fontSize = 12.sp, modifier = Modifier.width(26.dp))
+                    Text(o.optString("t"), color = if (have) C.tx else C.mu, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (have) Icon(Ic.done, "In your library", tint = C.ac2, modifier = Modifier.size(16.dp))
+                    else if (o.optString("preview").startsWith("https") && st.online) IconBtn(Ic.play, { st.playPreview(JSONObject().put("id", -(k + 1L)).put("t", o.optString("t")).put("a", o.optString("a")).put("al", p.name).put("preview", o.optString("preview")).put("cover", info?.optString("cover") ?: "")) }, size = 30.dp, iconSize = 18.dp, tint = C.mu)
+                    Text(if (o.optLong("d") > 0) mmss(o.optLong("d")) else "", color = C.mu, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
     }
 }
 

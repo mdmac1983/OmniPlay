@@ -2,6 +2,9 @@
 
 A standalone, offline-first hybrid **music + video player** by OrionMD.
 
+## Dashboard
+- Library at a glance, **Sync all** for music and videos (with progress), continue watching, most played, recently added, and podcast episodes saved offline.
+
 ## Music player
 - Plays everything on your device, in any folder you add, and from connected clouds.
 - Gapless queue, shuffle, repeat (off/all/one), sleep timer (with fade-out), background playback with media-notification controls.
@@ -11,7 +14,8 @@ A standalone, offline-first hybrid **music + video player** by OrionMD.
 - **Lyrics**: time-synced from LRCLIB (and from `.lrc` files next to the song), saved offline, batch-downloadable.
 - **Online info**: covers, genre, year from Deezer/iTunes.
 - **Albums & artists** pages with online details and track lists.
-- **Podcasts**: search, trending, subscribe and play (Podcast Index).
+- **Podcasts**: search, trending, subscribe and play (Podcast Index); **download episodes** (one at a time or the latest 5) to listen offline.
+- **Music sync all**: album art, song info, album details (full track lists) and lyrics for every song, saved on the device for offline.
 - **Discover**: search Deezer/iTunes and preview 30-second clips.
 - **Playlists** (plus automatic Most-played / Recently-added).
 
@@ -19,6 +23,7 @@ A standalone, offline-first hybrid **music + video player** by OrionMD.
 - Media3/ExoPlayer: plays MKV, MP4 and more; streams from cloud with seeking.
 - Gestures (brightness/volume swipe, double-tap skip, scrub), speed, picture size, rotation lock, **picture-in-picture**, screen lock, A-B repeat, volume boost, screenshot, resume position, autoplay-next, sleep timer.
 - **Subtitles**: sidecar files (.srt/.vtt/.ass/.ssa) and online subtitles; size/colour/background/position options.
+- **Video sync all**: TMDB details, posters, backdrops, cast photos, TV episode info and subtitles (Wyzie Subs, choose the language) for every video, saved for offline.
 - **TMDB**: posters, backdrops, cast with photos, trailers, ratings and descriptions for movies & TV; "Fix match".
 
 ## Offline & cloud

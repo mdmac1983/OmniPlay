@@ -50,6 +50,15 @@ object Downloads {
         onDone(ok)
     }
 
+    /** Saves a web file (e.g. a podcast episode) for offline under [id]. */
+    fun saveUrl(ctx: Context, id: Long, url: String, ext: String): Boolean {
+        if (isDownloaded(ctx, id)) return true
+        val dest = File(dir(ctx), "$id.$ext")
+        val ok = try { httpDownload(url, dest) } catch (_: Exception) { dest.delete(); false }
+        if (ok) { val o = index(ctx); o.put(id.toString(), dest.path); save(ctx, o) }
+        return ok
+    }
+
     fun remove(ctx: Context, id: Long) {
         val o = index(ctx); o.optString(id.toString()).takeIf { it.isNotEmpty() }?.let { File(it).delete() }; o.remove(id.toString()); save(ctx, o)
         dir(ctx).listFiles()?.filter { it.name.startsWith("${id}_") }?.forEach { it.delete() }

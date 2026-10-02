@@ -72,12 +72,13 @@ class AppState(val ctx: Context, val host: Host) {
     var loading by mutableStateOf(false)
     var online by mutableStateOf(true)
     var scanProg by mutableStateOf<Pair<String, Int>?>(null)
+    val sync = SyncState().apply { musicAt = store.getPref("musicSyncAt", "0").toLongOrNull() ?: 0; videoAt = store.getPref("videoSyncAt", "0").toLongOrNull() ?: 0 }
 
     fun songs() = allItems.filter { it.c == 3 }
     fun videos() = allItems.filter { it.c == 2 }
 
     // ---------- navigation / ui ----------
-    var tab by mutableStateOf("home")
+    var tab by mutableStateOf("dash")
     val pages = androidx.compose.runtime.mutableStateListOf<Page>()
     var sheetOpen by mutableStateOf(false)
     var soundOpen by mutableStateOf(false)
@@ -109,7 +110,7 @@ class AppState(val ctx: Context, val host: Host) {
         if (pref("sync", "0") == "1") app.orionmd.omniplay.cloud.SyncWorker.schedule(ctx, pref("syncHours", "24").toLongOrNull() ?: 24, pref("syncWifiOnly", "1") == "1")
         countLyrics()
     }
-    fun onResume() { val o = Net.online(ctx); if (o && !online) ImageLoader.bump(); online = o; refreshDownloads() }
+    fun onResume() { resumeTick++; val o = Net.online(ctx); if (o && !online) ImageLoader.bump(); online = o; refreshDownloads() }
 
     fun loadSources() {
         sources = try { JSONArray(pref("sources", "[]")).let { a -> (0 until a.length()).map { Source.of(a.getJSONObject(it)) } } } catch (_: Exception) { emptyList() }
