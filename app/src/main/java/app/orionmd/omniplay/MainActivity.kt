@@ -24,6 +24,22 @@ class MainActivity : ComponentActivity(), Host {
         treeCb?.invoke(uri); treeCb = null
     }
 
+    private var mediaCb: ((Boolean) -> Unit)? = null
+    private val mediaConfirm = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
+        mediaCb?.invoke(r.resultCode == RESULT_OK); mediaCb = null
+    }
+    /** Music, video and photo access (+ notifications for playback / downloads). Asked once; a rescan follows. */
+    private val perms = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+        if (res.values.any { it } && ::st.isInitialized) { st.sync("device"); st.loadGallery() }
+    }
+    private fun askPermissions() {
+        val want = if (android.os.Build.VERSION.SDK_INT >= 33) arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO, android.Manifest.permission.READ_MEDIA_VIDEO,
+            android.Manifest.permission.READ_MEDIA_IMAGES, android.Manifest.permission.POST_NOTIFICATIONS)
+            else arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+        val missing = want.filter { checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) try { perms.launch(missing.toTypedArray()) } catch (_: Exception) {}
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         st = AppState(this, this)
@@ -42,7 +58,7 @@ class MainActivity : ComponentActivity(), Host {
 
     private var gate by mutableStateOf("")
 
-    @Composable private fun Started() { LaunchedEffect(Unit) { st.start() } }
+    @Composable private fun Started() { LaunchedEffect(Unit) { st.start(); askPermissions() } }
 
     /** "tamper" (re-signed copy → owner lock), "locked" (trial over / key not confirmed), or "ok" (trial, pending, activated). */
     private fun gateState(): String = when {
@@ -64,4 +80,7 @@ class MainActivity : ComponentActivity(), Host {
     }
     override fun openTree(cb: (Uri?) -> Unit) { treeCb = cb; try { treePicker.launch(null) } catch (_: Exception) { cb(null) } }
     override fun launch(intent: Intent) { startActivity(intent) }
+    override fun confirmMedia(sender: android.content.IntentSender, cb: (Boolean) -> Unit) {
+        mediaCb = cb; try { mediaConfirm.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build()) } catch (_: Exception) { cb(false) }
+    }
 }

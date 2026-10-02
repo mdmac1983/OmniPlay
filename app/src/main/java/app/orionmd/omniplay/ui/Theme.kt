@@ -98,4 +98,5 @@ object Ic {
     val link = Icons.Rounded.Link
     val shield = Icons.Rounded.Shield
     val star = Icons.Rounded.Star
+    val gallery = Icons.Rounded.PhotoLibrary
 }

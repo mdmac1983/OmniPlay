@@ -26,6 +26,11 @@ A standalone, offline-first hybrid **music + video player** by OrionMD.
 - **Video sync all**: TMDB details, posters, backdrops, cast photos, TV episode info and subtitles (Wyzie Subs, choose the language) for every video, saved for offline.
 - **TMDB**: posters, backdrops, cast with photos, trailers, ratings and descriptions for movies & TV; "Fix match".
 
+## Gallery
+- Timeline (day / month / year), device albums, your own albums, groups of albums, custom covers, 30-day trash.
+- Viewer with zoom, rotate, share, set as wallpaper; editor (crop, rotate, flip, light & colour, filters, eraser), saved as copies.
+- Create collages, animated GIFs and long-exposure shots; press-and-hold to cut out stickers (on-device ML Kit).
+
 ## Offline & cloud
 - **Offline first**: everything you've scanned browses and plays with no internet; downloaded items play fully offline.
 - **Clouds**: pCloud, Dropbox, Google Drive, MEGA, Filen (via WebDAV), Proton Drive (via WebDAV) and generic WebDAV (Nextcloud/NAS/…).

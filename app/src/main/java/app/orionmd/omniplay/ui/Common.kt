@@ -32,7 +32,7 @@ fun Watermark(st: AppState, modifier: Modifier = Modifier) {
     if (strength == "off") return
     val a = when (strength) { "light" -> .05f; "strong" -> .18f; else -> .10f }
     Box(modifier.fillMaxSize()) {
-        Image(painterResource(R.drawable.watermark_tall), null, Modifier.fillMaxSize().alpha(a), contentScale = ContentScale.Crop)
+        Image(painterResource(R.drawable.watermark_tall), null, Modifier.fillMaxSize().alpha(a), contentScale = ContentScale.Fit)
     }
 }
 

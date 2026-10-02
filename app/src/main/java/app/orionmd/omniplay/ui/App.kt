@@ -22,12 +22,30 @@ import app.orionmd.omniplay.Page
 
 @Composable
 fun OmniApp(st: AppState) {
+    // phone Back: close full-screen panels / selection / sub-pages before leaving the app
+    androidx.activity.compose.BackHandler(enabled = st.visFull || st.soundOpen || (st.sheetOpen && st.player.track != null) || st.gallery.sel.isNotEmpty() || st.pages.isNotEmpty() || st.tab != "dash") {
+        when {
+            st.visFull -> st.visFull = false
+            st.soundOpen -> st.soundOpen = false
+            st.sheetOpen -> st.sheetOpen = false
+            st.gallery.sel.isNotEmpty() -> st.gallery.sel.clear()
+            st.pages.isNotEmpty() -> st.back()
+            else -> st.tab = "dash"
+        }
+    }
     // when a full-screen surface is up, show only that
     if (st.visFull) { VisualizerFull(st); return }
     if (st.soundOpen) { SoundScreen(st); return }
     if (st.sheetOpen && st.player.track != null) { NowPlaying(st); Dialogs(st); return }
+    // full-screen gallery pages (no tab bar)
+    when (val top = st.pages.lastOrNull()) {
+        is Page.GViewer -> { androidx.activity.compose.BackHandler { st.back() }; GViewerScreen(st, top); Dialogs(st); st.toast?.let { (m, _) -> Toast(m) { st.toast = null } }; return }
+        is Page.GEditor -> { androidx.activity.compose.BackHandler { st.back() }; GEditorScreen(st, top); Dialogs(st); st.toast?.let { (m, _) -> Toast(m) { st.toast = null } }; return }
+        is Page.GCreate -> { androidx.activity.compose.BackHandler { st.back() }; Box(Modifier.fillMaxSize().background(C.bg)) { GCreateScreen(st, top, PaddingValues()) }; Dialogs(st); st.toast?.let { (m, _) -> Toast(m) { st.toast = null } }; return }
+        else -> {}
+    }
 
-    val tabs = listOf("dash" to ("Home" to Ic.home), "home" to ("Music" to Ic.lib), "video" to ("Video" to Ic.movie), "search" to ("Discover" to Ic.search), "set" to ("Settings" to Ic.settings))
+    val tabs = listOf("dash" to ("Home" to Ic.home), "home" to ("Music" to Ic.lib), "video" to ("Video" to Ic.movie), "gallery" to ("Gallery" to Ic.gallery), "set" to ("Settings" to Ic.settings))
     Scaffold(
         bottomBar = {
             Column {
@@ -53,6 +71,7 @@ fun OmniApp(st: AppState) {
                 "dash" -> DashboardScreen(st, pad)
                 "home" -> MusicLibrary(st, pad)
                 "video" -> VideoLibrary(st, pad)
+                "gallery" -> GalleryScreen(st, pad)
                 "search" -> DiscoverScreen(st, pad)
                 "set" -> SettingsScreen(st, pad)
             }
@@ -78,6 +97,10 @@ private fun Router(st: AppState, page: Page, pad: androidx.compose.foundation.la
         Page.Discover -> DiscoverScreen(st, pad)
         Page.Settings -> SettingsScreen(st, pad)
         Page.Downloads -> DownloadsPage(st, pad)
+        is Page.GAlbumPage -> GAlbumScreen(st, page, pad)
+        is Page.GGroupPage -> GGroupScreen(st, page, pad)
+        Page.GTrash -> GTrashScreen(st, pad)
+        is Page.GViewer, is Page.GEditor, is Page.GCreate -> {}
     }
 }
 

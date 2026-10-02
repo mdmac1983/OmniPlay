@@ -27,6 +27,8 @@ sealed class Img {
     data class Art(val id: Long, val uri: String, val cat: Int, val large: Boolean = false) : Img() { override val key get() = "a$id${if (large) "L" else ""}" }
     data class Poster(val size: String, val path: String) : Img() { override val key get() = "t$size$path" }
     data class Cover(val url: String) : Img() { override val key get() = "c$url" }
+    /** A photo / video thumbnail straight from the phone's media store (kept in memory only — galleries are big). */
+    data class Thumb(val uri: String, val video: Boolean = false) : Img() { override val key get() = "g$uri" }
 }
 
 object Net {
@@ -97,6 +99,7 @@ object ImageLoader {
     suspend fun load(req: Img, px: Int): Bitmap? {
         val mk = req.key + "@" + bucket(px)
         mem.get(mk)?.let { return it }
+        if (req is Img.Thumb) return withContext(disk) { mem.get(mk) ?: thumb(req, bucket(px))?.also { mem.put(mk, it) } }
         val f = localFile(req) ?: return null
         if (!f.exists()) {
             if (req is Img.Art && req.id in noArt) return null
@@ -108,10 +111,19 @@ object ImageLoader {
         return withContext(disk) { mem.get(mk) ?: decode(f, bucket(px))?.also { mem.put(mk, it) } }
     }
 
+    /** Media-store thumbnail (Android 10+), or a sampled decode on older phones. */
+    fun thumb(req: Img.Thumb, px: Int): Bitmap? = try {
+        val u = Uri.parse(req.uri)
+        if (android.os.Build.VERSION.SDK_INT >= 29) app.contentResolver.loadThumbnail(u, android.util.Size(px, px), null)
+        else if (req.video) MediaMetadataRetriever().let { m -> try { m.setDataSource(app, u); m.frameAtTime?.let { fit(it, px) } } finally { m.release() } }
+        else PhotoOps.decodeSampled(app, u, px)
+    } catch (_: Throwable) { null }
+
     private fun localFile(req: Img): File? = when (req) {
         is Img.Art -> File(store.artDir, "${req.id}${if (req.large) "_l" else ""}.jpg")
         is Img.Poster -> if (req.path.isBlank()) null else File(store.tmdbImgDir, req.size + "_" + req.path.trimStart('/'))
         is Img.Cover -> if (!MusicMeta.coverAllowed(req.url)) null else MusicMeta.coverFile(store, req.url)
+        is Img.Thumb -> null
     }
 
     /** Local file for the picture, fetching it first when missing (e.g. for the notification). */
@@ -129,6 +141,7 @@ object ImageLoader {
                 is Img.Art -> makeArt(req, f).also { if (!it && !req.uri.startsWith("omni://")) { noArt.add(req.id) } }
                 is Img.Poster -> Tmdb.image(store, req.size, req.path) != null
                 is Img.Cover -> MusicMeta.cover(store, req.url) != null
+                is Img.Thumb -> false
             }
         } catch (_: Throwable) { false }
         if (ok) failedAt.remove(req.key) else failedAt[req.key] = System.currentTimeMillis()

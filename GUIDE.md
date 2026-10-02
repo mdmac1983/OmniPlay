@@ -55,9 +55,9 @@ subtitles so your library looks complete even with no internet.
 | Tab | What's there |
 |---|---|
 | **Home** (Dashboard) | Library counts, trial status, **Sync all** for music & videos (with progress), Continue watching, Most played, Recently added, podcast episodes saved offline, shortcuts. |
-| **Music** | Songs, Albums, Artists, Genres, Playlists, Folders · search · Podcasts · Sync all · rescan. |
+| **Music** | Songs, Albums, Artists, Genres, Playlists, Folders · search · Discover (previews) · Podcasts · Sync all · rescan. |
 | **Video** | All, Movies, TV (grouped by show), Music videos · search · Sync all · rescan. |
-| **Discover** | Search Deezer/iTunes and play 30-second previews. |
+| **Gallery** | Every photo and video on the phone: timeline, albums, groups, viewer, editor, collages, GIFs, long exposure, stickers, trash. |
 | **Settings** | Sources, cloud accounts, API keys, library tools, sync, playback & subtitles, appearance, activation. |
 
 The OrionMD artwork appears as the launch splash and as a subtle background watermark (strength adjustable or off).
@@ -103,6 +103,24 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
 - Play episodes in the music player (with visualizer and sleep timer).
 - **Download** any episode, or **Download latest 5** for a show. Saved episodes appear under **Saved for offline**
   (Podcasts page and Dashboard) and play with no connection. Remove them any time.
+
+---
+
+## 6b. Gallery
+- **Timeline:** every photo and video, grouped by **day, month or year**.
+- **Albums:** your phone's folders plus **your own albums** (select → Add to album). Long-press an album for **Set cover
+  image**, **Add to a group**, Share, Rename / Delete (own albums).
+- **Groups:** combine several albums into one, e.g. "Holidays" = Beach + Camera + WhatsApp Images.
+- **Viewer:** swipe, pinch / double-tap to zoom, **Edit, Rotate, Share, Set as wallpaper** (home, lock or both),
+  add to album, set as album cover, info, trash. Videos play in the video player.
+- **Editor** (always saves a copy): crop with aspect presets, rotate, flip, brightness / contrast / saturation / warmth,
+  10 filters, undo, and **Eraser** — paint over a small object and it's filled in from its surroundings.
+- **Stickers:** press and hold on a photo — the main subject is cut out on your phone (Google ML Kit) and saved as a
+  transparent sticker in Pictures/OmniPlay/Stickers.
+- **Create:** **Collage** (2–9 photos, layouts, shapes, spacing, rounded corners, background), **Animated GIF** (from
+  photos or part of a video; frames, speed, size), **Long exposure** (blend a video or burst into one shot).
+- **Trash:** deleted items wait 30 days in Android's trash (Android 11+) — restore or delete for good any time.
+- Coming next: Movies & Reels editor, and AI object moving, colorization and reflection removal.
 
 ---
 

@@ -21,6 +21,8 @@ import org.json.JSONObject
 interface Host {
     fun openTree(cb: (Uri?) -> Unit)
     fun launch(intent: Intent)
+    /** Shows a system confirmation (trash / restore / delete media); cb(true) when the user agreed. */
+    fun confirmMedia(sender: android.content.IntentSender, cb: (Boolean) -> Unit)
 }
 
 sealed class Page {
@@ -37,6 +39,13 @@ sealed class Page {
     object Discover : Page()
     object Settings : Page()
     object Downloads : Page()
+    // Gallery
+    data class GAlbumPage(val key: String) : Page()
+    data class GGroupPage(val id: String) : Page()
+    data class GViewer(val start: Int, val albumKey: String = "") : Page()
+    data class GEditor(val item: GItem) : Page()
+    data class GCreate(val kind: String, val items: List<GItem>) : Page()   // collage | gif | exposure
+    object GTrash : Page()
 }
 
 sealed class Dlg {
@@ -72,6 +81,7 @@ class AppState(val ctx: Context, val host: Host) {
     var loading by mutableStateOf(false)
     var online by mutableStateOf(true)
     var scanProg by mutableStateOf<Pair<String, Int>?>(null)
+    val gallery = GalleryState()
     val sync = SyncState().apply { musicAt = store.getPref("musicSyncAt", "0").toLongOrNull() ?: 0; videoAt = store.getPref("videoSyncAt", "0").toLongOrNull() ?: 0 }
 
     fun songs() = allItems.filter { it.c == 3 }
