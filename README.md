@@ -11,7 +11,7 @@ This is a **private** repo and every push builds a **signed release APK** (the s
 install it straight on your phone; it updates over the previous version.
 
 ## First run
-1. Install the APK and enter your **activation key** (mint one with `scripts/mint_key.py`, or use the owner password).
+1. Install the APK — a 14-day free trial starts automatically; enter an activation key any time (Settings → Activation & security).
 2. Add sources in **Settings → Your library sources**: *This device*, *Add folder*, or a **cloud account**.
 3. Add free **API keys** in Settings for the extras you want (TMDB for movies/TV, Podcast Index for podcasts). Each
    field has in-app instructions.
@@ -24,18 +24,18 @@ Connect in **Settings → Cloud accounts**:
 - **Filen, Proton Drive** — connected over WebDAV (the app shows how to run the bridge); any **WebDAV** server
   (Nextcloud, ownCloud, a NAS) works directly.
 
-## Activation keys
-Keys are signed by the owner's private key and verified against the public key baked into the app.
-Mint one on any machine with the owner password:
-```
-pip install cryptography
-python3 scripts/mint_key.py --sub "My phone"          # never expires
-python3 scripts/mint_key.py --sub "Trial" --days 30   # time-limited
-```
-Paste the printed key on the app's activation screen.
+## Activation (OrionMD standard gate v4)
+OmniPlay uses the shared OrionMD activation backend (Google Sheet + Apps Script, same deployment as Launcher and
+Digital Wallet). See `Activation.kt`.
+- **Trial:** 14 days, starts automatically on first launch.
+- **Keys:** from the shared key pool, sold at buymeacoffee.com/orionmd. A key is claimed by the first app + device that
+  uses it — permanently; any other device or OrionMD app gets `USED`.
+- **Offline:** a key entered with no connection unlocks the app as *Pending* for up to 14 days while it's re-checked on
+  every start; confirmed → Activated, invalid/used → back to Trial/Locked.
+- **Locked:** after the trial (or a failed pending key) — enter a key or Purchase Key. The owner password also unlocks.
 
 ## Security notes
 - The release is signed with `keystore/release.keystore` (baked in on purpose — private repo).
 - The app checks its own signing certificate at launch; a re-signed/modified copy is locked behind the owner password
   and wipes its own app data after 3 wrong attempts. Nothing outside the app is touched.
-- Owner password, activation public key and the integrity certificate hash live in `Guard.kt` / `Activation.kt`.
+- The owner-password verifier and the integrity certificate hash live in `Guard.kt`; the activation backend URL in `Activation.kt`.

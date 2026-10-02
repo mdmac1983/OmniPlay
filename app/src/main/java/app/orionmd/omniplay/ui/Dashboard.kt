@@ -55,19 +55,17 @@ fun DashboardScreen(st: AppState, pad: PaddingValues) {
                 IconBtn(Ic.sync, { st.sync() })
             }
         }
-        if (!Activation.isLicensed(st.store)) item {
-            val d = Activation.trialDaysLeft(st.store)
+        if (Activation.state(st.store) != Activation.State.ACTIVATED) item {
+            val (title, sub) = st.licenceStatus()
+            val pending = Activation.state(st.store) == Activation.State.PENDING
             Card {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Ic.key, null, tint = if (d <= 3) C.warn else C.ac)
-                    Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                        Text("Free trial — $d day${if (d == 1) "" else "s"} left", fontWeight = FontWeight.SemiBold)
-                        Muted("Buy an activation key to keep OmniPlay after the trial.", size = 12.sp)
-                    }
-                    Btn("Buy key", { st.openUrl(Activation.BUY_URL) }, small = true)
+                    Icon(Ic.key, null, tint = if (pending || Activation.trialDaysLeft(st.store) <= 3) C.warn else C.ac)
+                    Column(Modifier.padding(start = 12.dp).weight(1f)) { Text("$title — $sub", fontWeight = FontWeight.SemiBold) }
+                    if (!pending) Btn("Purchase Key", { st.openUrl(Activation.BUY_URL) }, small = true)
                 }
-                Text("Have a key? Enter it", color = C.ac, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp).clickable {
-                    st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> val (_, m) = Activation.activate(st.store, k); st.say(m); st.prefGen++ } })
+                if (!pending) Text("Have a key? Enter it", color = C.ac, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp).clickable {
+                    st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> st.enterActivationKey(k) } })
             }
         }
         item {

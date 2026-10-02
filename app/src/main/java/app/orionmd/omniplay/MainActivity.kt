@@ -27,7 +27,9 @@ class MainActivity : ComponentActivity(), Host {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         st = AppState(this, this)
+        Activation.ensureTrialStarted(st.store)
         gate = gateState()
+        recheckPending()
         setContent {
             AppTheme {
                 var splash by remember { mutableStateOf(savedInstanceState == null && st.store.getPref("splash", "1") == "1") }
@@ -42,18 +44,23 @@ class MainActivity : ComponentActivity(), Host {
 
     @Composable private fun Started() { LaunchedEffect(Unit) { st.start() } }
 
-    /** "tamper" (re-signed copy), "ok" (key, owner, or trial days left), "expired" (trial over), "activate" (first run). */
+    /** "tamper" (re-signed copy → owner lock), "locked" (trial over / key not confirmed), or "ok" (trial, pending, activated). */
     private fun gateState(): String = when {
         Guard.tampered(this) && st.store.secret("ownerUnlocked") != "1" -> "tamper"
-        Activation.isActivated(st.store) -> "ok"
-        Activation.trialActive(st.store) -> "ok"
-        Activation.trialStart(st.store) > 0 -> "expired"
-        else -> "activate"
+        Activation.state(st.store) == Activation.State.LOCKED -> "locked"
+        else -> "ok"
+    }
+
+    /** While a key is pending (entered offline), quietly re-check it on every start / return to the app. */
+    private fun recheckPending() {
+        if (Activation.state(st.store) != Activation.State.PENDING) return
+        Thread { Activation.retryPendingIfAny(this, st.store); runOnUiThread { gate = gateState(); st.prefGen++
+            Activation.takeNotice(st.store)?.let { st.say(it) } } }.start()
     }
 
     override fun onResume() {
         super.onResume()
-        if (::st.isInitialized) { gate = gateState(); if (gate != "ok") { Player.stop() }; st.onResume() }
+        if (::st.isInitialized) { gate = gateState(); if (gate != "ok") Player.stop(); recheckPending(); st.onResume() }
     }
     override fun openTree(cb: (Uri?) -> Unit) { treeCb = cb; try { treePicker.launch(null) } catch (_: Exception) { cb(null) } }
     override fun launch(intent: Intent) { startActivity(intent) }

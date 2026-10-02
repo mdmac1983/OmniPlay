@@ -38,14 +38,16 @@ subtitles so your library looks complete even with no internet.
 ## 2. Trial & activation
 | State | What you get |
 |---|---|
-| **Free trial** | Everything, free for **14 days**, no key needed. Days left are shown on the Dashboard and in Settings. |
-| **Trial ended** | The app locks. Your library, playlists and downloads are **kept** and return as soon as you activate. |
-| **Activated** | Full version, no time limit. |
+| **Free trial** | Everything, free for **14 days** — starts automatically the first time you open the app. Days left show on the Dashboard and in Settings. |
+| **Pending** | You entered a key with no internet. The app works fully for up to **14 days** and quietly confirms the key next time you're online. |
+| **Activated** | Full version, no time limit. Checked online once, never again. |
+| **Locked** | The trial ended (or a pending key turned out invalid / already used). Your library, playlists and downloads are **kept** and return as soon as you activate. |
 
-- **Buy a key:** [buymeacoffee.com/orionmd](https://buymeacoffee.com/orionmd) — you'll receive an activation key.
-- **Enter a key:** on the lock/welcome screen, the Dashboard trial card, or **Settings → Activation & security**.
-- Keys are signed by OrionMD and checked on the device (works offline). Setting the phone's clock back doesn't extend
-  the trial.
+- **Buy a key:** [buymeacoffee.com/orionmd](https://buymeacoffee.com/orionmd).
+- **Enter a key:** the Dashboard card, **Settings → Activation & security**, or the Locked screen (**Verify**).
+- **One key = one app on one device.** The first app + phone to use a key claims it permanently; using it on another
+  phone, or in another OrionMD app, answers "already used".
+- Setting the phone's clock back doesn't extend the trial.
 
 ---
 
@@ -155,7 +157,7 @@ Each provider shows step-by-step instructions and the redirect address to regist
 | Sound engine, visualizers, skins, playlists, sleep timer | Discover previews |
 | Everything saved by **Sync all**: album art, song info, lyrics, album details, TMDB details, posters, cast, episode info, subtitles | First-time look-ups for new songs/videos (they fill in next time you're online) |
 | Subtitle and `.lrc` files next to your media | Running Sync all |
-| Activation key check | Buying a key |
+| Entering a key (held as *Pending* for 14 days until you're online) | Confirming a key, buying a key |
 
 ### Without any API keys
 Everything above **plus**, when online: song info and album art (Deezer/iTunes), lyrics (LRCLIB), album pages and track
@@ -193,6 +195,7 @@ and starts matching your videos straight away.
 - No account, ads or tracking. Your library stays on your phone.
 - Caches, API keys, cloud sign-ins and the activation key are encrypted on the device (AES-256-GCM, key held by the
   Android Keystore).
+- Activation sends only the key, this app's device ID and the app name to the OrionMD activation server.
 - Online look-ups send only what's needed to find a match (artist/title or movie name) to Deezer, iTunes, LRCLIB,
   TMDB, Podcast Index or Wyzie.
 - OmniPlay is proprietary and release-signed by OrionMD. It checks its own signature at launch; a modified or re-signed
@@ -210,3 +213,5 @@ and starts matching your videos straight away.
 | Update says to uninstall first | Install releases from GitHub *Releases* in order; don't mix in older test builds (uninstalling erases your data). |
 | Cloud won't connect | Check the Client ID/secret and that the redirect address shown in the app is registered with the provider. |
 | Trial ended | Buy a key at buymeacoffee.com/orionmd and enter it — nothing is lost. |
+| Key says "already used" | Each key works for one app on one device. Use a new key, or contact OrionMD. |
+| "Pending verification" | Connect to the internet and reopen the app — the key confirms automatically. |

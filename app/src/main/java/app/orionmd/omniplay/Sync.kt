@@ -288,3 +288,22 @@ fun AppState.onKeySaved(k: String) {
     }
 }
 
+
+/** Key typed in Settings / on the Dashboard: verified in the background (or held as pending when offline). */
+fun AppState.enterActivationKey(k: String) {
+    say("Checking your key…")
+    scope.launch {
+        val (_, m) = withContext(Dispatchers.IO) { Activation.enterKey(ctx, store, k) }
+        prefGen++; dialog = Dlg.Message("Activation", m)
+    }
+}
+
+/** "Trial - X days left" / "Pending verification - X days left to confirm" / "Activated". */
+fun AppState.licenceStatus(): Pair<String, String> { prefGen
+    return when (Activation.state(store)) {
+        Activation.State.ACTIVATED -> "Activated" to Activation.holder(store).let { if (it.isNotEmpty()) "Full version · $it" else "Full version" }
+        Activation.State.PENDING -> "Pending verification" to "${Activation.pendingDaysLeft(store)} day(s) left to confirm your key — connect to the internet"
+        Activation.State.TRIAL -> "Free trial" to "${Activation.trialDaysLeft(store)} day(s) left"
+        Activation.State.LOCKED -> "Locked" to "Enter a key or purchase one"
+    }
+}
