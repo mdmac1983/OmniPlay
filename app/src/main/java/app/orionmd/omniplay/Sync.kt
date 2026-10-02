@@ -217,3 +217,74 @@ fun AppState.continueWatching(): List<Pair<Item, Float>> {
         Triple(x, if (v.optLong("d") > 0) (v.optLong("p").toFloat() / v.optLong("d")).coerceIn(0f, 1f) else 0f, v.optLong("t")) }
         .sortedByDescending { it.third }.take(15).map { it.first to it.second }.toList()
 }
+
+/**
+ * Fills in missing info by itself — no button needed: song info + album art (Deezer/iTunes, no key) and movie/TV matches
+ * (TMDB, once a key is saved). Runs after the library loads or is rescanned, and right after an API key is saved. Only
+ * new / unmatched items are looked up; "Sync all" also saves lyrics, images and subtitles for offline.
+ */
+private var enriching = false
+fun AppState.autoEnrich() {
+    if (enriching || !Net.online(ctx) || pref("autoEnrich", "1") != "1") return
+    enriching = true
+    scope.launch {
+        try {
+            // songs: info + cover URL
+            val songs = songs()
+            val m = withContext(Dispatchers.IO) {
+                if (pref("metaFix1", "0") != "1") store.updateMusicMeta { mm -> mm.keys().asSequence().toList().forEach { if (mm.optJSONObject(it)?.optBoolean("none") == true) mm.remove(it) } }
+                store.musicMeta()
+            }
+            if (pref("metaFix1", "0") != "1") setPref("metaFix1", "1")
+            val todo = songs.filter { !m.has("s:${it.i}") }
+            if (todo.isNotEmpty() && sync.music == null) {
+                var found = 0
+                withContext(Dispatchers.IO) {
+                    todo.forEachIndexed { i, x ->
+                        val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { null }
+                        m.put("s:${x.i}", r ?: JSONObject().put("none", true).put("t", System.currentTimeMillis())); if (r != null) found++
+                        if (i % 15 == 0) { store.saveMusicMeta(m); val mm = parseMeta(m); scope.launch { meta = mm; metaProg = Triple(i + 1, todo.size, found) } }
+                        Thread.sleep(120)
+                    }
+                    store.saveMusicMeta(m)
+                }
+                meta = parseMeta(m); metaProg = null
+                if (found > 0) say("Found info & album art for $found song${if (found == 1) "" else "s"}")
+            }
+            // videos: TMDB matches (needs a key)
+            if (store.hasTmdb() && sync.video == null) {
+                val vids = videos()
+                val cache = withContext(Dispatchers.IO) { store.tmdbCache() }
+                val keys = vids.mapNotNull { x -> mkey(x)?.let { it to x } }.distinctBy { it.first }.filter { !cache.has(it.first) }
+                if (keys.isNotEmpty()) {
+                    var found = 0
+                    withContext(Dispatchers.IO) {
+                        keys.forEachIndexed { i, (key, x) ->
+                            val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
+                            val r = try { Tmdb.autoMatch(store, o) } catch (e: Tmdb.NoKey) { return@withContext } catch (_: Exception) { null }
+                            cache.put(key, r?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: JSONObject().put("none", true))
+                            if (r != null) found++
+                            if (i % 10 == 0) store.saveTmdb(cache)
+                            scope.launch { tmdbProg = (i + 1) to keys.size }
+                            Thread.sleep(100)
+                        }
+                        store.saveTmdb(cache)
+                    }
+                    tmdbProg = null; loadLibrary()
+                    if (found > 0) say("Matched $found movie${if (found == 1) "" else "s"} / show${if (found == 1) "" else "s"} on TMDB")
+                }
+            }
+        } finally { enriching = false }
+    }
+}
+
+/** A new key was saved: drop earlier "not found" answers so they're tried again, then look everything up. */
+fun AppState.onKeySaved(k: String) {
+    scope.launch {
+        withContext(Dispatchers.IO) {
+            if (k.startsWith("tmdb")) store.updateTmdb { c -> c.keys().asSequence().toList().forEach { if (c.optJSONObject(it)?.optBoolean("none") == true) c.remove(it) } }
+        }
+        if (k.startsWith("tmdb")) { val r = withContext(Dispatchers.IO) { Tmdb.test(store) }; say(r); if (r.contains("works")) autoEnrich() }
+    }
+}
+

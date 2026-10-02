@@ -18,7 +18,7 @@ object Podcasts {
     data class Show(val id: Long, val title: String, val author: String, val image: String, val description: String, val episodes: Int)
     data class Episode(val id: Long, val title: String, val url: String, val image: String, val date: Long, val duration: Long, val description: String)
 
-    fun hasKeys(st: AppState) = st.pref("podKey", "").isNotBlank() && st.pref("podSecret", "").isNotBlank()
+    fun hasKeys(st: AppState) = st.store.secret("podKey").isNotBlank() && st.store.secret("podSecret").isNotBlank()
 
     private fun sha1(s: String) = MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
@@ -48,11 +48,11 @@ object Podcasts {
     } }.filter { it.id > 0 && it.title.isNotEmpty() }
 
     fun search(st: AppState, term: String, music: Boolean = false): List<Show> =
-        shows(get(st.pref("podKey", ""), st.pref("podSecret", ""), (if (music) "/search/music/byterm?q=" else "/search/byterm?q=") + enc(term) + "&max=40").optJSONArray("feeds"))
-    fun trending(st: AppState): List<Show> = shows(get(st.pref("podKey", ""), st.pref("podSecret", ""), "/podcasts/trending?max=30&lang=en").optJSONArray("feeds"))
+        shows(get(st.store.secret("podKey"), st.store.secret("podSecret"), (if (music) "/search/music/byterm?q=" else "/search/byterm?q=") + enc(term) + "&max=40").optJSONArray("feeds"))
+    fun trending(st: AppState): List<Show> = shows(get(st.store.secret("podKey"), st.store.secret("podSecret"), "/podcasts/trending?max=30&lang=en").optJSONArray("feeds"))
 
     fun episodes(st: AppState, feedId: Long, fallbackImage: String): List<Episode> {
-        val a = get(st.pref("podKey", ""), st.pref("podSecret", ""), "/episodes/byfeedid?id=$feedId&max=100").optJSONArray("items") ?: JSONArray()
+        val a = get(st.store.secret("podKey"), st.store.secret("podSecret"), "/episodes/byfeedid?id=$feedId&max=100").optJSONArray("items") ?: JSONArray()
         return (0 until a.length()).mapNotNull { k -> a.optJSONObject(k)?.let { o ->
             Episode(o.optLong("id"), o.optString("title").trim(), https(o.optString("enclosureUrl")), image(o.optString("image").ifBlank { o.optString("feedImage") }).ifBlank { fallbackImage },
                 o.optLong("datePublished") * 1000, o.optLong("duration") * 1000, o.optString("description").replace(Regex("<[^>]+>"), "").trim())

@@ -137,7 +137,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         if (help.isNotEmpty()) Muted(help, size = 11.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Field(v, { v = it }, "paste here", Modifier.weight(1f).padding(top = 4.dp), password = true)
-            Btn("Save", { st.store.setSecret(k, v.trim()); st.prefGen++; st.say("Saved") }, small = true, modifier = Modifier.padding(start = 8.dp))
+            Btn("Save", { st.store.setSecret(k, v.trim()); st.prefGen++; st.say("Saved"); st.onKeySaved(k) }, small = true, modifier = Modifier.padding(start = 8.dp))
         }
     }
 }
@@ -163,6 +163,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         Column(Modifier.weight(1f)) { Text("Videos — sync all for offline"); Muted(st.sync.video?.let { "${it.step} · ${it.done} / ${it.total}" } ?: "TMDB details, posters, cast, episodes, subtitles · last ${ago(st.sync.videoAt)}", size = 12.sp) }
         Btn("Sync", { st.syncVideos() }, small = true)
     }
+    Toggle(st, "autoEnrich", "Look up info automatically", "New songs get info & album art, and videos get TMDB matches, as soon as they're added or a key is saved", "1")
     Pick(st, "subLang", "Subtitle language to download", listOf("en" to "English", "es" to "Spanish", "fr" to "French", "de" to "German", "it" to "Italian", "pt" to "Portuguese", "tl" to "Filipino", "ja" to "Japanese", "ko" to "Korean", "zh" to "Chinese", "ar" to "Arabic", "hi" to "Hindi", "ru" to "Russian"), "en")
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text("Look up song info (covers, genre, year)"); st.metaProg?.let { (d, t, m) -> Muted("$d / $t · $m matched", size = 12.sp) } ?: Muted("Deezer + iTunes", size = 12.sp) }

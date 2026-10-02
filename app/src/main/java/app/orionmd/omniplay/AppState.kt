@@ -135,8 +135,11 @@ class AppState(val ctx: Context, val host: Host) {
                 Triple(items, m, t)
             }
             allItems = loaded.first; meta = loaded.second; tmdb = loaded.third
+            if (autoEnrichOnLoad) { autoEnrichOnLoad = false; autoEnrich() }
         }
     }
+    /** look things up after the first load and after every rescan */
+    var autoEnrichOnLoad = true
 
     /** Rescan one source (or all). */
     fun sync(id: String? = null) {
@@ -148,6 +151,7 @@ class AppState(val ctx: Context, val host: Host) {
                 updateSource(s.id) { it.copy(count = items.size, lastScan = System.currentTimeMillis()) }
             }
             scanProg = null
+            autoEnrichOnLoad = true
             loadLibrary()
             say("Updated the library")
         }
@@ -316,7 +320,7 @@ class AppState(val ctx: Context, val host: Host) {
                     if (!force && cache.has(key)) return@forEachIndexed
                     val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
                     val m = try { Tmdb.autoMatch(store, o) } catch (_: Exception) { null }
-                    cache.put(key, m?.let { Tmdb.slim(it, x.k ?: "movie") } ?: JSONObject().put("none", true))
+                    cache.put(key, m?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: JSONObject().put("none", true))
                     if (i % 10 == 0) store.saveTmdb(cache)
                     scope.launch { tmdbProg = (i + 1) to vids.size }
                     Thread.sleep(120)
