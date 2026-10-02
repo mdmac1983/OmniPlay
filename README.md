@@ -3,7 +3,7 @@
 A standalone, offline-first **hybrid music & video player** by OrionMD — the music and video engines from the
 Media Library app, rebuilt as their own app with first-class cloud support.
 
-See **FEATURES.md** for the full list.
+See **GUIDE.md** for the full user guide and **FEATURES.md** for the feature list.
 
 ## Build & release
 This is a **private** repo and every push builds a **signed release APK** (the signing keystore is committed in
