@@ -25,7 +25,9 @@ def main():
     ap.add_argument("--sub", default="", help="who the key is for (shown in the app)")
     ap.add_argument("--days", type=int, default=0, help="expiry in days (0 = never)")
     a = ap.parse_args()
-    m = json.load(open(os.path.join(HERE, "owner_material.json")))
+    path = next((p for p in (os.path.join(HERE, "owner_material.json"), os.path.join(HERE, "..", "keystore", "owner_material.json")) if os.path.exists(p)), None)
+    if not path: print("owner_material.json not found (looked in scripts/ and keystore/)"); sys.exit(1)
+    m = json.load(open(path))
     pw = getpass.getpass("Owner password: ").encode()
     key = hashlib.pbkdf2_hmac("sha256", pw, base64.b64decode(m["encSalt"]), m["iter"], 32)
     try:

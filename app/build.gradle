@@ -5,7 +5,7 @@ plugins {
 }
 
 // Version is injected by build-apk.yml (-PappVersionCode / -PappVersionName). Each CI build = +0.1
-def vCode = (project.findProperty('appVersionCode') ?: '1').toString().toInteger()
+def vCode = (project.findProperty('appVersionCode') ?: '11').toString().toInteger()
 def vName = (project.findProperty('appVersionName') ?: '1.0').toString()
 
 android {
