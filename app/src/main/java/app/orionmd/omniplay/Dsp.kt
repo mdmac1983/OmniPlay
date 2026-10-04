@@ -197,6 +197,8 @@ object Dsp {
     fun set(c: DspCfg) { cfg = c }
     /** "Hold to compare": skips the effects while held. */
     @Volatile var bypass = false
+    /** Video players: audio delay in ms (+ = sound later, − = sound earlier), for out-of-sync files — like VLC's. */
+    @Volatile var avDelayMs = 0
     /** ReplayGain of the song playing now (dB, NaN = not tagged), read from its tags by the music player. */
     @Volatile var rgTrack = Float.NaN
     @Volatile var rgAlbum = Float.NaN

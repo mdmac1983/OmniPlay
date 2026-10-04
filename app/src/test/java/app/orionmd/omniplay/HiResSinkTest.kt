@@ -82,13 +82,26 @@ class HiResSinkTest {
         assertTrue("got ${fake.bytes}", fake.bytes > 170_000)                // nearly all of it reached the output
     }
 
-    @Test fun falls_back_to_the_files_own_rate_then_standard_output() {
-        // refuses anything it was not originally given (48 kHz, float)
-        val fake = FakeSink { it.sampleRate == 44100 && it.pcmEncoding == C.ENCODING_PCM_16BIT && it === input }
-        val sink = HiResSink(fake, false, 48000, null)
-        play(sink)
+    @Test fun switches_to_standard_output_when_hi_res_fails_completely() {
+        // the hi-res output's sink refuses everything; the standard one (what 2.1 used) works
+        val bad = FakeSink { false }; val good = FakeSink { true }
+        val sink = SwitchingSink(HiResSink(bad, false, 48000, null)) { good }
+        sink.setVolume(.5f)
+        sink.configure(input, 0, null); sink.play()
+        repeat(10) { k -> val b = buffer(4410); var tries = 0; while (!sink.handleBuffer(b, k * 100_000L, 1)) { tries++; assertTrue("stuck", tries < 10) } }
         assertEquals(3, HiResSink.mode)
-        assertTrue(fake.format === input)
-        assertTrue("got ${fake.bytes}", fake.bytes >= 10 * 4410 * 4 - 4410 * 4)
+        assertTrue(good.format === input)                                    // the player's own format, untouched
+        assertEquals(10L * 4410 * 4, good.bytes)                             // every buffer reached the standard output
+    }
+
+    @Test fun switches_when_setup_itself_fails() {
+        val bad = object : AudioSink by FakeSink({ true }) {
+            override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) { throw AudioSink.ConfigurationException("no", inputFormat) }
+        }
+        val good = FakeSink { true }
+        val sink = SwitchingSink(bad) { good }
+        sink.configure(input, 0, null)
+        assertTrue(sink.handleBuffer(buffer(4410), 0, 1))
+        assertEquals(4410L * 4, good.bytes)
     }
 }

@@ -37,14 +37,36 @@
 
         <activity
             android:name=".VideoActivity"
-            android:exported="false"
+            android:exported="true"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:launchMode="singleTask"
             android:taskAffinity="app.orionmd.omniplay.video"
             android:theme="@style/FullTheme"
             android:screenOrientation="sensor"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize">
+            <!-- "Open with Media Hub" for videos and network streams from other apps (file managers, browsers…) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:mimeType="application/x-mpegURL" />
+                <data android:mimeType="application/vnd.apple.mpegurl" />
+                <data android:mimeType="application/dash+xml" />
+            </intent-filter>
+        </activity>
 
         <!-- ML Kit: download the on-device subject-segmentation model (stickers) with the app -->
         <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="subject_segment" />

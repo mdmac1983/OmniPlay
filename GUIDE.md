@@ -102,13 +102,26 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
 ---
 
 ## 5. Video player
-- Plays MP4, MKV, AVI, MOV, WebM and more (Media3 / ExoPlayer).
-- **Gestures:** swipe left side for brightness, right side for volume, sideways to scrub, double-tap to skip.
-- **Controls:** speed (0.5×–2×), picture size (fit / fill / zoom / stretch), rotation lock, **picture-in-picture**,
-  screen lock, sleep timer, A-B repeat, repeat one, volume boost, screenshot, skip intro.
+A VLC-style player (Media3 / ExoPlayer with Media Hub's own sound engine and subtitle layer).
+- **Plays** MP4, MKV, AVI, MOV, WebM, TS and more; **network streams** (Video tab → link icon): http(s) files, live
+  **HLS** (`.m3u8`) and **DASH** (`.mpd`), with recent links remembered. Other apps can **Open with → Media Hub**
+  (file managers, browsers).
+- **Gestures:** swipe the left side for brightness, the right side for volume, sideways to scrub, double-tap the sides to
+  skip and the middle to pause, **pinch to zoom** and drag with two fingers to move the zoomed picture.
+- **Top buttons** (choose which ones show: Settings → Playback & subtitles → Player buttons):
+  - **Subtitles** — pick a track (files next to the video, downloaded ones, ones inside the video), **Load subtitle
+    file…**, **delay** in 0.1 s / 1 s steps (earlier or later), **text encoding** (UTF-8, Windows-1250…1258, Cyrillic,
+    Greek, Arabic, Hebrew, Chinese, Japanese, Korean, Thai…), quick size.
+  - **Audio** — audio track (language), **audio delay** in 50 ms / 500 ms steps for out-of-sync files, effects on/off
+    for videos, equaliser presets, dialogue boost, night mode.
+  - **Speed** 0.25×–4× in 0.05 steps, **Picture size** (best fit, fill/crop, fit width, stretch, 16:9, 4:3, 21:9,
+    1.85:1, 16:10, 5:4, 1:1), rotation lock, sleep timer, A-B repeat, **repeat one / all**, volume boost, screenshot,
+    picture-in-picture, skip intro, **lock**.
+  - **More** — jump to time, **bookmarks** (per video), **playlist** (jump to any item), shuffle, video track /
+    quality, **media information** (codecs, resolution, frame rate, bitrate, HDR, decoders, audio output), **frame by
+    frame**, keep sound playing in the background, **decoder**: automatic, hardware first or software first.
 - **Resume** where you left off, **autoplay** the next episode/video, **Continue watching** on the Dashboard.
-- **Subtitles:** files next to the video (`.srt`, `.vtt`, `.ass`, `.ssa`, e.g. `Movie.en.srt`) plus subtitles
-  downloaded by Sync all. Choose size, colour, background and position.
+- **Subtitle look:** size, colour, outline, background and position in Settings → Playback & subtitles.
 - **TMDB:** posters, backdrops, rating, genres, runtime, overview, cast with photos, trailers and clips, TV seasons and
   episodes. **Fix match** if a title is wrong.
 
@@ -251,7 +264,10 @@ and starts matching your videos straight away.
 | No movie posters/info | Add a TMDB key and tap **Save** — it says "TMDB key works ✓", then matches your videos. Use **Fix match** for wrong titles. |
 | Podcasts asks for keys | Enter **both** Podcast Index key and secret and tap **Save** on each. |
 | No subtitles downloaded | Needs both a TMDB key and a Wyzie key; set the language in Settings → Library tools, then run video **Sync all**. |
-| Music or video says "audio track init failed" / "can't play" (v2.2–2.3) | Fixed in 2.4: Media Hub now learns which audio formats your device accepts. If it still happens, Sound → turn **Hi-res output** off and back on, then restart. |
+| Music or video says "audio track init failed" (v2.2–2.4) | Fixed in 2.5: if the hi-res output doesn't work on a device, Media Hub switches to the standard output by itself (effects still work) and remembers it. Sound → Output shows which one is in use. |
+| A video won't play or stutters | Video → **More → Decoder → Software first** (or Hardware first) and try again. |
+| Subtitles out of sync | **Subtitles → Delay**. For sound out of sync: **Audio → Audio delay**. |
+| Subtitles show odd characters | **Subtitles → Text encoding** (e.g. Windows-1251 for Cyrillic, Windows-1256 for Arabic). |
 | Update says to uninstall first | Install releases from GitHub *Releases* in order; don't mix in older test builds (uninstalling erases your data). |
 | Cloud won't connect | Check the Client ID/secret and that the redirect address shown in the app is registered with the provider. |
 | Trial ended | Buy a key at buymeacoffee.com/orionmd and enter it — nothing is lost. |

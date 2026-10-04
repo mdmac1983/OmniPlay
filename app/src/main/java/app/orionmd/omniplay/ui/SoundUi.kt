@@ -198,6 +198,12 @@ fun SoundScreen(st: AppState) {
                     var dvcOn by remember { mutableStateOf(app.orionmd.omniplay.Dvc.enabled) }
                     var dvcLevel by remember { mutableStateOf(app.orionmd.omniplay.Dvc.level.toFloat()) }
                     ToggleRow("Hi-res output", "Media Hub's own audio output, like Poweramp's: the decoder's full 24-bit / float samples go straight into the effects (not cut to 16-bit first), everything is processed in 64-bit and sent to the speaker or DAC as 32-bit float. Turn off to use ExoPlayer's standard output. Takes effect after restarting Media Hub.", c.hiRes) { if (!it) { app.orionmd.omniplay.Dvc.setEnabled(false); dvcOn = false } else HiResSink.resetMode(); set(c.copy(hiRes = it)) }
+                    when (HiResSink.mode) {
+                        1, 2 -> Muted("This device's audio output only takes 16-bit, so Media Hub sends 16-bit with dither (the engine still works in 64-bit).", Modifier.padding(vertical = 4.dp), 12.sp)
+                        3 -> Muted("This device refused the hi-res output, so Media Hub uses the standard output (all effects still work). Turn Hi-res output off and on to try again." +
+                            HiResSink.lastError.let { if (it.isNotEmpty()) "\nReason: $it" else "" }, Modifier.padding(vertical = 4.dp), 12.sp)
+                        else -> {}
+                    }
                     if (c.hiRes) ToggleRow("Own resampler (skip Android's)", "Converts songs to this phone's native rate (${HiResSink.nativeRate(st.ctx) / 1000.0} kHz) with a high-quality filter, so Android's mixer doesn't resample them again. Applies from the next song.", c.resample) { set(c.copy(resample = it)) }
 
                     if (c.hiRes && HiResSink.active && HiResSink.mode < 3) {

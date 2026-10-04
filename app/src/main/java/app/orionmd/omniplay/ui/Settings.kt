@@ -210,8 +210,20 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     Toggle(st, "vgest", "Gestures (swipe brightness/volume, double-tap skip)", "", "1")
     Toggle(st, "vpip", "Picture-in-picture when you leave", "", "1")
     Pick(st, "vseek", "Skip amount", listOf("5" to "5 s", "10" to "10 s", "15" to "15 s", "30" to "30 s"), "10")
+    Pick(st, "vdecoder", "Decoder (hardware acceleration)", listOf("auto" to "Automatic", "hw" to "Hardware first", "sw" to "Software first"), "auto")
+    Pick(st, "vresize", "Picture size", listOf("fit" to "Best fit", "zoom" to "Fill screen", "fill" to "Fit width", "stretch" to "Stretch", "r16x9" to "16:9", "r4x3" to "4:3", "r21x9" to "21:9"), "fit")
+    Toggle(st, "vbgaudio", "Keep sound playing when you leave the player", "Like VLC's audio-only background play", "0")
+    SectionHeader("Player buttons")
+    Muted("Choose which buttons appear along the top of the video player. Close, More and Lock are always there.", size = 12.sp)
+    listOf("subs" to "Subtitles", "audio" to "Audio (tracks, delay, sound)", "speed" to "Speed", "size" to "Picture size", "rotate" to "Rotation",
+        "sleep" to "Sleep timer", "ab" to "A-B repeat", "repeat" to "Repeat", "boost" to "Volume boost", "pip" to "Picture-in-picture").forEach { (k, n) ->
+        Toggle(st, "vbtn_$k", n, "", "1")
+    }
+    Toggle(st, "vshot", "Screenshot", "", "1")
+    Toggle(st, "vintro", "Skip intro", "", "1")
     SectionHeader("Subtitles")
     Toggle(st, "subauto", "Turn on subtitles automatically", "", "1")
+    Pick(st, "subenc", "Subtitle text encoding", app.orionmd.omniplay.SubParser.ENCODINGS, "auto")
     Pick(st, "subsize", "Subtitle size", listOf("tiny" to "Tiny", "small" to "Small", "normal" to "Normal", "large" to "Large", "xlarge" to "Extra large", "huge" to "Huge"), "normal")
     Pick(st, "subcolor", "Subtitle colour", listOf("white" to "White", "yellow" to "Yellow", "cyan" to "Cyan", "green" to "Green", "orange" to "Orange"), "white")
     Pick(st, "subbg", "Subtitle background", listOf("shadow" to "Shadow", "outline" to "Outline", "box" to "Box", "window" to "Window"), "shadow")

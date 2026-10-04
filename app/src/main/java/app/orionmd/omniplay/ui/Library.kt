@@ -1,6 +1,7 @@
 package app.orionmd.omniplay.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -169,7 +170,10 @@ fun VideoLibrary(st: AppState, pad: PaddingValues) {
         if (q.isBlank()) v else v.filter { st.vtitle(it).contains(q, true) || it.n.contains(q, true) }
     }
     Column(Modifier.fillMaxSize()) {
+        var stream by remember { mutableStateOf(false) }
+        if (stream) StreamDialog(st) { stream = false }
         TopBar(st, "Video", actions = {
+            IconBtn(Ic.link, { stream = true })
             IconBtn(Ic.download, { st.dialog = Dlg.Confirm("Sync all videos for offline?", "Downloads TMDB details, posters, backdrops, cast, episode info and subtitles (with a Wyzie key) for every video and saves them on the device. Already-saved items are skipped.") { st.syncVideos() } })
             IconBtn(Ic.sync, { st.sync() })
         })
@@ -217,5 +221,35 @@ internal fun TopBar(st: AppState, title: String, actions: @Composable RowScope.(
     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, fontSize = 24.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
         actions()
+    }
+}
+
+/** "Open network stream" (like VLC's): a video URL — MP4/WebM/MKV over http(s), HLS (.m3u8) or DASH (.mpd). */
+@Composable
+private fun StreamDialog(st: AppState, onDone: () -> Unit) {
+    var url by remember { mutableStateOf("") }
+    val recent = remember { try { org.json.JSONArray(st.pref("vstreams", "[]")).let { a -> (0 until a.length()).map { a.getString(it) } } } catch (_: Exception) { emptyList() } }
+    fun play(u: String) {
+        val v = u.trim(); if (!v.startsWith("http://") && !v.startsWith("https://") && !v.startsWith("rtsp://")) { st.say("Enter a link starting with http:// or https://"); return }
+        st.setPref("vstreams", org.json.JSONArray((listOf(v) + recent.filter { it != v }).take(8)).toString())
+        val q = org.json.JSONArray().put(org.json.JSONObject().put("i", app.orionmd.omniplay.idFor(v)).put("t", android.net.Uri.parse(v).lastPathSegment ?: v).put("u", v))
+        try { st.host.launch(android.content.Intent(st.ctx, app.orionmd.omniplay.VideoActivity::class.java).putExtra("queue", q.toString()).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
+        onDone()
+    }
+    androidx.compose.ui.window.Dialog(onDone) {
+        Column(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).background(C.s1).padding(16.dp).widthIn(min = 280.dp)) {
+            Text("Open network stream", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            Muted("A video link: MP4, WebM or MKV over http(s), live HLS (.m3u8) or DASH (.mpd).", Modifier.padding(top = 4.dp), 12.sp)
+            Field(url, { url = it }, "https://…", Modifier.fillMaxWidth().padding(vertical = 10.dp))
+            if (recent.isNotEmpty()) {
+                Muted("Recent", size = 12.sp)
+                recent.forEach { r -> Text(r, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, fontSize = 13.sp, color = C.ac2,
+                    modifier = Modifier.fillMaxWidth().clickable { play(r) }.padding(vertical = 6.dp)) }
+            }
+            Row(Modifier.padding(top = 8.dp)) {
+                Btn("Cancel", onDone, Modifier.weight(1f), kind = BtnKind.Ghost); Spacer(Modifier.width(8.dp))
+                Btn("Play", { play(url) }, Modifier.weight(1f))
+            }
+        }
     }
 }

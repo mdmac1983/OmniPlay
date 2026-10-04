@@ -128,6 +128,7 @@ class HiResSink(
     private var oL = DoubleArray(0); private var oR = DoubleArray(0)
     private var teeRate = 0
     private var lastGain = Dvc.gain
+    private var delayFrames = 0                             // audio inserted (+) / dropped (−) for the audio delay
     private var playing = false
 
     private fun bytesPerSample(e: Int) = when (e) { C.ENCODING_PCM_8BIT -> 1; C.ENCODING_PCM_16BIT -> 2; C.ENCODING_PCM_24BIT -> 3; C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT -> 4; else -> 0 }
@@ -154,8 +155,13 @@ class HiResSink(
         val bits = when (inEnc) { C.ENCODING_PCM_8BIT -> "8-bit"; C.ENCODING_PCM_16BIT -> "16-bit"; C.ENCODING_PCM_24BIT -> "24-bit"; C.ENCODING_PCM_32BIT -> "32-bit"; else -> "32-bit float" }
         Dsp.format = "${inRate / 1000.0} kHz $bits · $inCh ch → " + (if (outRate != inRate) "${outRate / 1000.0} kHz " else "") +
             (if (outFloat) "32-bit float (hi-res output)" else "16-bit dithered (hi-res engine; this device's output is 16-bit)")
-        super.configure(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setPcmEncoding(if (outFloat) C.ENCODING_PCM_FLOAT else C.ENCODING_PCM_16BIT)
-            .setChannelCount(2).setSampleRate(outRate).build(), 0, null)
+        try {
+            super.configure(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setPcmEncoding(if (outFloat) C.ENCODING_PCM_FLOAT else C.ENCODING_PCM_16BIT)
+                .setChannelCount(2).setSampleRate(outRate).build(), 0, null)
+        } catch (e: AudioSink.ConfigurationException) {
+            if (mode >= 1) throw e
+            setMode(1); configure(inputFormat, specifiedBufferSize, outputChannels)
+        }
     }
 
     override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
@@ -166,14 +172,15 @@ class HiResSink(
             if (!buffer.hasRemaining()) return true
             var pts = presentationTimeUs
             val out = convert(buffer) { dropped -> pts += dropped * 1_000_000L / inRate }
+            pts += delayFrames * 1_000_000L / outRate
             if (out != null && out.hasRemaining()) {
                 if (tee != null && outFloat) tee.handleBuffer(out.duplicate().order(ByteOrder.nativeOrder()))
                 if (!super.handleBuffer(out, pts, 1)) { pending = out; pendingPts = pts }
             }
             return true
         } catch (e: AudioSink.InitializationException) {
-            // this device's audio output refused the format: step down to a safer one and try again
-            if (mode >= 3 || lastFormat == null) throw e
+            // this device's audio output refused 32-bit float: try 16-bit; if that fails too, SwitchingSink takes over
+            if (mode >= 1 || lastFormat == null) throw e
             stepDown()
             buffer.position(startPos)          // not used yet — the player hands it over again
             return false
@@ -235,6 +242,21 @@ class HiResSink(
             for (i in 0 until n) { val g = g0 + (g1 - g0) * (i + 1) / n; xL[i] *= g; xR[i] *= g }
             lastGain = g1
         }
+        // audio delay (videos): insert silence to make the sound later, drop sound to make it earlier
+        if (video) {
+            val target = (Dsp.avDelayMs.toLong() * outRate / 1000).toInt()
+            val diff = target - delayFrames
+            if (diff > 0) {
+                val nL = DoubleArray(n + diff); val nR = DoubleArray(n + diff)
+                System.arraycopy(xL, 0, nL, diff, n); System.arraycopy(xR, 0, nR, diff, n)
+                xL = nL; xR = nR; n += diff; delayFrames += diff
+            } else if (diff < 0) {
+                val d = min(-diff, n)
+                if (d < n) { System.arraycopy(xL, d, xL, 0, n - d); System.arraycopy(xR, d, xR, 0, n - d) }
+                n -= d; delayFrames -= d
+            }
+            if (n <= 0) return null
+        }
         // a fresh buffer each time: the inner sink may keep writing from it after accepting it
         if (outFloat) {
             val out = ByteBuffer.allocate(n * 8).order(ByteOrder.nativeOrder())
@@ -262,8 +284,8 @@ class HiResSink(
     override fun pause() { super.pause(); if (playing) { playing = false; Dvc.sinkStopped() } }
     override fun release() { if (playing) { playing = false; Dvc.sinkStopped() }; super.release() }
 
-    override fun flush() { pending = null; trim = 0; rs.reset(); core.reset(); if (tee != null && teeRate > 0) tee.flush(teeRate, 2, C.ENCODING_PCM_FLOAT); super.flush() }
-    override fun reset() { if (playing) { playing = false; Dvc.sinkStopped() }; pending = null; trim = 0; rs.reset(); core.reset(); super.reset() }
+    override fun flush() { pending = null; trim = 0; delayFrames = 0; rs.reset(); core.reset(); if (tee != null && teeRate > 0) tee.flush(teeRate, 2, C.ENCODING_PCM_FLOAT); super.flush() }
+    override fun reset() { if (playing) { playing = false; Dvc.sinkStopped() }; pending = null; trim = 0; delayFrames = 0; rs.reset(); core.reset(); super.reset() }
 
     companion object {
         /** The phone's native output sample rate (usually 48 kHz). */
@@ -286,21 +308,120 @@ class HiResSink(
             if (mode >= 3) Dvc.setEnabled(false)   // no engine volume any more: give the volume back to Android
         }
         /** Start again from the best format (e.g. after turning the hi-res output off and on). */
-        fun resetMode() = setMode(0)
+        fun resetMode() { setMode(0); prefs?.edit()?.remove("err")?.apply() }
+        /** Why this device fell back (shown on the Sound screen). */
+        val lastError get() = prefs?.getString("err", "") ?: ""
+        internal fun noteError(e: Throwable) { prefs?.edit()?.putString("err", (e.javaClass.simpleName + ": " + (e.message ?: "")).take(160))?.apply() }
 
-        /** The audio output for a player: hi-res (default) or ExoPlayer's standard chain with the engine as a processor. */
+        /** The audio output for a player: hi-res (default, with an automatic way back) or the standard chain. */
         fun build(ctx: Context, video: Boolean, tee: TeeAudioProcessor.AudioBufferSink?, enableFloat: Boolean, trackParams: Boolean): AudioSink =
-            if (active) HiResSink(
+            if (active && mode < 3) SwitchingSink(HiResSink(
                 DefaultAudioSink.Builder(ctx).setEnableFloatOutput(true).setEnableAudioTrackPlaybackParams(true).build(),
-                video, nativeRate(ctx), tee)
-            else DefaultAudioSink.Builder(ctx).setEnableFloatOutput(enableFloat).setEnableAudioTrackPlaybackParams(trackParams)
+                video, nativeRate(ctx), tee)) { standard(ctx, video, tee) }
+            else standard(ctx, video, tee)
+
+        /** ExoPlayer's standard 16-bit output with the engine as an audio processor (how 2.1 and earlier played). */
+        fun standard(ctx: Context, video: Boolean, tee: TeeAudioProcessor.AudioBufferSink?): AudioSink =
+            DefaultAudioSink.Builder(ctx).setEnableFloatOutput(false).setEnableAudioTrackPlaybackParams(false)
                 .setAudioProcessors(if (video) Dsp.videoProcessors() else if (tee != null) arrayOf(DspProcessor(), TeeAudioProcessor(tee)) else arrayOf(DspProcessor())).build()
     }
 }
 
+/**
+ * Runs the hi-res output, and if it fails in any way on this device (the output refuses the format, an unexpected
+ * error…), swaps in the standard output on the spot — same song, same position, effects still on — and remembers
+ * that for next time. Everything the player set on the sink (listener, volume, speed, session…) is carried over.
+ */
+@OptIn(UnstableApi::class)
+class SwitchingSink(private var cur: AudioSink, private val makeStandard: () -> AudioSink) : AudioSink {
+    private var switched = false
+    private var listener: AudioSink.Listener? = null
+    private var playerId: androidx.media3.exoplayer.analytics.PlayerId? = null
+    private var clock: androidx.media3.common.util.Clock? = null
+    private var params: androidx.media3.common.PlaybackParameters? = null
+    private var skipSilence: Boolean? = null
+    private var attrs: androidx.media3.common.AudioAttributes? = null
+    private var session: Int? = null
+    private var aux: androidx.media3.common.AuxEffectInfo? = null
+    private var device: android.media.AudioDeviceInfo? = null; private var deviceSet = false
+    private var streamOffset: Long? = null
+    private var tunneling: Boolean? = null
+    private var volume: Float? = null
+    private var fmt: Format? = null; private var size = 0; private var channels: IntArray? = null
+    private var playing = false
+
+    private fun switchOver(e: Throwable) {
+        if (switched) throw e
+        switched = true
+        HiResSink.noteError(e); HiResSink.setMode(3)
+        try { cur.reset(); cur.release() } catch (_: Throwable) {}
+        val s = makeStandard()
+        listener?.let { s.setListener(it) }; playerId?.let { s.setPlayerId(it) }; clock?.let { s.setClock(it) }
+        attrs?.let { s.setAudioAttributes(it) }; session?.let { s.setAudioSessionId(it) }; aux?.let { s.setAuxEffectInfo(it) }
+        if (deviceSet) s.setPreferredDevice(device); streamOffset?.let { s.setOutputStreamOffsetUs(it) }
+        if (tunneling == true) s.enableTunnelingV21(); params?.let { s.setPlaybackParameters(it) }; skipSilence?.let { s.setSkipSilenceEnabled(it) }
+        volume?.let { s.setVolume(it) }
+        cur = s
+        fmt?.let { s.configure(it, size, channels) }
+        if (playing) s.play()
+        Dsp.format = "Standard output (hi-res output isn't supported on this device: ${e.javaClass.simpleName})"
+    }
+
+    override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
+        fmt = inputFormat; size = specifiedBufferSize; channels = outputChannels
+        try { cur.configure(inputFormat, specifiedBufferSize, outputChannels) } catch (e: Exception) { switchOver(e) }
+    }
+    override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
+        val pos = buffer.position()
+        return try { cur.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount) }
+        catch (e: Exception) { switchOver(e); buffer.position(pos); false }   // the player hands the same buffer over again
+    }
+    override fun playToEndOfStream() { try { cur.playToEndOfStream() } catch (e: Exception) { switchOver(e); cur.playToEndOfStream() } }
+    override fun play() { playing = true; try { cur.play() } catch (e: Exception) { switchOver(e) } }
+    override fun pause() { playing = false; cur.pause() }
+
+    override fun setListener(listener: AudioSink.Listener) { this.listener = listener; cur.setListener(listener) }
+    override fun setPlayerId(playerId: androidx.media3.exoplayer.analytics.PlayerId?) { this.playerId = playerId; cur.setPlayerId(playerId) }
+    override fun setClock(clock: androidx.media3.common.util.Clock) { this.clock = clock; cur.setClock(clock) }
+    override fun supportsFormat(format: Format) = cur.supportsFormat(format)
+    override fun getFormatSupport(format: Format) = cur.getFormatSupport(format)
+    override fun getFormatOffloadSupport(format: Format): androidx.media3.exoplayer.audio.AudioOffloadSupport = cur.getFormatOffloadSupport(format)
+    override fun getCurrentPositionUs(sourceEnded: Boolean) = cur.getCurrentPositionUs(sourceEnded)
+    override fun handleDiscontinuity() = cur.handleDiscontinuity()
+    override fun isEnded() = cur.isEnded()
+    override fun hasPendingData() = cur.hasPendingData()
+    override fun setPlaybackParameters(playbackParameters: androidx.media3.common.PlaybackParameters) { params = playbackParameters; cur.setPlaybackParameters(playbackParameters) }
+    override fun getPlaybackParameters() = cur.playbackParameters
+    override fun setSkipSilenceEnabled(skipSilenceEnabled: Boolean) { skipSilence = skipSilenceEnabled; cur.setSkipSilenceEnabled(skipSilenceEnabled) }
+    override fun getSkipSilenceEnabled() = cur.skipSilenceEnabled
+    override fun setAudioAttributes(audioAttributes: androidx.media3.common.AudioAttributes) { attrs = audioAttributes; cur.setAudioAttributes(audioAttributes) }
+    override fun getAudioAttributes(): androidx.media3.common.AudioAttributes? = cur.audioAttributes
+    override fun setAudioSessionId(audioSessionId: Int) { session = audioSessionId; cur.setAudioSessionId(audioSessionId) }
+    override fun setAuxEffectInfo(auxEffectInfo: androidx.media3.common.AuxEffectInfo) { aux = auxEffectInfo; cur.setAuxEffectInfo(auxEffectInfo) }
+    override fun setPreferredDevice(audioDeviceInfo: android.media.AudioDeviceInfo?) { device = audioDeviceInfo; deviceSet = true; cur.setPreferredDevice(audioDeviceInfo) }
+    override fun setOutputStreamOffsetUs(outputStreamOffsetUs: Long) { streamOffset = outputStreamOffsetUs; cur.setOutputStreamOffsetUs(outputStreamOffsetUs) }
+    override fun enableTunnelingV21() { tunneling = true; cur.enableTunnelingV21() }
+    override fun disableTunneling() { tunneling = false; cur.disableTunneling() }
+    override fun setOffloadMode(offloadMode: Int) = cur.setOffloadMode(offloadMode)
+    override fun setOffloadDelayPadding(delayInFrames: Int, paddingInFrames: Int) = cur.setOffloadDelayPadding(delayInFrames, paddingInFrames)
+    override fun setVolume(volume: Float) { this.volume = volume; cur.setVolume(volume) }
+    override fun flush() = cur.flush()
+    override fun reset() = cur.reset()
+    override fun release() = cur.release()
+}
+
 /** Renderers using OmniPlay's audio output ([HiResSink.build]). */
 @OptIn(UnstableApi::class)
-class OmniRenderers(ctx: Context, private val video: Boolean, private val tee: TeeAudioProcessor.AudioBufferSink? = null) : DefaultRenderersFactory(ctx) {
+class OmniRenderers(ctx: Context, private val video: Boolean, private val tee: TeeAudioProcessor.AudioBufferSink? = null, decoder: String = "auto") : DefaultRenderersFactory(ctx) {
+    init {
+        // like VLC's hardware-acceleration setting: prefer the phone's hardware decoders, or software ones (slower but
+        // they play some files hardware chokes on). Either way, the other kind is still tried if the first fails.
+        setEnableDecoderFallback(true)
+        if (decoder != "auto") setMediaCodecSelector { mime, secure, tunneling ->
+            androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getDecoderInfos(mime, secure, tunneling)
+                .sortedBy { if (decoder == "sw") (if (it.softwareOnly) 0 else 1) else (if (it.hardwareAccelerated) 0 else 1) }
+        }
+    }
     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
         HiResSink.build(context, video, tee, enableFloatOutput, enableAudioTrackPlaybackParams)
 }
