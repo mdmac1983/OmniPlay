@@ -47,12 +47,15 @@ import androidx.compose.ui.unit.sp
 import app.orionmd.omniplay.AppState
 import app.orionmd.omniplay.Dlg
 import app.orionmd.omniplay.Dsp
+import app.orionmd.omniplay.HiResSink
 import app.orionmd.omniplay.DspCfg
 import app.orionmd.omniplay.Fx
 import app.orionmd.omniplay.Headphones
+import app.orionmd.omniplay.Filt
 import app.orionmd.omniplay.Profiles
 import app.orionmd.omniplay.Sound
 import kotlin.math.ln
+import kotlin.math.exp
 import kotlin.math.pow
 
 /**
@@ -94,7 +97,7 @@ fun SoundScreen(st: AppState) {
                         .padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                         Text(if (held) "Original sound (effects off) — let go to hear the effects" else "Hold to compare with the original sound", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (held) Color.Black else C.tx)
                     }
-                    Muted("Effects apply to the music player (a second or so after a change). Headphone corrections are made for that headphone — on the tablet's speaker they mostly change the balance.", Modifier.padding(top = 8.dp), 11.sp)
+                    Muted("One sound engine for music and videos (changes are heard within a second). Headphone corrections are made for that headphone — on the tablet's speaker they mostly change the balance.", Modifier.padding(top = 8.dp), 11.sp)
                 }
             }
             item {
@@ -127,14 +130,31 @@ fun SoundScreen(st: AppState) {
 
                     // ---------- equaliser ----------
                     SectionHeader("Equaliser")
-                    Curve(c, Modifier.fillMaxWidth().height(110.dp))
-                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        DspCfg.PRESETS.forEach { (n, l) ->
-                            val on = c.eq == l
-                            Text(n, fontSize = 13.sp, color = if (on) Color.Black else C.tx, modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (on) C.ac else C.s2).clickable { set(c.copy(eq = l)) }.padding(horizontal = 12.dp, vertical = 6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                        listOf(10 to "10 bands", 31 to "31 bands", 0 to "Parametric").forEach { (k, n) ->
+                            Text(n, fontSize = 13.sp, color = if (c.bands == k) Color.Black else C.tx, modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (c.bands == k) C.ac else C.s2)
+                                .clickable { set(when {
+                                    k == 31 && c.eq31.all { it == 0f } -> c.copy(bands = 31, eq31 = DspCfg.to31(c.eq))
+                                    k == 0 && c.peq.isEmpty() -> c.copy(bands = 0, peq = DspCfg.PEQ_START)
+                                    else -> c.copy(bands = k)
+                                }) }.padding(horizontal = 14.dp, vertical = 6.dp))
                         }
                     }
-                    DspCfg.FREQS.forEachIndexed { i, hz ->
+                    Curve(c, Modifier.fillMaxWidth().height(110.dp))
+                    if (c.bands == 0) ParametricEq(c) { set(it) }
+                    else Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DspCfg.PRESETS.forEach { (n, l) ->
+                            val on = if (c.bands == 31) c.eq31 == DspCfg.to31(l) else c.eq == l
+                            Text(n, fontSize = 13.sp, color = if (on) Color.Black else C.tx, modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (on) C.ac else C.s2)
+                                .clickable { set(if (c.bands == 31) c.copy(eq31 = DspCfg.to31(l)) else c.copy(eq = l)) }.padding(horizontal = 12.dp, vertical = 6.dp))
+                        }
+                    }
+                    if (c.bands == 31) DspCfg.FREQS31.forEachIndexed { i, hz ->
+                        Knob(if (hz >= 1000) "${"%.3g".format(hz / 1000).trimEnd('0').trimEnd('.')}k" else "${hz.toInt().takeIf { hz % 1.0 == 0.0 } ?: hz}", c.eq31[i], -12f..12f, { "%+.1f dB".format(Math.round(it * 2) / 2f) }, labelW = 44) { v ->
+                            set(c.copy(eq31 = c.eq31.toMutableList().also { it[i] = Math.round(v * 2) / 2f }))
+                        }
+                    }
+                    else if (c.bands == 10) DspCfg.FREQS.forEachIndexed { i, hz ->
                         Knob(if (hz >= 1000) "${hz / 1000}k" else "$hz", c.eq[i], -12f..12f, { "%+.1f dB".format(Math.round(it * 2) / 2f) }, labelW = 44) { v -> set(c.copy(eq = c.eq.toMutableList().also { it[i] = Math.round(v * 2) / 2f })) }
                     }
 
@@ -144,6 +164,7 @@ fun SoundScreen(st: AppState) {
                     Knob("Surround (3D)", c.surround, 0f..1f, ::pct) { set(c.copy(surround = it)) }
                     Knob("Dialogue / vocals", c.vocal, 0f..8f, ::plusDb) { set(c.copy(vocal = it)) }
                     Knob("Crossfeed", c.crossfeed, 0f..1f, ::pct) { set(c.copy(crossfeed = it)) }
+                    Knob("Balance", c.balance, -1f..1f, { when { it < -.02f -> "L ${(-it * 100).toInt()}%"; it > .02f -> "R ${(it * 100).toInt()}%"; else -> "centre" } }) { set(c.copy(balance = if (kotlin.math.abs(it) < .03f) 0f else it)) }
                     Muted("Width spreads the stereo image (Dolby-style stereo expand); surround adds a virtual room around you; crossfeed makes headphones sound less \"inside your head\".", size = 12.sp)
 
                     // ---------- effects ----------
@@ -160,6 +181,26 @@ fun SoundScreen(st: AppState) {
                     Knob("Output", c.gain, -6f..6f, { "%+.1f dB".format(Math.round(it * 2) / 2f) }) { set(c.copy(gain = Math.round(it * 2) / 2f)) }
                     Knob("Volume boost", boost, 0f..1500f, { if (it < 50) "off" else "+%.1f dB".format(it / 100f) }, done = { st.setPref("boost", boost.toInt().toString()); Fx.apply(st.store); Profiles.saveCurrent(st) }) { boost = it }
                     Muted("Leveler evens out loud and quiet songs; volume boost makes everything louder (turn it down if it distorts). A soft limiter keeps the sound from clipping.", size = 12.sp)
+
+                    // ---------- loudness / ReplayGain ----------
+                    SectionHeader("ReplayGain (music)")
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("off" to "Off", "track" to "Track", "album" to "Album").forEach { (k, n) ->
+                            Text(n, fontSize = 13.sp, color = if (c.rg == k) Color.Black else C.tx, modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (c.rg == k) C.ac else C.s2).clickable { set(c.copy(rg = k)) }.padding(horizontal = 14.dp, vertical = 6.dp))
+                        }
+                    }
+                    if (c.rg != "off") Knob("Preamp", c.rgPre, -6f..12f, { "%+.1f dB".format(Math.round(it * 2) / 2f) }) { set(c.copy(rgPre = Math.round(it * 2) / 2f)) }
+                    Muted("Plays every song at the same loudness using the ReplayGain tags in your files (add them with a tagger such as foobar2000 or MusicBrainz Picard). Album keeps the loudness differences within an album. Songs without tags are left as they are." +
+                        (if (c.rg != "off") Dsp.rgTrack.let { if (it.isNaN()) " Playing now: no ReplayGain tags." else " Playing now: track %+.1f dB".format(it) + Dsp.rgAlbum.let { a -> if (a.isNaN()) "." else ", album %+.1f dB.".format(a) } } else ""), size = 12.sp)
+
+                    // ---------- output ----------
+                    SectionHeader("Output (hi-res engine)")
+                    ToggleRow("Hi-res output", "OmniPlay's own audio output, like Poweramp's: the decoder's full 24-bit / float samples go straight into the effects (not cut to 16-bit first), everything is processed in 64-bit and sent to the speaker or DAC as 32-bit float. Turn off to use ExoPlayer's standard output. Takes effect after restarting OmniPlay.", c.hiRes) { set(c.copy(hiRes = it)) }
+                    if (c.hiRes) ToggleRow("Own resampler (skip Android's)", "Converts songs to this phone's native rate (${HiResSink.nativeRate(st.ctx) / 1000.0} kHz) with a high-quality filter, so Android's mixer doesn't resample them again. Applies from the next song.", c.resample) { set(c.copy(resample = it)) }
+
+                    // ---------- videos ----------
+                    SectionHeader("Videos")
+                    ToggleRow("Use these effects for videos", "Equaliser, headphone correction, dialogue enhancer, surround and the rest also apply in the video player and Gallery. 5.1 / 7.1 film sound is folded down to stereo so dialogue and effects work on it (applies from the next video).", c.video) { set(c.copy(video = it)) }
 
                     // ---------- display ----------
                     SectionHeader("Player look (this profile)")
@@ -192,8 +233,8 @@ private fun EngineStatus(on: Boolean) {
     androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(700); tick++ } }
     tick
     val t = when {
-        !Dsp.running -> "Engine waiting — start a song"
-        on -> "Engine running · " + Dsp.format + " · ${"%.1f".format(Dsp.processed / 176_400.0 / 60)} min processed"
+        !Dsp.running -> "Engine waiting — start a song or a video"
+        on -> "Engine running (${Dsp.source}) · " + Dsp.format + " · ${"%.1f".format(Dsp.processed / 176_400.0 / 60)} min processed"
         else -> "Engine running · " + Dsp.format + " · passing the sound through"
     }
     Muted(t, size = 12.sp)
@@ -237,5 +278,48 @@ private fun Curve(c: DspCfg, modifier: Modifier) {
         val p = Path()
         db.forEachIndexed { i, d -> val x = i / 80f * w; if (i == 0) p.moveTo(x, y(d)) else p.lineTo(x, y(d)) }
         drawPath(p, if (c.on) C.ac else C.mu, style = Stroke(3f))
+        // parametric: a numbered dot at each filter
+        if (c.bands == 0) c.peq.forEach { f ->
+            val x = (ln(f.f / 20.0) / ln(1000.0) * w).toFloat().coerceIn(6f, w - 6f)
+            val yy = if (f.type == 'h' || f.type == 'l') y(0.0) else y(f.g.toDouble())
+            drawCircle(C.warn, 7f, Offset(x, yy))
+        }
+    }
+}
+
+/** Parametric equaliser: up to 12 filters, each with its type, frequency, gain and width (Q). */
+@Composable
+private fun ParametricEq(c: DspCfg, set: (DspCfg) -> Unit) {
+    fun edit(i: Int, f: Filt) = set(c.copy(peq = c.peq.toMutableList().also { it[i] = f }))
+    // log scales: frequency 20 Hz–20 kHz, Q 0.1–10
+    fun fToPos(f: Float) = (ln(f / 20.0) / ln(1000.0)).toFloat()
+    fun posToF(p: Float) = (20.0 * 1000.0.pow(p.toDouble())).toFloat().let { if (it >= 1000) Math.round(it / 10f) * 10f else Math.round(it).toFloat() }
+    fun qToPos(q: Float) = ((ln(q.toDouble()) - ln(.1)) / (ln(10.0) - ln(.1))).toFloat()
+    fun posToQ(p: Float) = (Math.round(exp(ln(.1) + p * (ln(10.0) - ln(.1))) * 100) / 100.0).toFloat()
+    Muted("Shape the sound exactly: each filter boosts or cuts around its frequency. Q sets how wide (low Q = broad, high Q = narrow).", Modifier.padding(vertical = 6.dp), 12.sp)
+    c.peq.forEachIndexed { i, f ->
+        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).background(C.s2).padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${i + 1}", fontWeight = FontWeight.Bold, color = C.warn, modifier = Modifier.width(20.dp))
+                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    DspCfg.PEQ_TYPES.forEach { (t, n) ->
+                        Text(n, fontSize = 12.sp, color = if (f.type == t) Color.Black else C.tx, modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(if (f.type == t) C.ac else C.s3)
+                            .clickable { edit(i, f.copy(type = t, q = if (t == 'P') f.q else .7f)) }.padding(horizontal = 9.dp, vertical = 4.dp))
+                    }
+                }
+                IconBtn(Ic.close, { set(c.copy(peq = c.peq.filterIndexed { j, _ -> j != i })) }, size = 32.dp, iconSize = 18.dp)
+            }
+            Knob("Frequency", fToPos(f.f), 0f..1f, { p -> posToF(p).let { if (it >= 1000) "%.2f kHz".format(it / 1000) else "${it.toInt()} Hz" } }) { edit(i, f.copy(f = posToF(it))) }
+            if (f.type != 'h' && f.type != 'l') Knob("Gain", f.g, -15f..15f, { "%+.1f dB".format(Math.round(it * 2) / 2f) }) { edit(i, f.copy(g = Math.round(it * 2) / 2f)) }
+            Knob("Q (width)", qToPos(f.q), 0f..1f, { "%.2f".format(posToQ(it)) }) { edit(i, f.copy(q = posToQ(it))) }
+        }
+    }
+    Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (c.peq.size < 12) Btn("Add filter", { set(c.copy(peq = c.peq + Filt('P', 1000f, 0f, 1f))) }, small = true, kind = BtnKind.Ghost, icon = Ic.add)
+        Headphones.of(c.corr)?.let { h ->
+            // start from the headphone correction and fine-tune it (the correction itself is switched off so it isn't applied twice)
+            Btn("Edit ${h.name} correction here", { set(c.copy(peq = h.filters.take(12).map { it.copy(g = it.g * c.corrAmt) }, corr = "")) }, small = true, kind = BtnKind.Ghost)
+        }
+        Btn("Reset", { set(c.copy(peq = DspCfg.PEQ_START)) }, small = true, kind = BtnKind.Ghost)
     }
 }

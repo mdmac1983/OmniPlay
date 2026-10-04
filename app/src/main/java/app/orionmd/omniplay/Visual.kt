@@ -160,10 +160,6 @@ object Visual : TeeAudioProcessor.AudioBufferSink {
         fLevel[i]
     }
 
-    /** Renderers for the music player with the visualizer tee in the audio chain. */
-    class Renderers(ctx: Context) : DefaultRenderersFactory(ctx) {
-        override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
-            DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput).setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                .setAudioProcessors(arrayOf(Dsp, TeeAudioProcessor(Visual))).build()
-    }
+    /** Renderers for the music player: OmniPlay's audio output with the visualizer fed from it. */
+    fun renderers(ctx: Context) = OmniRenderers(ctx, video = false, tee = Visual)
 }

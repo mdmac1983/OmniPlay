@@ -456,7 +456,7 @@ fun GViewerScreen(st: AppState, p: Page.GViewer) {
 private fun GalleryVideo(x: GItem, onChrome: (Boolean) -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val player = remember(x.uri) {
-        androidx.media3.exoplayer.ExoPlayer.Builder(ctx)
+        androidx.media3.exoplayer.ExoPlayer.Builder(ctx, OmniRenderers(ctx, video = true))
             .setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().setUsage(androidx.media3.common.C.USAGE_MEDIA)
                 .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE).build(), /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true).build().apply {

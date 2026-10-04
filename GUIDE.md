@@ -68,10 +68,21 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
 - **Playback:** queue, shuffle, repeat (off / all / one), mini player, full Now Playing screen, lock-screen and
   notification controls, keeps playing in the background, pauses when headphones are unplugged.
 - **Sleep timer:** 5 min – 2 h, or "end of this song"; fades out gently.
-- **Sound engine:** 10-band equaliser with 18 presets, headphone correction for specific models, bass, treble, vocal
-  boost, stereo width, virtual surround, crossfeed, reverb (room / hall / stadium), volume leveller, volume boost and a
-  soft limiter. **Sound profiles** (Speaker, Headphones, Earbuds, Bluetooth, Custom) can switch automatically when you
-  plug in or connect Bluetooth.
+- **Sound engine** (Settings → Sound, or the tune icon in the player) — one engine for **music and videos**:
+  - **Hi-res output** (on by default), like Poweramp's: the decoder's full 24-bit / float samples go straight into the
+    effects instead of being cut to 16-bit, everything is processed in 64-bit, and the result goes to the speaker/DAC
+    as 32-bit float. Its **own resampler** converts songs to the phone's native rate (usually 48 kHz) with a
+    high-quality filter, so Android's mixer doesn't resample again. 5.1 / 7.1 film sound is folded down to stereo so
+    every effect works on it. Gapless: the encoder delay at the start of MP3/AAC tracks is trimmed.
+  - **Equaliser:** 10 bands (18 presets), 31 bands (third-octave, presets too) or **Parametric** — up to 12 filters
+    (peak, low/high shelf, low/high cut) with frequency, gain and Q; start from your headphone's correction and
+    fine-tune it.
+  - **Headphone correction** for specific models, bass, treble, dialogue/vocal enhancer, stereo width, virtual
+    surround, crossfeed, **balance**, reverb (room / hall / stadium), volume leveller, output trim, volume boost and a
+    soft limiter.
+  - **ReplayGain** (off / track / album, with preamp) plays tagged songs at the same loudness.
+  - **Sound profiles** (Speaker, Headphones, Earbuds, Bluetooth, Custom) can switch automatically when you plug in or
+    connect Bluetooth. Hold "compare" to hear the original.
 - **Visualizers:** dozens of styles (bars, waves, circular, digital gauges, dashboards) driven by the real audio; full
   screen, behind lyrics, or mini bars.
 - **Skins:** several looks for the Now Playing screen.

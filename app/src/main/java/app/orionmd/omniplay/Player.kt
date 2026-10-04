@@ -52,6 +52,11 @@ object Player {
             }
         }
         override fun onIsPlayingChanged(isPlaying: Boolean) { app?.let { PlaybackService.refresh(it) } }
+        // ReplayGain: read the new song's loudness tags for the sound engine
+        override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+            val f = tracks.groups.firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }?.let { g -> (0 until g.length).firstOrNull { g.isTrackSelected(it) }?.let { g.getTrackFormat(it) } }
+            Dsp.readReplayGain(f?.metadata)
+        }
         override fun onPlayerError(e: PlaybackException) {
             preparing = false
             error = if (e.errorCode in 2000..2999) "Can't reach the file — check your connection" else "Can't play this file (${e.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')})"
@@ -59,7 +64,7 @@ object Player {
         }
     }
 
-    private fun exo(ctx: Context): ExoPlayer = exo ?: ExoPlayer.Builder(ctx, Visual.Renderers(ctx))
+    private fun exo(ctx: Context): ExoPlayer = exo ?: ExoPlayer.Builder(ctx, Visual.renderers(ctx))
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
         .setHandleAudioBecomingNoisy(true)
         .setWakeMode(C.WAKE_MODE_NETWORK)

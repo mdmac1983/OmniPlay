@@ -227,7 +227,7 @@ class VideoActivity : Activity() {
     }
 
     private fun start(item: MediaItem) {
-        val p = ExoPlayer.Builder(this).setSeekBackIncrementMs(seekStep).setSeekForwardIncrementMs(seekStep).build()
+        val p = ExoPlayer.Builder(this, OmniRenderers(this, video = true)).setSeekBackIncrementMs(seekStep).setSeekForwardIncrementMs(seekStep).build()
         player = p; view.player = p
         try { val sid = androidx.media3.common.util.Util.generateAudioSessionIdV21(this); p.audioSessionId = sid; boost = android.media.audiofx.LoudnessEnhancer(sid); applyBoost() } catch (_: Throwable) { boost = null }
         store.getPref("vspeed", "1").toFloatOrNull()?.takeIf { abs(it - 1f) > .01f }?.let { p.playbackParameters = PlaybackParameters(it); speedBtn.text = fmtSpeed(it) }
