@@ -127,6 +127,8 @@ class HiResSink(
     private var L = DoubleArray(0); private var R = DoubleArray(0)
     private var oL = DoubleArray(0); private var oR = DoubleArray(0)
     private var teeRate = 0
+    private var lastGain = Dvc.gain
+    private var playing = false
 
     private fun bytesPerSample(e: Int) = when (e) { C.ENCODING_PCM_8BIT -> 1; C.ENCODING_PCM_16BIT -> 2; C.ENCODING_PCM_24BIT -> 3; C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT -> 4; else -> 0 }
 
@@ -201,6 +203,13 @@ class HiResSink(
             xL = oL; xR = oR
         }
         if (core.active()) { Dsp.processed += frames.toLong() * stride; core.process(xL, xR, n, true) }
+        // Direct Volume Control: the volume is applied here, in 64-bit (ramped across the buffer so changes don't click)
+        val g1 = Dvc.gain
+        if (g1 != 1.0 || lastGain != 1.0) {
+            val g0 = lastGain
+            for (i in 0 until n) { val g = g0 + (g1 - g0) * (i + 1) / n; xL[i] *= g; xR[i] *= g }
+            lastGain = g1
+        }
         // a fresh buffer each time: the inner sink may keep writing from it after accepting it
         val out = ByteBuffer.allocate(n * 8).order(ByteOrder.nativeOrder())
         for (i in 0 until n) { out.putFloat(xL[i].toFloat()); out.putFloat(xR[i].toFloat()) }
@@ -214,8 +223,13 @@ class HiResSink(
     }
     override fun isEnded() = pending == null && super.isEnded()
     override fun hasPendingData() = pending != null || super.hasPendingData()
+    // DVC needs to know when Media Hub is actually playing (system volume goes back down when it isn't)
+    override fun play() { super.play(); if (!playing) { playing = true; Dvc.sinkPlaying() } }
+    override fun pause() { super.pause(); if (playing) { playing = false; Dvc.sinkStopped() } }
+    override fun release() { if (playing) { playing = false; Dvc.sinkStopped() }; super.release() }
+
     override fun flush() { pending = null; trim = 0; rs.reset(); core.reset(); if (tee != null && teeRate > 0) tee.flush(teeRate, 2, C.ENCODING_PCM_FLOAT); super.flush() }
-    override fun reset() { pending = null; trim = 0; rs.reset(); core.reset(); super.reset() }
+    override fun reset() { if (playing) { playing = false; Dvc.sinkStopped() }; pending = null; trim = 0; rs.reset(); core.reset(); super.reset() }
 
     companion object {
         /** The phone's native output sample rate (usually 48 kHz). */
@@ -223,9 +237,12 @@ class HiResSink(
             (ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager).getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)?.toIntOrNull() ?: 48000
         } catch (_: Exception) { 48000 }
 
+        /** Whether this run of the app uses the hi-res output — fixed at start-up (the setting applies after a restart). */
+        @Volatile var active = true
+
         /** The audio output for a player: hi-res (default) or ExoPlayer's standard chain with the engine as a processor. */
         fun build(ctx: Context, video: Boolean, tee: TeeAudioProcessor.AudioBufferSink?, enableFloat: Boolean, trackParams: Boolean): AudioSink =
-            if (Dsp.cfg.hiRes) HiResSink(
+            if (active) HiResSink(
                 DefaultAudioSink.Builder(ctx).setEnableFloatOutput(true).setEnableAudioTrackPlaybackParams(true).build(),
                 video, nativeRate(ctx), tee)
             else DefaultAudioSink.Builder(ctx).setEnableFloatOutput(enableFloat).setEnableAudioTrackPlaybackParams(trackParams)

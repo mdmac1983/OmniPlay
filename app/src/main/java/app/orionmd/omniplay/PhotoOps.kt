@@ -103,14 +103,14 @@ object PhotoOps {
     fun save(ctx: Context, name: String, mime: String, sub: String = "", write: (OutputStream) -> Unit): Uri? {
         val cv = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name); put(MediaStore.MediaColumns.MIME_TYPE, mime)
-            if (Build.VERSION.SDK_INT >= 29) put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/OmniPlay" + (if (sub.isNotEmpty()) "/$sub" else ""))
+            if (Build.VERSION.SDK_INT >= 29) put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/Media Hub" + (if (sub.isNotEmpty()) "/$sub" else ""))
         }
         val uri = ctx.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv) ?: return null
         ctx.contentResolver.openOutputStream(uri)?.use(write) ?: return null
         return uri
     }
     fun stamp() = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-    fun saveJpeg(ctx: Context, b: Bitmap, prefix: String = "OmniPlay") = save(ctx, "${prefix}_${stamp()}.jpg", "image/jpeg") { b.compress(Bitmap.CompressFormat.JPEG, 94, it) }
+    fun saveJpeg(ctx: Context, b: Bitmap, prefix: String = "Media Hub") = save(ctx, "${prefix}_${stamp()}.jpg", "image/jpeg") { b.compress(Bitmap.CompressFormat.JPEG, 94, it) }
     fun savePng(ctx: Context, b: Bitmap, prefix: String, sub: String = "") = save(ctx, "${prefix}_${stamp()}.png", "image/png", sub) { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
 
     /** which: 1 = home, 2 = lock, 3 = both. */

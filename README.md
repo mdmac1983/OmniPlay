@@ -1,4 +1,4 @@
-# OmniPlay (app.orionmd.omniplay)
+# Media Hub (app.orionmd.omniplay)
 
 A standalone, offline-first **hybrid music & video player** by OrionMD — the music and video engines from the
 Media Library app, rebuilt as their own app with first-class cloud support.
@@ -7,7 +7,7 @@ See **GUIDE.md** for the full user guide and **FEATURES.md** for the feature lis
 
 ## Build & release
 This is a **private** repo and every push builds a **signed release APK** (the signing keystore is committed in
-`keystore/`). GitHub Actions bumps the version, tags `vX.Y`, and publishes `OmniPlay-vX.Y.apk` under **Releases** —
+`keystore/`). GitHub Actions bumps the version, tags `vX.Y`, and publishes `MediaHub-vX.Y.apk` under **Releases** —
 install it straight on your phone; it updates over the previous version.
 
 ## First run
@@ -25,7 +25,7 @@ Connect in **Settings → Cloud accounts**:
   (Nextcloud, ownCloud, a NAS) works directly.
 
 ## Activation (OrionMD standard gate v4)
-OmniPlay uses the shared OrionMD activation backend (Google Sheet + Apps Script, same deployment as Launcher and
+Media Hub uses the shared OrionMD activation backend (Google Sheet + Apps Script, same deployment as Launcher and
 Digital Wallet). See `Activation.kt`.
 - **Trial:** 14 days, starts automatically on first launch.
 - **Keys:** from the shared key pool, sold at buymeacoffee.com/orionmd. A key is claimed by the first app + device that

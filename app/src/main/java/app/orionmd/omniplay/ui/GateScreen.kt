@@ -61,7 +61,7 @@ fun GateScreen(st: AppState, mode: String, onPass: () -> Unit) {
         }
 
         Text("Your free trial has ended", fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-        Muted("Thanks for trying OmniPlay! Enter an activation key to keep using it, or buy one. Your library, playlists and downloads are kept and come back as soon as you activate.",
+        Muted("Thanks for trying Media Hub! Enter an activation key to keep using it, or buy one. Your library, playlists and downloads are kept and come back as soon as you activate.",
             Modifier.padding(vertical = 10.dp), 13.sp)
         Field(key, { key = it; msg = null }, "Activation key", Modifier.fillMaxWidth())
         msg?.let { Text(it, color = if (it.startsWith("Activated") || it.startsWith("No internet")) C.ac2 else C.dangerTx, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }

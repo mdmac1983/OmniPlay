@@ -1,11 +1,11 @@
-# OmniPlay — User Guide
+# Media Hub — User Guide
 
-**OmniPlay** by OrionMD is a standalone, **offline-first hybrid music and video player** for Android. It plays everything on
+**Media Hub** by OrionMD is a standalone, **offline-first hybrid music and video player** for Android. It plays everything on
 your phone, in folders you choose, and in your cloud storage — and can download album art, lyrics, movie info and
 subtitles so your library looks complete even with no internet.
 
 - **App ID:** `app.orionmd.omniplay` · Android 8.0+ (API 26)
-- **Get it:** GitHub → *Releases* → `OmniPlay-vX.Y.apk` (each update installs over the last one and keeps your data)
+- **Get it:** GitHub → *Releases* → `MediaHub-vX.Y.apk` (each update installs over the last one and keeps your data)
 
 ---
 
@@ -26,7 +26,7 @@ subtitles so your library looks complete even with no internet.
 ---
 
 ## 1. Getting started
-1. Install the APK. On first launch you'll see the OmniPlay splash, then the welcome screen.
+1. Install the APK. On first launch you'll see the Media Hub splash, then the welcome screen.
 2. Tap **Start 14-day free trial** (or enter an activation key).
 3. Allow access to your music and videos when asked. **This device** is added automatically — your songs and videos
    appear in the **Music** and **Video** tabs.
@@ -80,6 +80,10 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
   - **Headphone correction** for specific models, bass, treble, dialogue/vocal enhancer, stereo width, virtual
     surround, crossfeed, **balance**, reverb (room / hall / stadium), volume leveller, output trim, volume boost and a
     soft limiter.
+  - **Direct volume control (DVC)**, like Poweramp's: Android's media volume goes to maximum and Media Hub sets the
+    volume itself inside its 64-bit engine, so quiet listening keeps full detail. Volume keys and the video volume swipe
+    control Media Hub while it plays (in the background too). When nothing is playing, the system volume returns to the
+    same loudness so other apps aren't loud. Needs the hi-res output.
   - **ReplayGain** (off / track / album, with preamp) plays tagged songs at the same loudness.
   - **Sound profiles** (Speaker, Headphones, Earbuds, Bluetooth, Custom) can switch automatically when you plug in or
     connect Bluetooth. Hold "compare" to hear the original.
@@ -127,7 +131,7 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
 - **Editor** (always saves a copy): crop with aspect presets, rotate, flip, brightness / contrast / saturation / warmth,
   10 filters, undo, and **AI Eraser** — paint over people, objects or text and tap **Erase**; an AI model (MI-GAN) rebuilds the background. The first time, tap **Get AI Eraser** to download the model once (~28 MB, internet needed); after that it runs fully offline on the phone. Needs a phone with 2 GB+ memory (not Android Go); on smaller phones only **Basic** is offered. **Basic** is a quick non-AI fill for small spots.
 - **Stickers:** press and hold on a photo — the main subject is cut out on your phone (Google ML Kit) and saved as a
-  transparent sticker in Pictures/OmniPlay/Stickers.
+  transparent sticker in Pictures/Media Hub/Stickers.
 - **Videos** play right in the viewer (seek bar, pause); **Full player** opens the video player with subtitles.
 - **Folders:** tap the folder icon in Gallery to tick which phone folders appear (e.g. hide WhatsApp or Screenshots);
   or open a folder's menu → *Hide this folder from Gallery*. Nothing is moved or deleted.
@@ -135,13 +139,13 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
   photos or part of a video; frames, speed, size), **Long exposure** (blend a video or burst into one shot),
   **Movie & Reel** (join photos and video clips: trim, reorder, fade transitions, slow zoom on photos, title,
   captions, background music from your library — tap ▶ to preview songs and the chosen start point — with volume controls; Reel 9:16, Movie 16:9, Square or Portrait 4:5;
-  saved to Movies/OmniPlay — made fully on the phone, no internet).
+  saved to Movies/Media Hub — made fully on the phone, no internet).
 - **Trash:** deleted items wait 30 days in Android's trash (Android 11+) — restore or delete for good any time.
 
 ---
 
 ## 7. Offline: Sync all & downloads
-OmniPlay is built to work without internet. Two kinds of "offline":
+Media Hub is built to work without internet. Two kinds of "offline":
 
 **Your media** — songs and videos on the phone or in a picked folder always play offline. Cloud songs/videos and podcast
 episodes play offline once **downloaded** (Download button on songs, albums, videos and episodes; manage them under
@@ -234,7 +238,7 @@ and starts matching your videos straight away.
 - Activation sends only the key, this app's device ID and the app name to the OrionMD activation server.
 - Online look-ups send only what's needed to find a match (artist/title or movie name) to Deezer, iTunes, LRCLIB,
   TMDB, Podcast Index or Wyzie.
-- OmniPlay is proprietary and release-signed by OrionMD. It checks its own signature at launch; a modified or re-signed
+- Media Hub is proprietary and release-signed by OrionMD. It checks its own signature at launch; a modified or re-signed
   copy locks itself behind the owner password.
 
 ---

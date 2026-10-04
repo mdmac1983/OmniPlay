@@ -66,7 +66,7 @@ object CloudProxy {
             if (path.startsWith("/oauth")) {
                 val q = path.substringAfter('?', "")
                 lastOAuth = q.split('&').mapNotNull { val i = it.indexOf('='); if (i < 0) null else URLDecoder.decode(it.substring(0, i), "UTF-8") to URLDecoder.decode(it.substring(i + 1), "UTF-8") }.toMap()
-                val html = "<!doctype html><meta name=viewport content='width=device-width'><body style='background:#0B0820;color:#eee;font-family:sans-serif;text-align:center;padding-top:40%'><h2>OmniPlay is connected</h2><p>You can close this tab and return to the app.</p>"
+                val html = "<!doctype html><meta name=viewport content='width=device-width'><body style='background:#0B0820;color:#eee;font-family:sans-serif;text-align:center;padding-top:40%'><h2>Media Hub is connected</h2><p>You can close this tab and return to the app.</p>"
                 out.write(("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: ${html.toByteArray().size}\r\nConnection: close\r\n\r\n$html").toByteArray()); out.flush(); return
             }
             val token = URLDecoder.decode(path.removePrefix("/s/"), "UTF-8")

@@ -27,7 +27,7 @@ fun MusicLibrary(st: AppState, pad: PaddingValues) {
     var q by remember { mutableStateOf("") }
     val songs = remember(st.allItems, q) { val s = st.songs(); if (q.isBlank()) s else s.filter { it.title.contains(q, true) || it.artist.contains(q, true) || it.album.contains(q, true) } }
     Column(Modifier.fillMaxSize()) {
-        TopBar(st, "OmniPlay", actions = {
+        TopBar(st, "Media Hub", actions = {
             IconBtn(Ic.search, { st.open(Page.Discover) })
             IconBtn(Ic.podcast, { st.open(Page.Podcasts) })
             IconBtn(Ic.download, { st.dialog = Dlg.Confirm("Sync all music for offline?", "Downloads album art, song info (genre, year, length), album details and lyrics for every song and saves them on the device. Already-saved items are skipped.") { st.syncMusic() } })

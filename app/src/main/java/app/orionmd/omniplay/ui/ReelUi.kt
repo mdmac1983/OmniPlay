@@ -183,7 +183,7 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
         Dialog({}, DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
             Column(Modifier.clip(RoundedCornerShape(16.dp)).background(C.s1).padding(18.dp).widthIn(min = 280.dp)) {
                 Text("Making your movie…", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                Muted("${(p * 100).toInt()}% · keep OmniPlay open", Modifier.padding(vertical = 8.dp), 12.sp)
+                Muted("${(p * 100).toInt()}% · keep Media Hub open", Modifier.padding(vertical = 8.dp), 12.sp)
                 LinearProgressIndicator(progress = { p }, Modifier.fillMaxWidth(), color = C.ac, trackColor = C.s3)
                 Btn("Cancel", { job?.cancel(); prog = null }, Modifier.fillMaxWidth().padding(top = 12.dp), kind = BtnKind.Ghost)
             }
@@ -192,8 +192,8 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
     done?.let { u ->
         Dialog({ done = null }) {
             Column(Modifier.clip(RoundedCornerShape(16.dp)).background(C.s1).padding(18.dp).widthIn(min = 280.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Saved to Movies/OmniPlay", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                val g = GItem(u.toString(), u.toString(), "Movie", "OmniPlay", "", System.currentTimeMillis(), 0, 0, true, reel.totalMs, 0, "video/mp4")
+                Text("Saved to Movies/Media Hub", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                val g = GItem(u.toString(), u.toString(), "Movie", "Media Hub", "", System.currentTimeMillis(), 0, 0, true, reel.totalMs, 0, "video/mp4")
                 Btn("Play", { st.playGalleryVideo(g) }, Modifier.fillMaxWidth(), icon = Ic.play)
                 Btn("Share", { st.shareItems(listOf(g)) }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost, icon = Ic.send)
                 Btn("Done", { done = null; st.back() }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)

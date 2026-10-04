@@ -134,7 +134,7 @@ object MovieMaker {
             val name = "Movie_${PhotoOps.stamp()}.mp4"
             val cv = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, name); put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
-                if (Build.VERSION.SDK_INT >= 29) put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/OmniPlay")
+                if (Build.VERSION.SDK_INT >= 29) put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/Media Hub")
             }
             val uri = ctx.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cv) ?: throw IllegalStateException("Couldn't save to Movies")
             ctx.contentResolver.openOutputStream(uri)?.use { o -> out.inputStream().use { it.copyTo(o) } } ?: throw IllegalStateException("Couldn't save to Movies")

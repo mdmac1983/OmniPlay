@@ -49,7 +49,7 @@ fun DashboardScreen(st: AppState, pad: PaddingValues) {
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Image(painterResource(R.drawable.brand_emblem), null, Modifier.size(52.dp).clip(CircleShape), contentScale = ContentScale.Crop)
                 Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                    Text("OmniPlay", fontSize = 26.sp, fontWeight = FontWeight.Black)
+                    Text("Media Hub", fontSize = 26.sp, fontWeight = FontWeight.Black)
                     Muted(if (st.online) "Online" else "Offline — playing from the device", size = 12.sp)
                 }
                 IconBtn(Ic.sync, { st.sync() })

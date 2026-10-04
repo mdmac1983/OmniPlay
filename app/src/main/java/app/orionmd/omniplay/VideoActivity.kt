@@ -374,10 +374,10 @@ class VideoActivity : Activity() {
         } catch (_: Exception) { toast("Couldn't capture this frame") }
     }
     private fun saveShot(bmp: android.graphics.Bitmap) {
-        val name = "OmniPlay_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date()) + ".jpg"
+        val name = "MediaHub_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date()) + ".jpg"
         val cv = android.content.ContentValues().apply {
             put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, name); put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/OmniPlay")
+            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Media Hub")
         }
         val uri = contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv) ?: error("no uri")
         contentResolver.openOutputStream(uri)!!.use { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, it) }
@@ -432,6 +432,16 @@ class VideoActivity : Activity() {
             }
         }
     }) }
+    /** Direct Volume Control: volume keys change Media Hub's own volume while it's playing. */
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val k = event.keyCode
+        if (Dvc.engaged && (k == android.view.KeyEvent.KEYCODE_VOLUME_UP || k == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) { Dvc.step(k == android.view.KeyEvent.KEYCODE_VOLUME_UP); hudShow("${Dvc.level}%", if (Dvc.level == 0) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp) }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         if (isInPictureInPictureMode) return super.dispatchTouchEvent(ev)
         if (locked) {
@@ -447,12 +457,12 @@ class VideoActivity : Activity() {
                 if (eatUntilUp) return true
                 if (drag == Drag.NONE) {
                     val dx = ev.x - startX; val dy = ev.y - dragStart; val slop = dp(18)
-                    if (abs(dy) > slop && abs(dy) > abs(dx) * 1.5f) { drag = if (startX < w / 2) Drag.BRIGHT else Drag.VOLUME; startVal = if (drag == Drag.BRIGHT) currentBrightness() else audio.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat(); dragStart = ev.y; cancelChild(ev) }
+                    if (abs(dy) > slop && abs(dy) > abs(dx) * 1.5f) { drag = if (startX < w / 2) Drag.BRIGHT else Drag.VOLUME; startVal = if (drag == Drag.BRIGHT) currentBrightness() else if (Dvc.engaged) Dvc.level.toFloat() else audio.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat(); dragStart = ev.y; cancelChild(ev) }
                     else if (abs(dx) > slop && abs(dx) > abs(dy) * 1.5f) { drag = Drag.SEEK; startX = ev.x; seekTarget = player?.currentPosition ?: 0; startVal = seekTarget.toFloat(); cancelChild(ev) }
                 }
                 when (drag) {
                     Drag.BRIGHT -> { val v = (startVal + (dragStart - ev.y) / (h * .7f) * sens).coerceIn(.01f, 1f); setBrightness(v); hudShow("${(v * 100).toInt()}%", Icons.Rounded.BrightnessMedium); return true }
-                    Drag.VOLUME -> { val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC); val v = (startVal + (dragStart - ev.y) / (h * .7f) * max * sens).toInt().coerceIn(0, max); audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0); hudShow("${v * 100 / max}%", if (v == 0) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp); return true }
+                    Drag.VOLUME -> if (Dvc.engaged) { val v = (startVal + (dragStart - ev.y) / (h * .7f) * Dvc.MAX * sens).toInt().coerceIn(0, Dvc.MAX); Dvc.setLevel(v); hudShow("$v%", if (v == 0) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp); return true } else { val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC); val v = (startVal + (dragStart - ev.y) / (h * .7f) * max * sens).toInt().coerceIn(0, max); audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0); hudShow("${v * 100 / max}%", if (v == 0) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp); return true }
                     Drag.SEEK -> { val dur = player?.duration?.takeIf { it > 0 } ?: 0L; seekTarget = (startVal + (ev.x - startX) / w * 120_000f * sens).toLong().coerceIn(0, if (dur > 0) dur else Long.MAX_VALUE); val d = seekTarget - startVal.toLong(); hudShow((if (d >= 0) "+" else "−") + clock(abs(d)) + "   " + clock(seekTarget) + if (dur > 0) " / " + clock(dur) else ""); return true }
                     else -> {}
                 }

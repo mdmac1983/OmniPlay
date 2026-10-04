@@ -60,7 +60,7 @@ object Downloads {
         val dm = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
         val dest = File(dir(ctx), "$id.$ext"); dest.delete()
         val req = android.app.DownloadManager.Request(Uri.parse(url))
-            .setTitle(title).setDescription("OmniPlay · saving for offline")
+            .setTitle(title).setDescription("Media Hub · saving for offline")
             .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationUri(Uri.fromFile(dest))
             .addRequestHeader("User-Agent", Net.UA)

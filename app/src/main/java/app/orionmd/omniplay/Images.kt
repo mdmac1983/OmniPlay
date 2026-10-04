@@ -51,7 +51,7 @@ object Net {
         } finally { c.disconnect() }
     } catch (_: Exception) { false }
 
-    const val UA = "OrionMD-OmniPlay/1.0 (Android; https://github.com/mdmac1983)"
+    const val UA = "OrionMD-MediaHub/1.0 (Android; https://github.com/mdmac1983)"
 
     /** GET returning the body (throws on HTTP errors). */
     fun get(url: String, headers: Map<String, String> = emptyMap()): String {

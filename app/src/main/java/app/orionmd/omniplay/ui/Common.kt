@@ -67,6 +67,6 @@ fun SplashScreen(ms: Long = 2200, onDone: () -> Unit) {
     }
     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0B0820))
         .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { onDone() }) {
-        if (bmp != null) Image(bmp, "OrionMD OmniPlay", Modifier.fillMaxSize().alpha(alpha.value), contentScale = if (wide) ContentScale.Fit else ContentScale.Crop)
+        if (bmp != null) Image(bmp, "OrionMD Media Hub", Modifier.fillMaxSize().alpha(alpha.value), contentScale = if (wide) ContentScale.Fit else ContentScale.Crop)
     }
 }

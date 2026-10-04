@@ -35,7 +35,7 @@ fun SettingsScreen(st: AppState, pad: PaddingValues) {
             item { Cat(st, "playback", "Playback & subtitles", Ic.movie) { Playback(st) } }
             item { Cat(st, "appearance", "Appearance", Ic.skin) { Appearance(st) } }
             item { Cat(st, "security", "Activation & security", Ic.shield) { Security(st) } }
-            item { Muted("OmniPlay · OrionMD · built for offline-first music & video", Modifier.padding(vertical = 20.dp), 11.sp) }
+            item { Muted("Media Hub · OrionMD · built for offline-first music & video", Modifier.padding(vertical = 20.dp), 11.sp) }
         }
     }
 }
@@ -71,7 +71,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
             Icon(when (s.kind) { "device" -> Ic.device; "folder" -> Ic.folder; else -> Ic.cloud }, null, tint = C.ac)
             Column(Modifier.padding(start = 12.dp).weight(1f)) { Text(s.name, fontWeight = FontWeight.SemiBold); Muted("${fmt(s.count)} items · ${if (s.lastScan > 0) "scanned ${ago(s.lastScan)}" else "not scanned"}" + if (s.sync) " · sync on" else "", size = 12.sp) }
             IconBtn(Ic.sync, { st.sync(s.id) }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
-            IconBtn(Ic.trash, { st.dialog = Dlg.Confirm("Remove \"${s.name}\"?", "Its library index is removed from OmniPlay. Your actual files aren't touched.", true) { st.removeSource(s.id) } }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
+            IconBtn(Ic.trash, { st.dialog = Dlg.Confirm("Remove \"${s.name}\"?", "Its library index is removed from Media Hub. Your actual files aren't touched.", true) { st.removeSource(s.id) } }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
         }
     }
     Spacer(Modifier.height(6.dp))
@@ -95,7 +95,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         }
     } }
     SectionHeader("Connect a cloud")
-    Muted("OmniPlay streams from the cloud and keeps playing offline anything you download. Your OAuth keys and sign-ins are stored encrypted on the device.", Modifier.padding(bottom = 6.dp), 12.sp)
+    Muted("Media Hub streams from the cloud and keeps playing offline anything you download. Your OAuth keys and sign-ins are stored encrypted on the device.", Modifier.padding(bottom = 6.dp), 12.sp)
     Cloud.PROVIDERS.forEach { p ->
         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -212,7 +212,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
 
 // ---------------- appearance ----------------
 @Composable private fun Appearance(st: AppState) {
-    Toggle(st, "splash", "Splash screen when the app opens", "The OrionMD OmniPlay artwork, tap to skip", "1")
+    Toggle(st, "splash", "Splash screen when the app opens", "The OrionMD Media Hub artwork, tap to skip", "1")
     Pick(st, "watermark", "Background watermark", listOf("off" to "Off", "light" to "Light", "medium" to "Medium", "strong" to "Strong"), "medium")
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text("Player skin"); Muted(skinOf(st.pref("playerSkin", "midnight")).name, size = 12.sp) }
@@ -235,6 +235,6 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     }
     val tampered = remember { Guard.tampered(st.ctx) }
     if (tampered) Muted("⚠ This copy isn't signed with the OrionMD key.", Modifier.padding(vertical = 6.dp), 12.sp)
-    Muted("OmniPlay is proprietary. After the 14-day trial it needs an activation key (one key = one app on one device). It also verifies it hasn't been re-signed or modified; a tampered copy is locked behind the owner password and erases its own data after 3 wrong tries.", Modifier.padding(vertical = 8.dp), 12.sp)
+    Muted("Media Hub is proprietary. After the 14-day trial it needs an activation key (one key = one app on one device). It also verifies it hasn't been re-signed or modified; a tampered copy is locked behind the owner password and erases its own data after 3 wrong tries.", Modifier.padding(vertical = 8.dp), 12.sp)
     if (!activated) Btn("Enter activation key", { st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> st.enterActivationKey(k) } }, small = true, kind = BtnKind.Ghost)
 }

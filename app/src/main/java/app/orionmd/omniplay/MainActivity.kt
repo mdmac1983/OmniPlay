@@ -78,6 +78,16 @@ class MainActivity : ComponentActivity(), Host {
         super.onResume()
         if (::st.isInitialized) { gate = gateState(); if (gate != "ok") Player.stop(); recheckPending(); st.onResume() }
     }
+    /** Direct Volume Control: while Media Hub is playing, the volume keys change its own volume. */
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val k = event.keyCode
+        if (Dvc.engaged && (k == android.view.KeyEvent.KEYCODE_VOLUME_UP || k == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) { Dvc.step(k == android.view.KeyEvent.KEYCODE_VOLUME_UP); if (::st.isInitialized) st.say("Volume ${Dvc.level}") }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun openTree(cb: (Uri?) -> Unit) { treeCb = cb; try { treePicker.launch(null) } catch (_: Exception) { cb(null) } }
     override fun launch(intent: Intent) { startActivity(intent) }
     override fun confirmMedia(sender: android.content.IntentSender, cb: (Boolean) -> Unit) {

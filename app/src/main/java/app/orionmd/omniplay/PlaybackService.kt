@@ -35,7 +35,7 @@ class PlaybackService : Service() {
             if (nm.getNotificationChannel(CH) == null)
                 nm.createNotificationChannel(NotificationChannel(CH, "Playback", NotificationManager.IMPORTANCE_LOW))
             val t = Player.current()
-            val title = t?.optString("t")?.ifEmpty { null } ?: t?.optString("n") ?: "OmniPlay"
+            val title = t?.optString("t")?.ifEmpty { null } ?: t?.optString("n") ?: "Media Hub"
             val artist = t?.optString("a") ?: ""
             val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)

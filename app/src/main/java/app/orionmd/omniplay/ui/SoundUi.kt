@@ -195,8 +195,18 @@ fun SoundScreen(st: AppState) {
 
                     // ---------- output ----------
                     SectionHeader("Output (hi-res engine)")
-                    ToggleRow("Hi-res output", "OmniPlay's own audio output, like Poweramp's: the decoder's full 24-bit / float samples go straight into the effects (not cut to 16-bit first), everything is processed in 64-bit and sent to the speaker or DAC as 32-bit float. Turn off to use ExoPlayer's standard output. Takes effect after restarting OmniPlay.", c.hiRes) { set(c.copy(hiRes = it)) }
+                    var dvcOn by remember { mutableStateOf(app.orionmd.omniplay.Dvc.enabled) }
+                    var dvcLevel by remember { mutableStateOf(app.orionmd.omniplay.Dvc.level.toFloat()) }
+                    ToggleRow("Hi-res output", "Media Hub's own audio output, like Poweramp's: the decoder's full 24-bit / float samples go straight into the effects (not cut to 16-bit first), everything is processed in 64-bit and sent to the speaker or DAC as 32-bit float. Turn off to use ExoPlayer's standard output. Takes effect after restarting Media Hub.", c.hiRes) { if (!it) { app.orionmd.omniplay.Dvc.setEnabled(false); dvcOn = false }; set(c.copy(hiRes = it)) }
                     if (c.hiRes) ToggleRow("Own resampler (skip Android's)", "Converts songs to this phone's native rate (${HiResSink.nativeRate(st.ctx) / 1000.0} kHz) with a high-quality filter, so Android's mixer doesn't resample them again. Applies from the next song.", c.resample) { set(c.copy(resample = it)) }
+
+                    if (c.hiRes && HiResSink.active) {
+                        ToggleRow("Direct volume control (DVC)", "Like Poweramp's DVC: Android's media volume is set to maximum and Media Hub sets the volume itself in its 64-bit engine — quiet listening keeps full detail. The volume keys (and the video volume swipe) control Media Hub while it plays, in the background too. When nothing is playing, the system volume goes back to the same loudness so other apps aren't loud.", dvcOn) {
+                            app.orionmd.omniplay.Dvc.setEnabled(it); dvcOn = app.orionmd.omniplay.Dvc.enabled; dvcLevel = app.orionmd.omniplay.Dvc.level.toFloat()
+                        }
+                        if (dvcOn) Knob("Volume", dvcLevel, 0f..100f, { if (it < 1) "mute" else "${it.toInt()} · %.1f dB".format(-60 * (1 - it / 100)) }) { dvcLevel = it; app.orionmd.omniplay.Dvc.setLevel(it.toInt()) }
+                    } else if (c.hiRes) Muted("Restart Media Hub to switch the hi-res output on — direct volume control (DVC) becomes available then.", Modifier.padding(vertical = 4.dp), 12.sp)
+                    else Muted("Direct volume control (DVC) needs the hi-res output.", Modifier.padding(vertical = 4.dp), 12.sp)
 
                     // ---------- videos ----------
                     SectionHeader("Videos")

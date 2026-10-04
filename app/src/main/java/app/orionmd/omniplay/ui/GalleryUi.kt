@@ -83,7 +83,7 @@ fun GalleryScreen(st: AppState, pad: PaddingValues) {
         when {
             items == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Progress(null) }
             items.isEmpty() && sub != "groups" && !g.all.isNullOrEmpty() -> Empty("Every folder is hidden.\nChoose which folders the Gallery shows.", "Choose folders") { folders = true }
-            items.isEmpty() && sub != "groups" -> Empty("No photos or videos found.\nAllow OmniPlay to access photos and videos when Android asks, then tap refresh.", "Refresh") { st.loadGallery() }
+            items.isEmpty() && sub != "groups" -> Empty("No photos or videos found.\nAllow Media Hub to access photos and videos when Android asks, then tap refresh.", "Refresh") { st.loadGallery() }
             sub == "timeline" -> Timeline(st, items, pad)
             sub == "albums" -> AlbumsGrid(st, items, pad) { newAlbum = true }
             sub == "groups" -> GroupsList(st, items, pad) { newGroup = true }
@@ -593,7 +593,7 @@ private fun StickerDialog(st: AppState, s: Bitmap, onDone: () -> Unit) {
                 Btn("Discard", onDone, Modifier.weight(1f), kind = BtnKind.Ghost); Spacer(Modifier.width(8.dp))
                 Btn("Save sticker", {
                     scope.launch { val u = withContext(Dispatchers.IO) { PhotoOps.savePng(st.ctx, s, "Sticker", "Stickers") }
-                        st.say(if (u != null) "Saved to Pictures/OmniPlay/Stickers" else "Couldn't save"); st.loadGallery(); onDone() }
+                        st.say(if (u != null) "Saved to Pictures/Media Hub/Stickers" else "Couldn't save"); st.loadGallery(); onDone() }
                 }, Modifier.weight(1f))
             }
         }
@@ -627,7 +627,7 @@ fun GEditorScreen(st: AppState, p: Page.GEditor) {
                 busy = true
                 scope.launch {
                     val u = withContext(Dispatchers.IO) { PhotoOps.saveJpeg(st.ctx, PhotoOps.applyAdjust(b, adj), "Edit") }
-                    busy = false; st.say(if (u != null) "Saved a copy to Pictures/OmniPlay" else "Couldn't save"); st.loadGallery(); st.back()
+                    busy = false; st.say(if (u != null) "Saved a copy to Pictures/Media Hub" else "Couldn't save"); st.loadGallery(); st.back()
                 }
             }, small = true)
         }
@@ -847,7 +847,7 @@ private fun CollageTool(st: AppState, items: List<GItem>, onRepick: () -> Unit) 
                 val src = ph ?: return@Btn
                 scope.launch {
                     val u = withContext(Dispatchers.IO) { PhotoOps.saveJpeg(st.ctx, PhotoOps.renderCollage(src, layouts.getOrNull(li)?.second ?: layouts[0].second, 2400, aspect, (gap * 2.6f).toInt(), bg, if (round) 58f else 0f), "Collage") }
-                    st.say(if (u != null) "Collage saved to Pictures/OmniPlay" else "Couldn't save"); st.loadGallery(); st.back()
+                    st.say(if (u != null) "Collage saved to Pictures/Media Hub" else "Couldn't save"); st.loadGallery(); st.back()
                 }
             }, small = true)
         }
@@ -911,7 +911,7 @@ private fun FramesTool(st: AppState, items: List<GItem>, gif: Boolean, onRepick:
                             PhotoOps.save(st.ctx, "GIF_${PhotoOps.stamp()}.gif", "image/gif") { o -> PhotoOps.writeGif(fs, delay.toInt(), o) } }
                         else result?.let { PhotoOps.saveJpeg(st.ctx, it, "LongExposure") }
                     }
-                    st.say(if (u != null) "Saved to Pictures/OmniPlay" else "Nothing to save yet"); st.loadGallery(); if (u != null) st.back()
+                    st.say(if (u != null) "Saved to Pictures/Media Hub" else "Nothing to save yet"); st.loadGallery(); if (u != null) st.back()
                 }
             }, small = true)
         }
