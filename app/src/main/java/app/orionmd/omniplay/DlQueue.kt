@@ -116,7 +116,9 @@ object DlQueue {
                 // finished: move into place and record it
                 val dest = File(dir(), "$id.${ext(item)}"); dest.delete()
                 if (!p.renameTo(dest)) { p.copyTo(dest, true); p.delete() }
-                Downloads.register(app, item, dest)
+                // the phone's own storage when chosen in Settings (else it stays in the app's storage)
+                val loc = if (Downloads.toDevice(app)) try { Downloads.publish(app, item, dest) } catch (_: Exception) { dest.path } else dest.path
+                Downloads.register(app, item, loc)
                 entries.remove(id); jobs.remove(id); persist()
                 onFinished?.invoke(id, true)
                 pump(); return

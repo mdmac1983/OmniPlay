@@ -50,8 +50,25 @@ object Library {
             "cloud" -> scanCloud(store, src, progress)
             else -> emptyList()
         }
-        write(store, src.id, items)
-        return items
+        val stamped = if (src.kind == "device") items else stampAdded(store, src, items)
+        write(store, src.id, stamped)
+        return stamped
+    }
+
+    /**
+     * Cloud and folder files: their date becomes the date they were added to the library (see [Added]) — the phone's
+     * own media store already records that, so device files keep theirs.
+     */
+    private fun stampAdded(store: Store, src: Source, items: List<Item>): List<Item> {
+        val f = java.io.File(store.filesDir, "added_${src.id}.json")
+        val known = Added.parse(Vault.readText(f))
+        val ids = items.map { it.i }
+        // pCloud file ids go up with every upload: the upload order for files already there
+        val pcloud = src.kind == "cloud" && Cloud.account(src.acct)?.provider == "pcloud"
+        val seq = if (pcloud) items.map { java.net.URLDecoder.decode(it.u.substringAfterLast('/'), "UTF-8").removePrefix("f").toLongOrNull() ?: 0L } else null
+        val d = Added.dates(ids, items.map { it.cr }, seq, known, System.currentTimeMillis())
+        Vault.writeText(f, Added.json(known))
+        return items.mapIndexed { k, x -> if (x.cr == d[k]) x else x.copy(cr = d[k]) }
     }
 
     // ---------- device (MediaStore) ----------

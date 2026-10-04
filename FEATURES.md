@@ -42,6 +42,8 @@ A standalone, offline-first hybrid **music + video player** by OrionMD.
 - **Clouds**: pCloud, Dropbox, Google Drive, MEGA, Filen (via WebDAV), Proton Drive (via WebDAV) and generic WebDAV (Nextcloud/NAS/…).
 - Cloud files stream through an on-device proxy that handles authentication, seeking and on-the-fly decryption; MEGA is end-to-end decrypted on the device.
 - **Background sync** keeps chosen cloud folders up to date.
+- **Save downloads to** (Settings): the app's own storage (private) or the phone's storage — Music / Movies / Pictures → Media Hub, visible to other apps and kept after uninstalling.
+- **Recently added / Date added** use the date a file arrived in your library (cloud upload dates can't be trusted: pCloud keeps a file's original date), with pCloud's upload order for files already there. Songs and videos can be sorted A–Z, Recently added, Artist / Album or Year.
 
 ## Security
 - Proprietary, release-signed build; verifies it hasn't been re-signed/modified.

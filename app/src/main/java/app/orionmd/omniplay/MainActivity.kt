@@ -35,7 +35,9 @@ class MainActivity : ComponentActivity(), Host {
     private fun askPermissions() {
         val want = if (android.os.Build.VERSION.SDK_INT >= 33) arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO, android.Manifest.permission.READ_MEDIA_VIDEO,
             android.Manifest.permission.READ_MEDIA_IMAGES, android.Manifest.permission.POST_NOTIFICATIONS)
-            else arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+            else if (android.os.Build.VERSION.SDK_INT >= 29) arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+            // Android 9 and older: writing too, so downloads can go to the phone's Music / Movies / Pictures
+            else arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
         val missing = want.filter { checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) try { perms.launch(missing.toTypedArray()) } catch (_: Exception) {}
     }

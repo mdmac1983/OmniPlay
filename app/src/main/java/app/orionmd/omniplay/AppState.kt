@@ -366,7 +366,7 @@ class AppState(val ctx: Context, val host: Host) {
 
     // ---------- downloads / offline ----------
     var dl by mutableStateOf(mapOf<Long, Boolean>())
-    fun refreshDownloads() { dl = Downloads.index(ctx).let { o -> o.keys().asSequence().associate { it.toLong() to java.io.File(o.optString(it)).exists() } } }
+    fun refreshDownloads() { dl = Downloads.index(ctx).let { o -> o.keys().asSequence().associate { it.toLong() to Downloads.present(ctx, o.optString(it)) } } }
     fun isDownloaded(x: Item) = dl[x.i] == true
     /** Saving for offline goes through the download queue: progress, pause / resume, carries on after a restart. */
     fun download(list: List<Item>) {

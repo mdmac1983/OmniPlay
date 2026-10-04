@@ -1,6 +1,7 @@
 package app.orionmd.omniplay.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,7 +27,16 @@ import app.orionmd.omniplay.*
 fun MusicLibrary(st: AppState, pad: PaddingValues) {
     var sub by remember { mutableStateOf("songs") }
     var q by remember { mutableStateOf("") }
-    val songs = remember(st.allItems, q) { val s = st.songs(); if (q.isBlank()) s else s.filter { it.title.contains(q, true) || it.artist.contains(q, true) || it.album.contains(q, true) } }
+    var sort by remember { mutableStateOf(st.pref("songSort", "title")) }
+    val songs = remember(st.allItems, q, sort) {
+        val s = st.songs().let { if (q.isBlank()) it else it.filter { x -> x.title.contains(q, true) || x.artist.contains(q, true) || x.album.contains(q, true) } }
+        when (sort) {
+            "added" -> s.sortedByDescending { it.cr }
+            "artist" -> s.sortedWith(compareBy({ it.artist.lowercase() }, { it.album.lowercase() }, { it.tr }))
+            "album" -> s.sortedWith(compareBy({ it.album.lowercase() }, { it.tr }))
+            else -> s.sortedBy { it.title.lowercase() }
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         TopBar(st, "Media Hub", actions = {
             IconBtn(Ic.search, { st.open(Page.Discover) })
@@ -40,7 +50,10 @@ fun MusicLibrary(st: AppState, pad: PaddingValues) {
         Seg(listOf("songs" to "Songs", "albums" to "Albums", "artists" to "Artists", "genres" to "Genres", "playlists" to "Playlists", "folders" to "Folders"), sub) { sub = it }
         if (st.allItems.isEmpty()) { EmptyLibrary(st); return@Column }
         when (sub) {
-            "songs" -> SongList(st, songs, pad)
+            "songs" -> Column {
+                SortChips(listOf("title" to "A–Z", "added" to "Recently added", "artist" to "Artist", "album" to "Album"), sort) { sort = it; st.setPref("songSort", it) }
+                SongList(st, songs, pad)
+            }
             "albums" -> AlbumGrid(st, songs, pad)
             "artists" -> ArtistList(st, songs, pad)
             "genres" -> GenreList(st, songs, pad)
@@ -165,9 +178,15 @@ private fun PlaylistList(st: AppState, pad: PaddingValues) {
 fun VideoLibrary(st: AppState, pad: PaddingValues) {
     var sub by remember { mutableStateOf("all") }
     var q by remember { mutableStateOf("") }
-    val vids = remember(st.allItems, q, sub) {
+    var vsort by remember { mutableStateOf(st.pref("videoSort", "title")) }
+    val vids = remember(st.allItems, q, sub, vsort) {
         val v = st.videos().filter { when (sub) { "movies" -> it.k == "movie"; "tv" -> it.k == "tv"; "mv" -> it.k == "mv"; else -> true } }
-        if (q.isBlank()) v else v.filter { st.vtitle(it).contains(q, true) || it.n.contains(q, true) }
+            .let { v -> if (q.isBlank()) v else v.filter { st.vtitle(it).contains(q, true) || it.n.contains(q, true) } }
+        when (vsort) {
+            "added" -> v.sortedByDescending { it.cr }
+            "year" -> v.sortedByDescending { st.match(it)?.year?.take(4)?.toIntOrNull() ?: it.py }
+            else -> v.sortedBy { st.vtitle(it).lowercase() }
+        }
     }
     Column(Modifier.fillMaxSize()) {
         var stream by remember { mutableStateOf(false) }
@@ -181,7 +200,10 @@ fun VideoLibrary(st: AppState, pad: PaddingValues) {
         Field(q, { q = it }, "Search videos…", Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth())
         Seg(listOf("all" to "All", "movies" to "Movies", "tv" to "TV", "mv" to "Music video"), sub) { sub = it }
         if (st.videos().isEmpty()) { EmptyLibrary(st); return@Column }
-        if (sub == "tv") TvShowGrid(st, pad) else VideoGrid(st, vids, pad)
+        if (sub == "tv") TvShowGrid(st, pad) else Column {
+            SortChips(listOf("title" to "A–Z", "added" to "Recently added", "year" to "Year"), vsort) { vsort = it; st.setPref("videoSort", it) }
+            VideoGrid(st, vids, pad)
+        }
     }
 }
 
@@ -250,6 +272,18 @@ private fun StreamDialog(st: AppState, onDone: () -> Unit) {
                 Btn("Cancel", onDone, Modifier.weight(1f), kind = BtnKind.Ghost); Spacer(Modifier.width(8.dp))
                 Btn("Play", { play(url) }, Modifier.weight(1f))
             }
+        }
+    }
+}
+
+/** Sort order chips above a list (the choice is remembered). */
+@Composable
+private fun SortChips(opts: List<Pair<String, String>>, sel: String, onSel: (String) -> Unit) {
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 2.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        opts.forEach { (k, n) ->
+            val on = k == sel
+            Text(n, fontSize = 12.sp, color = if (on) androidx.compose.ui.graphics.Color.Black else C.tx,
+                modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(if (on) C.ac else C.s2).clickable { onSel(k) }.padding(horizontal = 10.dp, vertical = 5.dp))
         }
     }
 }

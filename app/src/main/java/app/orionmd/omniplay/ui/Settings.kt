@@ -186,6 +186,8 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         Column(Modifier.weight(1f)) { Text("Download lyrics for all songs"); st.lyricsProg?.let { (d, t) -> Muted("$d / $t", size = 12.sp) } ?: Muted("${if (st.lyricsSaved >= 0) st.lyricsSaved else 0} saved · LRCLIB", size = 12.sp) }
         Btn("Run", { st.fetchAllLyrics() }, small = true)
     }
+    Pick(st, "dlTarget", "Save downloads to", listOf("app" to "App storage (private)", "device" to "Phone storage (Music / Movies / Pictures)"), "app")
+    Muted("App storage: only Media Hub sees them and they're removed if you uninstall. Phone storage: saved in Music, Movies and Pictures → Media Hub, so your gallery, file manager and other players see them too, and they stay after uninstalling. Applies to new downloads.", size = 12.sp)
     Btn("Offline downloads", { st.open(Page.Downloads) }, icon = Ic.offline, small = true, kind = BtnKind.Ghost, modifier = Modifier.padding(top = 8.dp))
 }
 
