@@ -26,7 +26,13 @@ class DlService : Service() {
         /** Refreshes the notification (at most twice a second); stops the service when nothing is left to do. */
         fun update(ctx: Context) {
             val active = DlQueue.entries.values.any { it.state == DlQueue.State.RUNNING || it.state == DlQueue.State.QUEUED }
-            if (!active && running) { ctx.stopService(Intent(ctx, DlService::class.java)); return }
+            if (!active) {
+                // nothing downloading (finished, all paused, or nothing at all): no notification
+                if (running) ctx.stopService(Intent(ctx, DlService::class.java))
+                try { ctx.getSystemService(NotificationManager::class.java).cancel(NID) } catch (_: Exception) {}
+                return
+            }
+            if (!running) return   // only the running service shows progress
             val now = System.currentTimeMillis(); if (now - lastNotify < 500) return; lastNotify = now
             try { ctx.getSystemService(NotificationManager::class.java).notify(NID, build(ctx)) } catch (_: Exception) {}
         }
@@ -35,7 +41,7 @@ class DlService : Service() {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             if (nm.getNotificationChannel(CH) == null) nm.createNotificationChannel(NotificationChannel(CH, "Downloads", NotificationManager.IMPORTANCE_LOW))
             val (n, pct) = DlQueue.overall()
-            val paused = DlQueue.entries.values.isNotEmpty() && DlQueue.entries.values.all { it.state == DlQueue.State.PAUSED || it.state == DlQueue.State.FAILED }
+            val paused = DlQueue.entries.values.all { it.state == DlQueue.State.PAUSED || it.state == DlQueue.State.FAILED }
             val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java).putExtra("open", "downloads"), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             return Notification.Builder(ctx, CH).setSmallIcon(android.R.drawable.stat_sys_download)
                 .setContentTitle(if (paused) "Downloads paused" else "Saving $n file${if (n == 1) "" else "s"} for offline")
@@ -53,7 +59,15 @@ class DlService : Service() {
         val n = build(this)
         if (Build.VERSION.SDK_INT >= 29) startForeground(NID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(NID, n)
         when (intent?.action) { A_PAUSE -> DlQueue.pauseAll(); A_RESUME -> DlQueue.resumeAll() }
+        // started with nothing left to download (e.g. everything just finished): go away straight away
+        if (DlQueue.entries.values.none { it.state == DlQueue.State.RUNNING || it.state == DlQueue.State.QUEUED }) {
+            stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
+        }
         return START_NOT_STICKY
     }
-    override fun onDestroy() { running = false; super.onDestroy() }
+    override fun onDestroy() {
+        running = false
+        try { getSystemService(NotificationManager::class.java).cancel(NID) } catch (_: Exception) {}
+        super.onDestroy()
+    }
 }
