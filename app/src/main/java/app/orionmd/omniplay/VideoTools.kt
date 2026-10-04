@@ -42,7 +42,7 @@ object SubParser {
             ext == "ass" || ext == "ssa" || t.contains("[Events]") -> ass(t)
             else -> srtOrVtt(t)   // SRT and WebVTT share the "start --> end" layout
         }
-        return out.filter { it.end > it.start && it.text.isNotBlank() }.sortedBy { it.start }
+        return out.filter { it.end > it.start && it.text.isNotBlank() && !Subs.isAd(it.text) }.sortedBy { it.start }
     }
 
     private val timeLine = Regex("""((?:\d+:)?\d{1,2}:\d{2}[,.]\d{1,3})\s*-->\s*((?:\d+:)?\d{1,2}:\d{2}[,.]\d{1,3})""")

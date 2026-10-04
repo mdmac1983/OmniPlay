@@ -101,6 +101,7 @@ class VideoActivity : Activity() {
     private var subDelay = 0L                   // ms, + = later
     private var lastSubKey: Any? = null
     private var vDecoder = "auto"
+    private var errId = 0L; private var errTries = 0
     private var videoDecoder = ""; private var audioDecoder = ""
     private var base = 0                        // queue index the player's first item came from
     private var shuffle = false
@@ -305,7 +306,19 @@ class VideoActivity : Activity() {
         p.pauseAtEndOfMediaItems = !autoNext
         p.addListener(object : M3Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
-                showMsg("Can't play this video on this device (format not supported or connection lost)." + if (vDecoder != "sw") "\nTry More → Decoder → Software." else "")
+                // recover by itself where it can: a decoder the device chokes on → software decoders (FFmpeg) for the rest
+                // of this session; a dropped connection or expired cloud link → a fresh link, from the same spot
+                val id = currentId(); if (id != errId) { errId = id; errTries = 0 }
+                val c = error.errorCode
+                val decode = c in 4000..4999
+                val net = c in 2000..2999 || c == PlaybackException.ERROR_CODE_TIMEOUT
+                if (decode && vDecoder != "sw" && errTries < 2) { errTries++; vDecoder = "sw"; toast("Switching to software decoding…"); restartHere(); return }
+                if (net && errTries < 3) { errTries++; toast("Reconnecting…"); ui.postDelayed({ restartHere() }, 1500L * errTries); return }
+                showMsg(when {
+                    net -> if (Net.online(this@VideoActivity)) "Lost the connection. Tap play to try again." else "Can't stream — you appear to be offline."
+                    decode -> "This device can't decode this video."
+                    else -> "Can't play this video."
+                } + " (" + error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ') + ")")
             }
             // embedded subtitles (inside MKV/MP4): shown on our layer, delayed if a positive delay is set
             override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) {
@@ -869,7 +882,10 @@ class VideoActivity : Activity() {
         val edge = when (store.getPref("subedge", "outline")) { "none" -> CaptionStyleCompat.EDGE_TYPE_NONE; "shadow" -> CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW; else -> CaptionStyleCompat.EDGE_TYPE_OUTLINE }
         sv.apply {
             setApplyEmbeddedStyles(store.getPref("subembed", "1") == "1" && bgKind == "shadow")
-            setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * scale)
+            // sized from the screen's short side, so subtitles are the same size upright as sideways (a fraction of the
+            // height made them ~1.7× too big in portrait)
+            val dm = resources.displayMetrics
+            setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, minOf(dm.widthPixels, dm.heightPixels) * SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * scale)
             setStyle(CaptionStyleCompat(fg, bg, win, edge, Color.BLACK, null))
             setBottomPaddingFraction(store.getPref("subpos", "8").toFloatOrNull()?.div(100f) ?: SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION)
         }

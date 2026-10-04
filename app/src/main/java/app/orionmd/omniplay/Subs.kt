@@ -47,7 +47,7 @@ object Subs {
         val best = list.sortedWith(compareBy({ it.optBoolean("isHearingImpaired") != hi }, { it.optString("format", "srt") != "srt" }, { -it.optInt("downloadCount") })).first()
         val text = http(best.getString("url"))
         if (text.isBlank() || !text.contains("-->")) return false
-        Vault.writeBytes(file(store, itemId, lang), text.toByteArray())
+        Vault.writeBytes(file(store, itemId, lang), stripAds(text).toByteArray())
         return true
     }
 
@@ -56,6 +56,13 @@ object Subs {
         val f = file(store, id, lang); if (!f.exists()) return null
         val bytes = Vault.readBytes(f) ?: return null
         val out = File(File(cacheDir, "wsubs").apply { mkdirs() }, "${id}_$lang.srt")
-        out.writeBytes(bytes); return out
+        out.writeBytes(stripAds(String(bytes)).toByteArray()); return out
+    }
+
+    /** Wyzie's free plan adds an advert line ("You're on the free plan… store.wyzie.io") to the subtitles: left out. */
+    fun isAd(text: String) = text.contains("wyzie", true) || text.contains("on the free plan", true)
+    fun stripAds(srt: String): String {
+        val blocks = srt.replace("\r\n", "\n").split(Regex("\n\\s*\n"))
+        return blocks.filterNot { b -> b.contains("-->") && isAd(b) }.joinToString("\n\n")
     }
 }
