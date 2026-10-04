@@ -132,34 +132,59 @@ class HiResSink(
 
     private fun bytesPerSample(e: Int) = when (e) { C.ENCODING_PCM_8BIT -> 1; C.ENCODING_PCM_16BIT -> 2; C.ENCODING_PCM_24BIT -> 3; C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT -> 4; else -> 0 }
 
+    private var lastFormat: Format? = null; private var lastSize = 0; private var lastChannels: IntArray? = null
+    private val outFloat get() = mode == 0
+
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
+        lastFormat = inputFormat; lastSize = specifiedBufferSize; lastChannels = outputChannels
         val pcm = MimeTypes.AUDIO_RAW == inputFormat.sampleMimeType && bytesPerSample(inputFormat.pcmEncoding) > 0 && inputFormat.channelCount > 0
-        if (!pcm) { bypass = true; super.configure(inputFormat, specifiedBufferSize, outputChannels); return }
+        if (!pcm || mode >= 3) {
+            bypass = true
+            if (pcm) Dsp.format = "${inputFormat.sampleRate / 1000.0} kHz · ${inputFormat.channelCount} ch (standard output — this device refused the hi-res formats)"
+            super.configure(inputFormat, specifiedBufferSize, outputChannels); return
+        }
         bypass = false
         inEnc = inputFormat.pcmEncoding; inCh = inputFormat.channelCount; inRate = inputFormat.sampleRate
         val c = Dsp.cfg
-        outRate = if (c.resample && nativeRate in 8000..384000) nativeRate else inRate
+        outRate = if (c.resample && mode < 2 && nativeRate in 8000..384000) nativeRate else inRate
         rs.setup(inRate, outRate)
         core.configure(outRate)
         trim = inputFormat.encoderDelay
         if (tee != null) { tee.flush(outRate, 2, C.ENCODING_PCM_FLOAT); teeRate = outRate }   // the visualizer counts from each song's start
         val bits = when (inEnc) { C.ENCODING_PCM_8BIT -> "8-bit"; C.ENCODING_PCM_16BIT -> "16-bit"; C.ENCODING_PCM_24BIT -> "24-bit"; C.ENCODING_PCM_32BIT -> "32-bit"; else -> "32-bit float" }
-        Dsp.format = "${inRate / 1000.0} kHz $bits · $inCh ch → " + (if (outRate != inRate) "${outRate / 1000.0} kHz " else "") + "32-bit float (hi-res output)"
-        super.configure(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setPcmEncoding(C.ENCODING_PCM_FLOAT)
+        Dsp.format = "${inRate / 1000.0} kHz $bits · $inCh ch → " + (if (outRate != inRate) "${outRate / 1000.0} kHz " else "") +
+            (if (outFloat) "32-bit float (hi-res output)" else "16-bit dithered (hi-res engine; this device's output is 16-bit)")
+        super.configure(Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setPcmEncoding(if (outFloat) C.ENCODING_PCM_FLOAT else C.ENCODING_PCM_16BIT)
             .setChannelCount(2).setSampleRate(outRate).build(), 0, null)
     }
 
     override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
-        if (bypass) return super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
-        pending?.let { p -> if (!super.handleBuffer(p, pendingPts, 1)) return false; pending = null }
-        if (!buffer.hasRemaining()) return true
-        var pts = presentationTimeUs
-        val out = convert(buffer) { dropped -> pts += dropped * 1_000_000L / inRate }
-        if (out != null && out.hasRemaining()) {
-            tee?.handleBuffer(out.duplicate().order(ByteOrder.nativeOrder()))
-            if (!super.handleBuffer(out, pts, 1)) { pending = out; pendingPts = pts }
+        val startPos = buffer.position()
+        try {
+            if (bypass) return super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
+            pending?.let { p -> if (!super.handleBuffer(p, pendingPts, 1)) return false; pending = null }
+            if (!buffer.hasRemaining()) return true
+            var pts = presentationTimeUs
+            val out = convert(buffer) { dropped -> pts += dropped * 1_000_000L / inRate }
+            if (out != null && out.hasRemaining()) {
+                if (tee != null && outFloat) tee.handleBuffer(out.duplicate().order(ByteOrder.nativeOrder()))
+                if (!super.handleBuffer(out, pts, 1)) { pending = out; pendingPts = pts }
+            }
+            return true
+        } catch (e: AudioSink.InitializationException) {
+            // this device's audio output refused the format: step down to a safer one and try again
+            if (mode >= 3 || lastFormat == null) throw e
+            stepDown()
+            buffer.position(startPos)          // not used yet — the player hands it over again
+            return false
         }
-        return true
+    }
+
+    private fun stepDown() {
+        setMode(mode + 1)
+        pending = null; rs.reset(); core.reset()
+        try { super.flush() } catch (_: Exception) {}
+        configure(lastFormat!!, lastSize, lastChannels)
     }
 
     /** PCM in (any bit depth / channel count) → float stereo out at [outRate], with the effects applied. */
@@ -211,11 +236,20 @@ class HiResSink(
             lastGain = g1
         }
         // a fresh buffer each time: the inner sink may keep writing from it after accepting it
-        val out = ByteBuffer.allocate(n * 8).order(ByteOrder.nativeOrder())
-        for (i in 0 until n) { out.putFloat(xL[i].toFloat()); out.putFloat(xR[i].toFloat()) }
-        out.flip()
-        return out
+        if (outFloat) {
+            val out = ByteBuffer.allocate(n * 8).order(ByteOrder.nativeOrder())
+            for (i in 0 until n) { out.putFloat(xL[i].toFloat()); out.putFloat(xR[i].toFloat()) }
+            out.flip(); return out
+        }
+        // 16-bit output with TPDF dither (keeps quiet detail as low-level noise instead of distortion)
+        val out = ByteBuffer.allocate(n * 4).order(ByteOrder.nativeOrder())
+        for (i in 0 until n) { out.putShort(q16(xL[i])); out.putShort(q16(xR[i])) }
+        out.flip(); return out
     }
+
+    private var rnd = 0x2545F491L
+    private fun r01(): Double { rnd = rnd xor (rnd shl 13); rnd = rnd xor (rnd ushr 7); rnd = rnd xor (rnd shl 17); return (rnd ushr 11).toDouble() / (1L shl 53).toDouble() }
+    private fun q16(v: Double): Short = Math.round(v * 32767 + (r01() - r01())).toInt().coerceIn(-32768, 32767).toShort()
 
     override fun playToEndOfStream() {
         pending?.let { p -> if (!super.handleBuffer(p, pendingPts, 1)) return; pending = null }
@@ -239,6 +273,20 @@ class HiResSink(
 
         /** Whether this run of the app uses the hi-res output — fixed at start-up (the setting applies after a restart). */
         @Volatile var active = true
+
+        /**
+         * Output format this device accepts (learned, then remembered): 0 = 32-bit float at the native rate,
+         * 1 = 16-bit dithered at the native rate, 2 = 16-bit at the file's rate, 3 = standard output (no effects).
+         */
+        @Volatile var mode = 0; private set
+        private var prefs: android.content.SharedPreferences? = null
+        fun initMode(ctx: Context) { prefs = ctx.getSharedPreferences("hires", Context.MODE_PRIVATE); mode = prefs!!.getInt("mode", 0).coerceIn(0, 3) }
+        internal fun setMode(m: Int) {
+            mode = m.coerceIn(0, 3); prefs?.edit()?.putInt("mode", mode)?.apply()
+            if (mode >= 3) Dvc.setEnabled(false)   // no engine volume any more: give the volume back to Android
+        }
+        /** Start again from the best format (e.g. after turning the hi-res output off and on). */
+        fun resetMode() = setMode(0)
 
         /** The audio output for a player: hi-res (default) or ExoPlayer's standard chain with the engine as a processor. */
         fun build(ctx: Context, video: Boolean, tee: TeeAudioProcessor.AudioBufferSink?, enableFloat: Boolean, trackParams: Boolean): AudioSink =

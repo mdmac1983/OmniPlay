@@ -8,6 +8,7 @@ A standalone, offline-first hybrid **music + video player** by OrionMD.
 ## Music player
 - Plays everything on your device, in any folder you add, and from connected clouds.
 - Gapless queue, shuffle, repeat (off/all/one), sleep timer (with fade-out), background playback with media-notification controls.
+- Guide & Features readable in the app (Settings → footer).
 - **Sound engine** (music and videos): hi-res output (24-bit/float in, 64-bit processing, 32-bit float out, own high-quality resampler to the native rate, 5.1→stereo downmix, gapless trimming); 10-band, 31-band or parametric equaliser (12 filters); ReplayGain (track/album); direct volume control (DVC); balance; headphone correction, bass/treble, vocal boost, stereo width, virtual surround, crossfeed, reverb, volume leveller and a soft limiter. Sound profiles (speaker / headphones / earbuds / Bluetooth) that can switch automatically.
 - **Visualizers**: dozens of styles (bars, waves, circular, digital gauges, dashboards) driven by a live FFT of the audio.
 - **Skins** for the Now Playing screen.

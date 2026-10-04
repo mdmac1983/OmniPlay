@@ -97,6 +97,7 @@ private fun Router(st: AppState, page: Page, pad: androidx.compose.foundation.la
         Page.Discover -> DiscoverScreen(st, pad)
         Page.Settings -> SettingsScreen(st, pad)
         Page.Downloads -> DownloadsPage(st, pad)
+        is Page.Doc -> DocPage(st, page, pad)
         is Page.GAlbumPage -> GAlbumScreen(st, page, pad)
         is Page.GGroupPage -> GGroupScreen(st, page, pad)
         Page.GTrash -> GTrashScreen(st, pad)

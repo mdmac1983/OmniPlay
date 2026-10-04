@@ -9,6 +9,7 @@ class App : Application() {
         // sound settings first, so the hi-res output and Direct Volume Control start the way they were left
         runCatching { Sound.load(Store(this)) }
         HiResSink.active = Dsp.cfg.hiRes
+        HiResSink.initMode(this)
         runCatching { Dvc.init(this) }
     }
 }

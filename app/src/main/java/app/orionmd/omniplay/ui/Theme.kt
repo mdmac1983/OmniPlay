@@ -100,4 +100,6 @@ object Ic {
     val shield = Icons.Rounded.Shield
     val star = Icons.Rounded.Star
     val gallery = Icons.Rounded.PhotoLibrary
+    val guide = Icons.AutoMirrored.Rounded.MenuBook
+    val features = Icons.Rounded.Checklist
 }

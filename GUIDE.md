@@ -16,6 +16,7 @@ subtitles so your library looks complete even with no internet.
 4. [Music player](#4-music-player)
 5. [Video player](#5-video-player)
 6. [Podcasts](#6-podcasts)
+6b. [Gallery](#6b-gallery)
 7. [Offline: Sync all & downloads](#7-offline-sync-all--downloads)
 8. [Cloud storage](#8-cloud-storage)
 9. [What works with / without internet and API keys](#9-what-works-with--without-internet-and-api-keys)
@@ -71,7 +72,7 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
 - **Sound engine** (Settings → Sound, or the tune icon in the player) — one engine for **music and videos**:
   - **Hi-res output** (on by default), like Poweramp's: the decoder's full 24-bit / float samples go straight into the
     effects instead of being cut to 16-bit, everything is processed in 64-bit, and the result goes to the speaker/DAC
-    as 32-bit float. Its **own resampler** converts songs to the phone's native rate (usually 48 kHz) with a
+    as 32-bit float. If a device refuses 32-bit float output, Media Hub switches to 16-bit with dither (and, if needed, the file's own rate) and remembers it. Its **own resampler** converts songs to the phone's native rate (usually 48 kHz) with a
     high-quality filter, so Android's mixer doesn't resample again. 5.1 / 7.1 film sound is folded down to stereo so
     every effect works on it. Gapless: the encoder delay at the start of MP3/AAC tracks is trimmed.
   - **Equaliser:** 10 bands (18 presets), 31 bands (third-octave, presets too) or **Parametric** — up to 12 filters
@@ -250,6 +251,7 @@ and starts matching your videos straight away.
 | No movie posters/info | Add a TMDB key and tap **Save** — it says "TMDB key works ✓", then matches your videos. Use **Fix match** for wrong titles. |
 | Podcasts asks for keys | Enter **both** Podcast Index key and secret and tap **Save** on each. |
 | No subtitles downloaded | Needs both a TMDB key and a Wyzie key; set the language in Settings → Library tools, then run video **Sync all**. |
+| Music or video says "audio track init failed" / "can't play" (v2.2–2.3) | Fixed in 2.4: Media Hub now learns which audio formats your device accepts. If it still happens, Sound → turn **Hi-res output** off and back on, then restart. |
 | Update says to uninstall first | Install releases from GitHub *Releases* in order; don't mix in older test builds (uninstalling erases your data). |
 | Cloud won't connect | Check the Client ID/secret and that the redirect address shown in the app is registered with the provider. |
 | Trial ended | Buy a key at buymeacoffee.com/orionmd and enter it — nothing is lost. |

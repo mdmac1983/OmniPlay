@@ -35,7 +35,16 @@ fun SettingsScreen(st: AppState, pad: PaddingValues) {
             item { Cat(st, "playback", "Playback & subtitles", Ic.movie) { Playback(st) } }
             item { Cat(st, "appearance", "Appearance", Ic.skin) { Appearance(st) } }
             item { Cat(st, "security", "Activation & security", Ic.shield) { Security(st) } }
-            item { Muted("Media Hub · OrionMD · built for offline-first music & video", Modifier.padding(vertical = 20.dp), 11.sp) }
+            item {
+                // footer: the user guide and the feature list, as shipped with this version
+                Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        FooterLink(Ic.guide, "Guide") { st.open(Page.Doc("GUIDE.md", "User guide")) }
+                        FooterLink(Ic.features, "Features") { st.open(Page.Doc("FEATURES.md", "Features")) }
+                    }
+                    Muted("Media Hub · OrionMD · built for offline-first music & video", Modifier.padding(top = 12.dp), 11.sp)
+                }
+            }
         }
     }
 }
@@ -237,4 +246,12 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     if (tampered) Muted("⚠ This copy isn't signed with the OrionMD key.", Modifier.padding(vertical = 6.dp), 12.sp)
     Muted("Media Hub is proprietary. After the 14-day trial it needs an activation key (one key = one app on one device). It also verifies it hasn't been re-signed or modified; a tampered copy is locked behind the owner password and erases its own data after 3 wrong tries.", Modifier.padding(vertical = 8.dp), 12.sp)
     if (!activated) Btn("Enter activation key", { st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> st.enterActivationKey(k) } }, small = true, kind = BtnKind.Ghost)
+}
+
+@Composable
+private fun FooterLink(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Column(Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.compose.material3.Icon(icon, label, tint = C.ac, modifier = Modifier.size(28.dp))
+        Text(label, fontSize = 12.sp, color = C.mu, modifier = Modifier.padding(top = 2.dp))
+    }
 }

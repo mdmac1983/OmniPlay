@@ -39,6 +39,8 @@ sealed class Page {
     object Discover : Page()
     object Settings : Page()
     object Downloads : Page()
+    /** A bundled document (GUIDE.md / FEATURES.md). */
+    data class Doc(val file: String, val title: String) : Page()
     // Gallery
     data class GAlbumPage(val key: String) : Page()
     data class GGroupPage(val id: String) : Page()

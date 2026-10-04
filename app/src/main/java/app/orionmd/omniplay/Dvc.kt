@@ -23,7 +23,7 @@ object Dvc {
     const val MAX = 100
     private const val FLOOR_DB = -60.0
     private lateinit var app: Context
-    private val main = Handler(Looper.getMainLooper())
+    private val main by lazy { Handler(Looper.getMainLooper()) }
     private val am get() = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var session: MediaSession? = null
 
@@ -40,7 +40,7 @@ object Dvc {
     fun init(ctx: Context) {
         app = ctx.applicationContext
         val st = Store(app)
-        enabled = st.getPref("dvc", "0") == "1" && HiResSink.active
+        enabled = st.getPref("dvc", "0") == "1" && HiResSink.active && HiResSink.mode < 3
         level = st.getPref("dvcLevel", "50").toIntOrNull()?.coerceIn(0, MAX) ?: 50
         updateGain()
         // the app was closed (or killed) while DVC had the system volume at maximum: put it back first
@@ -78,7 +78,7 @@ object Dvc {
 
     /** Turns DVC on/off (needs the hi-res output). Turning it off puts the system volume back to the same loudness. */
     /** DVC only works through the hi-res output that's running now (otherwise full system volume would be heard as is). */
-    val available get() = HiResSink.active
+    val available get() = HiResSink.active && HiResSink.mode < 3
 
     fun setEnabled(on: Boolean) {
         if (on == enabled || (on && !available)) return
