@@ -10,6 +10,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -499,7 +503,23 @@ private fun ZoomImage(st: AppState, x: GItem, onTap: () -> Unit, onLong: () -> U
     var off by remember(x.uri) { mutableStateOf(Offset.Zero) }
     Box(Modifier.fillMaxSize()
         .pointerInput(x.uri) { detectTapGestures(onTap = { onTap() }, onDoubleTap = { if (scale > 1f) { scale = 1f; off = Offset.Zero } else scale = 2.5f }, onLongPress = { onLong() }) }
-        .pointerInput(x.uri) { detectTransformGestures(panZoomLock = false) { _, pan, z, _ -> if (scale > 1f || z != 1f) { scale = (scale * z).coerceIn(1f, 6f); off = if (scale <= 1f) Offset.Zero else off + pan } } },
+        // pinch to zoom, drag to move a zoomed photo — a one-finger swipe on an unzoomed photo is left alone, so it
+        // reaches the pager and goes to the next / previous photo (detectTransformGestures took every swipe)
+        .pointerInput(x.uri) {
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false)
+                do {
+                    val ev = awaitPointerEvent()
+                    val fingers = ev.changes.count { it.pressed }
+                    if (fingers >= 2 || scale > 1f) {
+                        val z = ev.calculateZoom(); val pan = ev.calculatePan()
+                        scale = (scale * z).coerceIn(1f, 6f)
+                        off = if (scale <= 1f) Offset.Zero else off + pan
+                        ev.changes.forEach { if (it.pressed) it.consume() }
+                    }
+                } while (ev.changes.any { it.pressed })
+            }
+        },
         contentAlignment = Alignment.Center) {
         val b = bmp
         if (b == null) Thumb(Img.Thumb(x.uri, x.video), "", Modifier.fillMaxSize(), px = 400, corner = 0.dp, contentScale = ContentScale.Fit, placeholder = false)
