@@ -257,6 +257,8 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     }
     val tampered = remember { Guard.tampered(st.ctx) }
     if (tampered) Muted("⚠ This copy isn't signed with the OrionMD key.", Modifier.padding(vertical = 6.dp), 12.sp)
+    Muted("Open-source parts: FFmpeg ${app.orionmd.ffmpeg.FfLib.version.ifEmpty { "7.0" }} (software decoding of 10-bit and other video / audio) — LGPL v2.1+, © the FFmpeg developers, ffmpeg.org; " +
+        "AndroidX Media3 — Apache 2.0; ONNX Runtime — MIT; MI-GAN (AI Eraser model) — MIT; OkHttp — Apache 2.0. The FFmpeg libraries are loaded separately and can be replaced.", Modifier.padding(vertical = 8.dp), 11.sp)
     Muted("Media Hub is proprietary. After the 14-day trial it needs an activation key (one key = one app on one device). It also verifies it hasn't been re-signed or modified; a tampered copy is locked behind the owner password and erases its own data after 3 wrong tries.", Modifier.padding(vertical = 8.dp), 12.sp)
     if (!activated) Btn("Enter activation key", { st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> st.enterActivationKey(k) } }, small = true, kind = BtnKind.Ghost)
 }

@@ -412,7 +412,26 @@ class SwitchingSink(private var cur: AudioSink, private val makeStandard: () -> 
 
 /** Renderers using OmniPlay's audio output ([HiResSink.build]). */
 @OptIn(UnstableApi::class)
-class OmniRenderers(ctx: Context, private val video: Boolean, private val tee: TeeAudioProcessor.AudioBufferSink? = null, decoder: String = "auto") : DefaultRenderersFactory(ctx) {
+class OmniRenderers(ctx: Context, private val video: Boolean, private val tee: TeeAudioProcessor.AudioBufferSink? = null, private val decoder: String = "auto") : DefaultRenderersFactory(ctx) {
+    // FFmpeg software decoders (10-bit H.264 / HEVC, MPEG-2/4; AC-3, E-AC-3, DTS, TrueHD, ALAC): after the phone's own
+    // decoders, so they take over only what the hardware can't play — or first, with "Software first".
+    override fun buildVideoRenderers(context: Context, extensionRendererMode: Int, mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector,
+                                     enableDecoderFallback: Boolean, eventHandler: android.os.Handler, eventListener: androidx.media3.exoplayer.video.VideoRendererEventListener,
+                                     allowedVideoJoiningTimeMs: Long, out: java.util.ArrayList<androidx.media3.exoplayer.Renderer>) {
+        super.buildVideoRenderers(context, extensionRendererMode, mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, allowedVideoJoiningTimeMs, out)
+        if (!app.orionmd.ffmpeg.FfLib.available) return
+        val r = app.orionmd.ffmpeg.FfVideoRenderer(allowedVideoJoiningTimeMs, eventHandler, eventListener, 50)
+        if (decoder == "sw") out.add(0, r) else out.add(r)
+    }
+    override fun buildAudioRenderers(context: Context, extensionRendererMode: Int, mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector,
+                                     enableDecoderFallback: Boolean, audioSink: AudioSink, eventHandler: android.os.Handler,
+                                     eventListener: androidx.media3.exoplayer.audio.AudioRendererEventListener, out: java.util.ArrayList<androidx.media3.exoplayer.Renderer>) {
+        super.buildAudioRenderers(context, extensionRendererMode, mediaCodecSelector, enableDecoderFallback, audioSink, eventHandler, eventListener, out)
+        if (!app.orionmd.ffmpeg.FfLib.available) return
+        val r = app.orionmd.ffmpeg.FfAudioRenderer(eventHandler, eventListener, audioSink)
+        if (decoder == "sw") out.add(0, r) else out.add(r)
+    }
+
     init {
         // like VLC's hardware-acceleration setting: prefer the phone's hardware decoders, or software ones (slower but
         // they play some files hardware chokes on). Either way, the other kind is still tried if the first fails.

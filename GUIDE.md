@@ -117,7 +117,10 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
 ## 5. Video player
 A VLC-style player (Media3 / ExoPlayer with Media Hub's own sound engine and subtitle layer). **Options** gathers
 saved sound presets, effects on/off and every menu in one place.
-- **Plays** MP4, MKV, AVI, MOV, WebM, TS and more; **network streams** (Video tab → link icon): http(s) files, live
+- **Plays** MP4, MKV, AVI, MOV, WebM, TS and more — including **10-bit MKV** (HEVC Main 10 and H.264 "Hi10P") and
+  AC-3 / E-AC-3 / DTS / TrueHD sound on phones whose hardware can't: Media Hub's built-in FFmpeg decoder takes over
+  automatically (**More → Decoder → Software first** forces it). Software decoding is heavy on low-end phones: 720p
+  plays smoothly on most, 1080p 10-bit may stutter on budget / Android Go devices; **network streams** (Video tab → link icon): http(s) files, live
   **HLS** (`.m3u8`) and **DASH** (`.mpd`), with recent links remembered. Other apps can **Open with → Media Hub**
   (file managers, browsers).
 - **Gestures:** swipe the left side for brightness, the right side for volume, sideways to scrub, double-tap the sides to
@@ -288,7 +291,7 @@ and starts matching your videos straight away.
 | Music or video says "audio track init failed" (v2.2–2.4) | Fixed in 2.5: if the hi-res output doesn't work on a device, Media Hub switches to the standard output by itself (effects still work) and remembers it. Sound → Output shows which one is in use. |
 | Sound sliders seem to do nothing | Fixed in 3.0 (they now change the sound while you drag). Width, surround and crossfeed work on stereo, so they're clearest on headphones; on a single built-in speaker there's little to hear. |
 | Quieter than other players | Sound → **Preamp** (+3…+9 dB) and/or **Volume boost**; check **Auto headroom** is off. With **DVC** on, also turn Media Hub's own volume up. |
-| A video won't play or stutters | Video → **More → Decoder → Software first** (or Hardware first) and try again. |
+| A video won't play or stutters | Video → **More → Decoder → Software first** (or Hardware first) and try again. 10-bit / Hi10P files use the software decoder automatically; on slow phones 1080p 10-bit may stutter (720p is fine). |
 | Subtitles out of sync | **Subtitles → Delay**. For sound out of sync: **Audio → Audio delay**. |
 | Subtitles show odd characters | **Subtitles → Text encoding** (e.g. Windows-1251 for Cyrillic, Windows-1256 for Arabic). |
 | Update says to uninstall first | Install releases from GitHub *Releases* in order; don't mix in older test builds (uninstalling erases your data). |

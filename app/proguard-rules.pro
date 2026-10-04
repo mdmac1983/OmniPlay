@@ -6,3 +6,4 @@
 -dontwarn org.bouncycastle.**
 -dontwarn org.conscrypt.**
 -dontwarn org.openjsse.**
+-keep class app.orionmd.ffmpeg.** { *; }
