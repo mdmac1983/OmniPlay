@@ -1,5 +1,10 @@
 [
  {
+  "version": "3.2",
+  "date": "2026-10-04",
+  "notes": "Fix stuck \"Saving 0 files for offline\" notification"
+ },
+ {
   "version": "3.1",
   "date": "2026-10-04",
   "notes": "Play 10-bit MKV: built-in FFmpeg (LGPL) software decoders"
