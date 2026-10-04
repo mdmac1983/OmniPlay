@@ -21,6 +21,8 @@ import kotlin.math.pow
  */
 object Dvc {
     const val MAX = 100
+    private const val MIN_START = 5     // below this a song starts too quiet to hear (−57 dB)
+    private const val START = 40
     private const val FLOOR_DB = -60.0
     private lateinit var app: Context
     private val main by lazy { Handler(Looper.getMainLooper()) }
@@ -42,6 +44,8 @@ object Dvc {
         val st = Store(app)
         enabled = st.getPref("dvc", "0") == "1" && HiResSink.active && HiResSink.mode < 3
         level = st.getPref("dvcLevel", "50").toIntOrNull()?.coerceIn(0, MAX) ?: 50
+        // left (nearly) muted last time — e.g. turned down from the system volume panel: start audible again
+        if (level < MIN_START) level = START
         updateGain()
         // the app was closed (or killed) while DVC had the system volume at maximum: put it back first
         if (st.getPref("dvcEngaged", "0") == "1") { try { am.setStreamVolume(AudioManager.STREAM_MUSIC, systemFromLevel(), 0) } catch (_: Exception) {}; st.setPref("dvcEngaged", "0") }
@@ -66,7 +70,7 @@ object Dvc {
     }
     private fun levelFromSystem(): Int {
         val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1); val idx = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-        if (idx <= 0) return 0
+        if (idx <= 0) return START   // phone muted when DVC was switched on: start at a normal level instead of silence
         val d = pctToDb(idx * 100.0 / max) - 3   // start a little quieter than before, never louder
         return ((d - FLOOR_DB) / -FLOOR_DB * MAX).toInt().coerceIn(1, MAX)
     }
@@ -92,7 +96,13 @@ object Dvc {
 
     // ---------- playing / not playing (from the hi-res output) ----------
     private val release = Runnable { if (playing == 0 && engaged) disengage() }
-    fun sinkPlaying() = main.post { playing++; main.removeCallbacks(release); if (enabled && !engaged) engage() }
+    fun sinkPlaying() = main.post {
+        playing++; main.removeCallbacks(release)
+        // DVC holds the system volume at maximum, so its own level is the only volume: if that was turned all the way
+        // down, a song would play in silence with nothing on screen to explain it — bring it back up to be heard
+        if (enabled && level < MIN_START) { setLevel(START); onChange?.invoke(level) }
+        if (enabled && !engaged) engage()
+    }
     fun sinkStopped() = main.post { playing = (playing - 1).coerceAtLeast(0); if (playing == 0) { main.removeCallbacks(release); main.postDelayed(release, 1500) } }
 
     private var provider: VolumeProvider? = null

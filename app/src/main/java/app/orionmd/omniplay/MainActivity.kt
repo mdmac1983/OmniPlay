@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity(), Host {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         st = AppState(this, this)
+        if (intent?.getStringExtra("open") == "player") openPlayer()
         Activation.ensureTrialStarted(st.store)
         gate = gateState()
         recheckPending()
@@ -93,7 +94,13 @@ class MainActivity : ComponentActivity(), Host {
     override fun openTree(cb: (Uri?) -> Unit) { treeCb = cb; try { treePicker.launch(null) } catch (_: Exception) { cb(null) } }
     override fun launch(intent: Intent) { startActivity(intent) }
     // the downloads notification opens the Offline page
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); if (intent.getStringExtra("open") == "downloads" && ::st.isInitialized) st.open(Page.Downloads) }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (!::st.isInitialized) return
+        when (intent.getStringExtra("open")) { "downloads" -> st.open(Page.Downloads); "player" -> openPlayer() }
+    }
+    /** From the playback notification: show the full player. */
+    private fun openPlayer() { st.soundOpen = false; st.visFull = false; st.sheetOpen = true }
     override fun confirmMedia(sender: android.content.IntentSender, cb: (Boolean) -> Unit) {
         mediaCb = cb; try { mediaConfirm.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build()) } catch (_: Exception) { cb(false) }
     }
