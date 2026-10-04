@@ -1,301 +1,398 @@
-# Media Hub — User Guide
+# Media Hub — Owner's Guide
 
-**Media Hub** by OrionMD is a standalone, **offline-first hybrid music and video player** for Android. It plays everything on
-your phone, in folders you choose, and in your cloud storage — and can download album art, lyrics, movie info and
-subtitles so your library looks complete even with no internet.
+**Media Hub** by OrionMD is an **offline-first music, video, podcast and photo app** for Android. It plays everything
+on your phone, in folders you choose and in your cloud storage. It can also save album art, lyrics, movie info and
+subtitles, so your library looks complete even with no internet.
 
 - **App ID:** `app.orionmd.omniplay` · Android 8.0+ (API 26)
-- **Get it:** GitHub → *Releases* → `MediaHub-vX.Y.apk` (each update installs over the last one and keeps your data)
+- **Version:** shown under the logo on the splash screen and at the bottom of **Settings**
+- **Updates:** GitHub → *Releases* → `MediaHub-vX.Y.apk`. Each release installs over the last one and keeps your data.
 
 ---
 
 ## Contents
 1. [Getting started](#1-getting-started)
-2. [Trial & activation](#2-trial--activation)
+2. [Trial, activation & owner unlock](#2-trial-activation--owner-unlock)
 3. [Screens at a glance](#3-screens-at-a-glance)
-4. [Music player](#4-music-player)
-5. [Video player](#5-video-player)
-6. [Podcasts](#6-podcasts)
-6b. [Gallery](#6b-gallery)
-7. [Offline: Sync all & downloads](#7-offline-sync-all--downloads)
-8. [Cloud storage](#8-cloud-storage)
-9. [What works with / without internet and API keys](#9-what-works-with--without-internet-and-api-keys)
-10. [Getting the free API keys](#10-getting-the-free-api-keys)
-11. [Privacy & security](#11-privacy--security)
-12. [Troubleshooting](#12-troubleshooting)
+4. [Your library](#4-your-library)
+5. [Music player](#5-music-player)
+6. [Sound engine](#6-sound-engine)
+7. [Visualizers](#7-visualizers)
+8. [Skins](#8-skins)
+9. [Video player](#9-video-player)
+10. [Podcasts](#10-podcasts)
+11. [Gallery](#11-gallery)
+12. [Offline: downloads & Sync all](#12-offline-downloads--sync-all)
+13. [Cloud storage](#13-cloud-storage)
+14. [API keys (optional, free)](#14-api-keys-optional-free)
+15. [Online vs offline](#15-online-vs-offline)
+16. [Settings map](#16-settings-map)
+17. [Privacy & security](#17-privacy--security)
+18. [Troubleshooting](#18-troubleshooting)
 
 ---
 
 ## 1. Getting started
-1. Install the APK. On first launch you'll see the Media Hub splash, then the welcome screen.
-2. Tap **Start 14-day free trial** (or enter an activation key).
-3. Allow access to your music and videos when asked. **This device** is added automatically — your songs and videos
-   appear in the **Music** and **Video** tabs.
-4. Optional: add more sources in **Settings → Your library sources** (a folder, SD card, or cloud account).
-5. Optional: add free API keys in **Settings → API keys** for movie/TV info, podcasts and online subtitles.
+1. Install the APK from GitHub *Releases*. On first launch you'll see the splash screen, then the welcome screen.
+2. Tap **Start 14-day free trial**, or enter an activation key.
+3. Allow access to your music, videos and photos when asked. **This device** is added automatically, so your songs
+   and videos appear in the **Music** and **Video** tabs.
+4. Optional: add more sources in **Settings → Your library sources** (a folder, an SD card or a cloud account).
+5. Optional: add free API keys in **Settings → API keys** for movie and TV info, podcasts and online subtitles.
+
+> Always install the release builds from GitHub. A test build signed differently makes Android ask you to uninstall
+> first, and uninstalling erases your data.
 
 ---
 
-## 2. Trial & activation
+## 2. Trial, activation & owner unlock
 | State | What you get |
 |---|---|
-| **Free trial** | Everything, free for **14 days** — starts automatically the first time you open the app. Days left show on the Dashboard and in Settings. |
-| **Pending** | You entered a key with no internet. The app works fully for up to **14 days** and quietly confirms the key next time you're online. |
-| **Activated** | Full version, no time limit. Checked online once, never again. |
-| **Locked** | The trial ended (or a pending key turned out invalid / already used). Your library, playlists and downloads are **kept** and return as soon as you activate. |
+| **Free trial** | Everything, free for **14 days**, starting the first time you open the app. Days left show on the Dashboard and in Settings. |
+| **Pending** | You entered a key with no internet. The app works fully for up to **14 days** and confirms the key the next time you're online. |
+| **Activated** | Full version with no time limit. The key is checked online once and never again. |
+| **Owner** | Unlocked with the owner password. Full version, no key needed. |
+| **Locked** | The trial ended, or a pending key turned out invalid or already used. Your library, playlists and downloads are **kept** and come back as soon as you activate. |
 
-- **Buy a key:** [buymeacoffee.com/orionmd](https://buymeacoffee.com/orionmd).
-- **Enter a key:** the Dashboard card, **Settings → Activation & security**, or the Locked screen (**Verify**).
-- **One key = one app on one device.** The first app + phone to use a key claims it permanently; using it on another
-  phone, or in another OrionMD app, answers "already used".
+- **Buy a key:** [buymeacoffee.com/orionmd](https://buymeacoffee.com/orionmd), or **Purchase Key** in the app.
+- **Enter a key:** on the Dashboard card, in **Settings → Activation & security**, or on the Locked screen (**Verify**).
+- **One key = one app on one device.** The first app and phone to use a key claim it permanently.
 - Setting the phone's clock back doesn't extend the trial.
+
+**Owner unlock.** On the Locked screen, tap the small **Owner unlock** link at the bottom and enter the owner
+password. Media Hub stores only a one-way check of the password (PBKDF2), never the password itself.
+
+**Tamper lock.** Media Hub checks at launch that it is the genuine OrionMD release build. A modified or re-signed copy
+opens only with the owner password. After **3 wrong attempts**, that copy erases its own data. Your media files are
+never touched.
 
 ---
 
 ## 3. Screens at a glance
 | Tab | What's there |
 |---|---|
-| **Home** (Dashboard) | Library counts, trial status, **Sync all** for music & videos (with progress), Continue watching, Most played, Recently added, podcast episodes saved offline, shortcuts. |
-| **Music** | Songs, Albums, Artists, Genres, Playlists, Folders · search · Discover (previews) · Podcasts · Sync all · rescan. |
-| **Video** | All, Movies, TV (grouped by show), Music videos · search · Sync all · rescan. |
-| **Gallery** | Every photo and video on the phone: timeline, albums, groups, viewer, editor, AI eraser, movies & reels, collages, GIFs, long exposure, stickers, trash. |
-| **Settings** | Sources, cloud accounts, API keys, library tools, sync, playback & subtitles, appearance, activation. |
+| **Home** (Dashboard) | Library counts, trial status, **Sync all** with progress, Continue watching, Most played, **Recently added music / videos**, podcast episodes saved offline and shortcuts. |
+| **Music** | Songs, Albums, Artists, Genres, Playlists and Folders, plus search, Discover (previews), Podcasts, Sync all and rescan. |
+| **Video** | All, Movies, TV (grouped by show) and Music videos, plus search, network streams, Sync all and rescan. |
+| **Gallery** | Every photo and video on the phone: timeline, albums, groups, viewer, editor, creative tools and trash. |
+| **Settings** | Sources, cloud accounts, API keys, library tools, sync, playback & subtitles, sound, appearance and activation. The **Guide** and **Features** links are at the bottom. |
 
-The OrionMD artwork appears as the launch splash and as a subtle background watermark (strength adjustable or off).
-
----
-
-## 4. Music player
-- **Playback:** queue, shuffle, repeat (off / all / one), mini player, full Now Playing screen, lock-screen and
-  notification controls, keeps playing in the background, pauses when headphones are unplugged.
-- **Sleep timer:** 5 min – 2 h, or "end of this song"; fades out gently.
-- **Sound engine** (Settings → Sound, or the tune icon in the player) — one engine for **music and videos**:
-  - **Hi-res output** (on by default), like Poweramp's: the decoder's full 24-bit / float samples go straight into the
-    effects instead of being cut to 16-bit, everything is processed in 64-bit, and the result goes to the speaker/DAC
-    as 32-bit float. If a device refuses 32-bit float output, Media Hub switches to 16-bit with dither (and, if needed, the file's own rate) and remembers it. Its **own resampler** converts songs to the phone's native rate (usually 48 kHz) with a
-    high-quality filter, so Android's mixer doesn't resample again. 5.1 / 7.1 film sound is folded down to stereo so
-    every effect works on it. Gapless: the encoder delay at the start of MP3/AAC tracks is trimmed.
-  - **Equaliser:** 10 bands (18 presets), 31 bands (third-octave, presets too) or **Parametric** — up to 12 filters
-    (peak, low/high shelf, low/high cut) with frequency, gain and Q; start from your headphone's correction and
-    fine-tune it.
-  - **Preamp + limiter** (like Poweramp): raise the level up to +15 dB before a peak limiter that stops clipping — the
-    quickest way to make everything louder (also in the music and video **Options** / **Audio** menus). **Auto
-    headroom** (off by default) turns EQ boosts down instead, for a cleaner but quieter sound.
-  - **Headphone correction** for specific models, bass, treble, dialogue/vocal enhancer, stereo width, virtual
-    surround, crossfeed, **balance**, reverb (room / hall / stadium), volume leveller, output trim, volume boost and a
-    soft limiter.
-  - **Direct volume control (DVC)**, like Poweramp's: Android's media volume goes to maximum and Media Hub sets the
-    volume itself inside its 64-bit engine, so quiet listening keeps full detail. Volume keys and the video volume swipe
-    control Media Hub while it plays (in the background too). When nothing is playing, the system volume returns to the
-    same loudness so other apps aren't loud. Needs the hi-res output.
-  - **ReplayGain** (off / track / album, with preamp) plays tagged songs at the same loudness.
-  - **Saved sound presets** — save every sound setting (10/31-band or parametric EQ, headphone correction, all effects,
-    balance, ReplayGain, volume boost) under your own name, e.g. "Car" or "Movie dialogue"; switch with one tap from the
-    Sound screen, the music player's **Options** (⋮) button or the video player's **Options** button. Press and hold a
-    preset to update it with the current sound, rename or delete it. Output settings (hi-res, DVC) aren't changed.
-  - **Sound profiles** (Speaker, Headphones, Earbuds, Bluetooth, Custom) can switch automatically when you plug in or
-    connect Bluetooth. Hold "compare" to hear the original.
-- **Visualizers:** dozens of styles (bars, waves, circular, digital gauges, dashboards) driven by the real audio; full
-  screen, behind lyrics, or mini bars.
-- **Skins** (Now Playing → palette button): 41 looks — classics (Midnight, Neon, Vinyl, Gold luxe, Polaroid…) and
-  themed packs inspired by Fortnite, Marshmello, Supreme, Chrome Hearts, **Gucci, Louis Vuitton, Prada, Ethika,
-  Under Armour, Nike, Jordan and Adidas** (their colours, prints and textures — no logos). The skin also styles the
-  **video player** (buttons, seek bar, play button, menus, and the pattern around the picture) and the Gallery's
-  video player; change it there under **More → Skin**. **Your own logo:** in the skin picker, **Add logo…** puts any
-  picture from your phone (a transparent PNG looks best) on that skin — above the song title, in the video player's
-  top bar and on the swatch; optionally also large and faint in the background. It stays on your device.
-- **Lyrics:** time-synced (follows the song, tap a line to jump) or plain. Uses `.lrc` files next to your songs first,
-  then LRCLIB online. Saved for offline.
-- **Song info & album art:** genre, year, length and covers from Deezer, with iTunes as backup. Songs without an artist
-  tag are read as **"Artist - Title"** from the title or file name.
-- **Albums & artists:** album pages show the full official track list with the songs you own ticked (preview the rest
-  when online); artist pages list their albums.
-- **Playlists:** your own, plus automatic *Most played* and *Recently added*.
+**Tapping the playback notification** (or the lock-screen player) always opens the Now Playing screen.
 
 ---
 
-## 5. Video player
-A VLC-style player (Media3 / ExoPlayer with Media Hub's own sound engine and subtitle layer). **Options** gathers
-saved sound presets, effects on/off and every menu in one place.
-- **Plays** MP4, MKV, AVI, MOV, WebM, TS and more — including **10-bit MKV** (HEVC Main 10 and H.264 "Hi10P") and
-  AC-3 / E-AC-3 / DTS / TrueHD sound on phones whose hardware can't: Media Hub's built-in FFmpeg decoder takes over
-  automatically (**More → Decoder → Software first** forces it). Software decoding is heavy on low-end phones: 720p
-  plays smoothly on most, 1080p 10-bit may stutter on budget / Android Go devices; **network streams** (Video tab → link icon): http(s) files, live
-  **HLS** (`.m3u8`) and **DASH** (`.mpd`), with recent links remembered. Other apps can **Open with → Media Hub**
-  (file managers, browsers).
-- **Gestures:** swipe the left side for brightness, the right side for volume, sideways to scrub, double-tap the sides to
-  skip and the middle to pause, **pinch out / in to resize the picture** (25 %–400 %, snaps back near 100 %) and drag
-  with two fingers to move it.
-- **Top buttons** (choose which ones show: Settings → Playback & subtitles → Player buttons):
-  - **Subtitles** — pick a track (files next to the video, downloaded ones, ones inside the video), **Load subtitle
-    file…**, **delay** in 0.1 s / 1 s steps (earlier or later), **text encoding** (UTF-8, Windows-1250…1258, Cyrillic,
-    Greek, Arabic, Hebrew, Chinese, Japanese, Korean, Thai…), quick size.
-  - **Audio** — audio track (language), **audio delay** in 50 ms / 500 ms steps for out-of-sync files, effects on/off
-    for videos, equaliser presets, dialogue boost, night mode.
-  - **Speed** 0.25×–4× in 0.05 steps, **Picture size** (best fit, fill/crop, fit width, stretch, 16:9, 4:3, 21:9,
-    1.85:1, 16:10, 5:4, 1:1), rotation lock, sleep timer, A-B repeat, **repeat one / all**, volume boost, screenshot,
-    picture-in-picture, skip intro, **lock**. Styled with your player skin (More → Skin).
-  - **More** — jump to time, **bookmarks** (per video), **playlist** (jump to any item), shuffle, video track /
-    quality, **media information** (codecs, resolution, frame rate, bitrate, HDR, decoders, audio output), **frame by
-    frame**, keep sound playing in the background, **decoder**: automatic, hardware first or software first.
-- **Resume** where you left off, **autoplay** the next episode/video, **Continue watching** on the Dashboard.
-- **Subtitle look:** size, colour, outline, background and position in Settings → Playback & subtitles.
-- **TMDB:** posters, backdrops, rating, genres, runtime, overview, cast with photos, trailers and clips, TV seasons and
-  episodes. **Fix match** if a title is wrong.
+## 4. Your library
+- **Sources:** this device, any folder or SD card (**Add folder**), and cloud folders (**Add cloud**). Remove a source
+  in Settings. Only Media Hub's index is removed; your files aren't touched.
+- **Sorting:** the chips above the song list sort **A–Z, Recently added, Artist or Album**. Videos sort **A–Z,
+  Recently added or Year**. The choice is remembered.
+- **Recently added** uses the date each file first appeared in your library. On the Dashboard and in the automatic
+  playlist, the newest additions come first.
+- **Song info & album art:** genre, year, length and covers come from Deezer, with iTunes as a backup. Songs without an
+  artist tag are read as **"Artist - Title"** from the title or file name.
+- **Albums & artists:** album pages show the full official track list, with the songs you own ticked. You can preview
+  the rest when online. Artist pages list their albums.
+- **Playlists:** your own, plus the automatic *Most played* and *Recently added*.
+- **Look up info automatically** (Settings → Library tools, on by default) fetches song info and TMDB matches for new
+  items as soon as they're added.
 
 ---
 
-## 6. Podcasts
-- Search podcasts (or music podcasts), see what's trending, subscribe.
-- Play episodes in the music player (with visualizer and sleep timer).
-- **Download** any episode, or **Download latest 5** for a show. Saved episodes appear under **Saved for offline**
-  (Podcasts page and Dashboard) and play with no connection. Remove them any time.
+## 5. Music player
+- **Playback:** queue, shuffle, repeat (off / all / one), a mini player and a full Now Playing screen. Controls also
+  appear on the lock screen and in the notification. Music keeps playing in the background and pauses when
+  headphones are unplugged.
+- **Options (⋮):** saved sound presets, effects on/off, sleep timer, skin, visualizer and more.
+- **Sleep timer:** 5 min to 2 h, or "end of this song". The sound fades out gently.
+- **Lyrics:** time-synced (the lyrics follow the song; tap a line to jump there) or plain text. Media Hub uses `.lrc`
+  files next to your songs first, then LRCLIB online, and saves them for offline. Lyrics can also appear over the
+  full-screen visualizer.
 
 ---
 
-## 6b. Gallery
-- **Timeline:** every photo and video, grouped by **day, month or year**.
-- **Albums:** your phone's folders plus **your own albums** (select → Add to album). Long-press an album for **Set cover
-  image**, **Add to a group**, Share, Rename / Delete (own albums).
-- **Groups:** combine several albums into one, e.g. "Holidays" = Beach + Camera + WhatsApp Images.
-- **Viewer:** swipe, pinch / double-tap to zoom, **Edit, Rotate, Share, Set as wallpaper** (home, lock or both),
-  add to album, set as album cover, info, trash.
-- **Editor** (always saves a copy): crop with aspect presets, rotate, flip, brightness / contrast / saturation / warmth,
-  10 filters, undo, and **AI Eraser** — paint over people, objects or text and tap **Erase**; an AI model (MI-GAN) rebuilds the background. The first time, tap **Get AI Eraser** to download the model once (~28 MB, internet needed); after that it runs fully offline on the phone. Needs a phone with 2 GB+ memory (not Android Go); on smaller phones only **Basic** is offered. **Basic** is a quick non-AI fill for small spots.
-- **Stickers:** press and hold on a photo — the main subject is cut out on your phone (Google ML Kit) and saved as a
-  transparent sticker in Pictures/Media Hub/Stickers.
-- **Videos** play right in the viewer (seek bar, pause); **Full player** opens the video player with subtitles.
-- **Folders:** tap the folder icon in Gallery to tick which phone folders appear (e.g. hide WhatsApp or Screenshots);
-  or open a folder's menu → *Hide this folder from Gallery*. Nothing is moved or deleted.
-- **Create:** **Collage** (2–9 photos, layouts, shapes, spacing, rounded corners, background), **Animated GIF** (from
-  photos or part of a video; frames, speed, size), **Long exposure** (blend a video or burst into one shot),
-  **Movie & Reel** (join photos and video clips: trim, reorder, fade transitions, slow zoom on photos, title,
-  captions, background music from your library — tap ▶ to preview songs and the chosen start point — with volume controls; Reel 9:16, Movie 16:9, Square or Portrait 4:5;
-  saved to Movies/Media Hub — made fully on the phone, no internet).
-- **Trash:** deleted items wait 30 days in Android's trash (Android 11+) — restore or delete for good any time.
+## 6. Sound engine
+Open it from **Settings → Sound**, the tune icon in the player, or **Options**. One engine processes **both music and
+videos**. The big switch at the top turns all effects on or off. Press and hold **compare** to hear the original sound.
 
----
+### Output
+- **Hi-res output** (on by default): the decoder's full 24-bit / float audio goes straight into the effects. Everything
+  is processed in 64-bit and sent to the speaker or DAC as 32-bit float. If a device refuses float output, Media Hub
+  switches by itself to 16-bit with dither and remembers that. If hi-res output fails completely, it falls back to
+  Android's standard output, and the effects still work. The **Output** card shows what's in use (rate, channels
+  and bit depth).
+- **Own resampler:** converts songs to the phone's native rate (usually 48 kHz) with a high-quality filter, so Android
+  doesn't resample them again.
+- **Direct volume control (DVC):** Android's media volume is set to maximum and Media Hub controls the volume inside
+  its 64-bit engine, so quiet listening keeps full detail. The volume keys control Media Hub while it plays. When
+  nothing is playing, the system volume goes back to a normal level so other apps aren't loud. DVC needs the hi-res
+  output; after switching it on, restart Media Hub once.
+- 5.1 / 7.1 film sound is folded down to stereo so every effect works on it. Gaps at the start of MP3/AAC tracks
+  are trimmed, so albums play gaplessly.
 
-## 7. Offline: Sync all & downloads
-Media Hub is built to work without internet. Two kinds of "offline":
+### Equaliser
+- **10 bands** (with presets), **31 bands** (third-octave) or **Parametric**: up to 12 filters (peak, low/high shelf,
+  low/high cut), each with its own frequency, gain and Q.
+- **Headphone correction** for specific headphone models. You can then fine-tune the correction in the parametric EQ.
+- **Preamp + limiter:** raises the level by up to +15 dB, and a look-ahead limiter stops clipping. This is the quickest
+  way to make everything louder. **Auto headroom** (off by default) turns EQ boosts down instead, which sounds cleaner
+  but quieter.
 
-**Your media** — songs and videos on the phone or in a picked folder always play offline. Cloud songs/videos and podcast
-episodes play offline once **downloaded** (Download button on songs, albums, videos and episodes; manage them under
-*Offline* on the Dashboard or Settings → Library tools).
-
-**Downloading** shows a live percentage on the Download button (tap it to pause, again to resume) and on the
-*Offline* page: each file's %, MB done and speed, with **pause / resume / cancel** per file and **Pause all /
-Resume all**. Downloads keep going in the background (a notification shows the overall %), and a paused or
-interrupted download — even after closing Media Hub or losing the connection — **continues from where it stopped**
-instead of starting over. A dropped connection is retried automatically.
-
-**Your library info** — use **Sync all** (Dashboard, the download icon on the Music/Video tabs, or Settings → Library
-tools) to save everything the app normally fetches online:
-
-| Sync all — Music | Sync all — Videos |
+### Effects
+| Effect | What it does |
 |---|---|
-| Song info (genre, year, length) | TMDB match + full details |
-| Album-art images + covers inside your files | Posters, backdrops, cast photos |
-| Lyrics (time-synced when available) | Trailers / media info, TV season & episode info |
-| Album details & full track lists | Subtitles (needs a Wyzie key; pick the language) |
+| **Bass boost / Treble** | Tone controls. |
+| **Dialogue / vocals** | Brings voices forward. Great for films. |
+| **Stereo width** | Narrows or widens the stereo image. The bass stays centred, so it never thins out. |
+| **Surround (3D)** | Adds spaciousness around your head. |
+| **Crossfeed** | Blends a little of each channel into the other, so headphones sound more like speakers. Less fatigue. |
+| **Balance** | Shifts the sound left or right. |
+| **Reverb** | Room, Hall or Stadium, with a strength control. |
+| **Loudness (leveller)** | Evens out quiet and loud passages. |
+| **Volume boost** | Extra gain for quiet files. |
+| **ReplayGain** (music) | Off, Track or Album: plays tagged songs at the same loudness. |
 
-Saved items are skipped next time, so re-running only picks up new files. **Automatic look-ups** (on by default) also
-fetch song info and TMDB matches for new items as soon as they're added — turn off in Settings → Library tools.
+Width, surround and crossfeed act on the difference between left and right, so they're clearest on headphones. On a
+single phone speaker there's little to hear.
+
+### Presets & profiles
+- **Saved sound presets:** save every sound setting under your own name (for example "Car" or "Movie dialogue") and
+  switch with one tap from the Sound screen or the music and video **Options**. Press and hold a preset to update,
+  rename or delete it. Output settings (hi-res, DVC) aren't stored in presets.
+- **Sound profiles** (Speaker, Headphones, Earbuds, Bluetooth, Custom) each keep their own settings. With **Switch
+  automatically** on, Media Hub changes profile when you plug in headphones or connect Bluetooth.
+- **Use these effects for videos** can be turned off if you want videos to play untouched.
 
 ---
 
-## 8. Cloud storage
-Connect in **Settings → Cloud accounts**, then pick a folder to add. Cloud files stream with seeking, can be downloaded
-for offline, and folders can be kept in **background sync** (schedule and Wi-Fi-only in Settings → Sync).
+## 7. Visualizers
+Visualizers are driven by the real audio. Show them full screen, behind the lyrics, or as mini bars in the mini player.
+Pick a style in the player (**Options → Visualizer → Choose**) or in **Settings → Appearance → Visualizer style**.
+In full screen, tap the visualizer to cycle through the styles.
+
+The picker is split into **collapsible categories**. Tap a category to open or close it. The category of your current
+style opens automatically, and the others remember whether you left them open.
+
+| Category | Styles |
+|---|---|
+| **Bars** (13) | Bars, Mirror, Blocks, Needles, Bouncing dots, Center out, Flames, LED matrix, Skyline, Pyramids… |
+| **Waves** (10) | Wave, Filled wave, Lissajous, Mountain, Aurora, DNA… |
+| **Circles** (13) | Circle, Rings, Blob, Sunburst, Flower, Kaleidoscope, Spiral… |
+| **Space & particles** (9) | Starfield, Digital rain, Bubbles, Tunnel, Lava lamp, Heartbeat… |
+| **Retro & grids** (5) | Spectrogram, Ridgelines, Honeycomb… |
+| **Instrument cluster** (16) | Analogue dials and needles. |
+| **Digital gauges** (20) | Digital readouts and meters. |
+| **Digital dashboards** (21) | Full dashboard layouts. |
+| **Hi-fi faceplates** (12) | Two each in the style of McIntosh, Marantz, Onkyo, Sony ES, Kenwood and Pioneer Elite: blue watt meters, VFD displays, peak meters and spectrum analysers, with the OrionMD wordmark on the faceplate. |
+| **Supercar clusters** (18) | Two each in the style of Ferrari, LaFerrari, Lexus LFA, Porsche 911 GT3, Nissan GT-R, Mercedes G-Class, Audi, Acura NSX, Honda Civic Type R and BMW M3 Competition. Rev counters, shift lights, gears and speed all move with the music. |
+
+The hi-fi and car styles are inspired by those designs and carry no brand logos.
+
+---
+
+## 8. Skins
+Open the skin picker from Now Playing (palette button) or **Options → Skin**. There are **41 looks**:
+
+- **Classics:** Midnight, Neon, Vinyl, Retro '70s, Sunset, Ocean, Forest, Minimal light, Frosted art, Gold luxe,
+  Cyberpunk, Pastel, Noir, Aurora and Polaroid.
+- **Themed packs:** colours, prints and textures inspired by streetwear, gaming and fashion houses (no logos).
+
+Each skin also styles the **video player**: its buttons, seek bar, menus, and the pattern around the picture (that
+pattern can be switched off in Settings).
+
+**Your own logo:** in the skin picker, **Add logo…** puts any picture from your phone on that skin (a transparent PNG
+looks best). It appears above the song title, in the video player's top bar, and optionally large and faint in the
+background. It stays on your device.
+
+---
+
+## 9. Video player
+A VLC-style player with Media Hub's sound engine and its own subtitle layer.
+
+- **Plays** MP4, MKV, AVI, MOV, WebM, TS and more, including **10-bit video** (HEVC Main 10, H.264 Hi10P) and AC-3 /
+  E-AC-3 / DTS / TrueHD sound. On phones whose hardware can't decode these, the built-in FFmpeg decoder takes over
+  automatically. On slower phones, 1080p 10-bit may stutter; 720p is fine.
+- **Network streams** (Video tab → link icon): http(s) files, live **HLS** (`.m3u8`) and **DASH** (`.mpd`). Recent
+  links are remembered. Other apps can also **Open with → Media Hub**.
+- **Gestures:**
+  - Swipe up or down on the left side for brightness, or on the right side for volume.
+  - Swipe sideways to scrub.
+  - Double-tap the sides to skip, or the middle to pause.
+  - **Pinch** to resize the picture (25 %–400 %), and drag with two fingers to move it.
+- **Subtitles:** pick a track (files next to the video, downloaded ones or ones inside the video), or use **Load
+  subtitle file…**. You can also set the **delay** (0.1 s / 1 s steps), **text encoding** (UTF-8, Windows-125x,
+  Cyrillic, Arabic, Chinese, Japanese, Korean…) and size. Set the look (size, colour, outline, background) in
+  Settings → Playback & subtitles.
+- **Audio:** language track, **audio delay** (50 ms / 500 ms steps), effects on/off, EQ presets, dialogue boost and
+  night mode.
+- **More controls:**
+  - **Playback:** speed from 0.25× to 4×, A-B repeat, repeat one / all, sleep timer, skip intro.
+  - **Picture:** picture size (best fit, fill, fit width, stretch, 16:9, 4:3, 21:9, 1.85:1, 16:10, 5:4, 1:1),
+    rotation lock, picture-in-picture, screenshot.
+  - **Navigation:** jump to time, per-video **bookmarks**, playlist, frame by frame.
+  - **Info and options:** **media information** (codecs, resolution, HDR, bitrate, decoder), decoder choice
+    (automatic, hardware first, software first), background sound and **lock**.
+- **Choose which top buttons show** in Settings → Playback & subtitles → Player buttons.
+- **Resume** where you left off, **autoplay** the next episode, and **Continue watching** on the Dashboard.
+- **TMDB info** (with a key): posters, backdrops, rating, genres, overview, cast with photos, trailers, and TV seasons
+  and episodes. Use **Fix match** if a title is wrong.
+
+---
+
+## 10. Podcasts
+- Search podcasts (or music podcasts), see what's trending, and subscribe.
+- Episodes play in the music player, with the visualizer and sleep timer.
+- **Download** any episode, or tap **Download latest 5** for a show. Saved episodes appear under **Saved for offline**
+  and play with no connection.
+
+---
+
+## 11. Gallery
+- **Timeline:** every photo and video, grouped by day, month or year.
+- **Albums:** the phone's folders plus **your own albums**. Long-press an album to set its cover, add it to a group,
+  share it, or rename / delete it.
+- **Groups:** combine several albums into one, for example "Holidays" = Beach + Camera + WhatsApp Images.
+- **Viewer:** **swipe left or right** for the next or previous item. Pinch or double-tap to zoom (swiping pages again
+  once you're zoomed back out). Edit, Rotate, Share, **Set as wallpaper**, add to album, info, trash.
+- **Editor** (always saves a copy):
+  - Crop with aspect presets, rotate and flip.
+  - Brightness, contrast, saturation and warmth, plus 10 filters, with undo.
+  - **Eraser:** paint over people, objects or text and tap **Erase**. The first time, download the eraser model once
+    (~28 MB); after that it works fully offline. It needs 2 GB+ memory. On smaller phones, the quick **Basic** fill
+    is offered instead.
+- **Stickers:** press and hold on a photo, and the main subject is cut out as a transparent sticker. Stickers are saved
+  in Pictures/Media Hub/Stickers.
+- **Create:**
+  - **Collage:** 2–9 photos, with layouts, shapes and spacing.
+  - **Animated GIF:** made from photos or from part of a video.
+  - **Long exposure:** blends a video or burst into one shot.
+  - **Movie & Reel:** clips and photos with trims, fades, titles, captions and background music from your library.
+    Formats are 9:16, 16:9, square and 4:5, and the result is saved to Movies/Media Hub.
+- **Folders:** choose which phone folders appear (for example, hide Screenshots). Nothing is moved or deleted.
+- **Trash:** deleted items wait 30 days (Android 11+), so you can restore them or delete them for good.
+
+---
+
+## 12. Offline: downloads & Sync all
+**Downloads.** The Download button on songs, albums, videos and podcast episodes saves them for offline playback.
+- The button shows a live **percentage**. Tap it to pause and again to resume.
+- The **Offline downloads** page shows each file's %, MB done and speed. You can pause, resume or cancel each file, or
+  use **Pause all / Resume all**.
+- Downloads continue in the background, and a notification shows the overall progress.
+- A download that is interrupted (closed app, lost connection) **continues from where it stopped**.
+
+**Save downloads to** (Settings → Library tools):
+| Option | Where | Who sees them |
+|---|---|---|
+| **App storage (private)** (default) | Inside Media Hub | Only Media Hub. They're removed if you uninstall. |
+| **Phone storage** | Music, Movies and Pictures → *Media Hub* | Your gallery, file manager and other players. They stay after uninstalling. |
+
+The choice applies to new downloads.
+
+**Sync all** saves everything Media Hub normally looks up online. Run it from the Dashboard, the download icon on the
+Music and Video tabs, or Settings → Library tools.
+
+| Music | Videos |
+|---|---|
+| Song info (genre, year, length) | TMDB match and full details |
+| Album art and covers inside your files | Posters, backdrops, cast photos |
+| Lyrics (time-synced when available) | Trailers, TV season and episode info |
+| Album details and full track lists | Subtitles (needs a Wyzie key; pick the language) |
+
+Items that are already saved are skipped, so re-running only picks up new files.
+
+---
+
+## 13. Cloud storage
+Connect in **Settings → Cloud accounts**, then pick a folder to add. Cloud files stream with seeking, can be downloaded,
+and can be kept up to date with **background sync**. Set the schedule (every 6 h to weekly) and **Wi-Fi only** in
+Settings → Sync.
 
 | Service | How it connects | What you need |
 |---|---|---|
-| **pCloud** | Sign in through the browser | Your own free pCloud app's Client ID + secret |
-| **Dropbox** | Sign in through the browser | Your own free Dropbox app's App key |
-| **Google Drive** | Sign in through the browser | Your own Google Cloud OAuth "Desktop app" Client ID + secret |
-| **MEGA** | Email + password | Nothing else (files are decrypted on your phone; accounts with 2FA aren't supported) |
-| **Filen** | WebDAV | Turn on WebDAV in the Filen desktop app or run the Filen CLI |
-| **Proton Drive** | WebDAV bridge | Run `rclone serve webdav` with rclone's Proton Drive remote on a computer |
-| **WebDAV** (Nextcloud, ownCloud, NAS, Koofr, Box, Yandex…) | URL + user + password | Your server details (an app password if offered) |
+| **pCloud** | Browser sign-in | Your own free pCloud app's Client ID + secret |
+| **Dropbox** | Browser sign-in | Your own free Dropbox app's App key |
+| **Google Drive** | Browser sign-in | A Google Cloud OAuth "Desktop app" Client ID + secret |
+| **MEGA** | Email + password | Nothing else (accounts with 2FA aren't supported) |
+| **Filen** | WebDAV | WebDAV turned on in the Filen desktop app or Filen CLI |
+| **Proton Drive** | WebDAV bridge | `rclone serve webdav` with rclone's Proton Drive remote on a computer |
+| **WebDAV** (Nextcloud, ownCloud, NAS, Koofr…) | URL + user + password | Your server details (use an app password if offered) |
 
-Each provider shows step-by-step instructions and the redirect address to register. Tip: you can also add a cloud app's
-**sync folder** on your phone as a normal folder (Add folder) for pure offline use.
+Each provider shows step-by-step instructions and the redirect address to register. Tip: a cloud app's sync folder on
+your phone can also be added as a normal folder for pure offline use.
 
 ---
 
-## 9. What works with / without internet and API keys
+## 14. API keys (optional, free)
+Paste the keys in **Settings → API keys** and tap **Save**. They're stored encrypted. **No key is needed for any music
+feature.**
 
-### Without internet
-| Works | Needs internet |
-|---|---|
-| Playing music and videos on the device or in added folders | Streaming from the cloud (unless downloaded) |
-| Downloaded cloud files and podcast episodes | Podcast search, trending and new episodes |
-| Sound engine, visualizers, skins, playlists, sleep timer | Discover previews |
-| Everything saved by **Sync all**: album art, song info, lyrics, album details, TMDB details, posters, cast, episode info, subtitles | First-time look-ups for new songs/videos (they fill in next time you're online) |
-| Subtitle and `.lrc` files next to your media | Running Sync all |
-| The whole Gallery: viewing, video playback, editing, stickers, collages, GIFs, long exposure, Movies & Reels | Downloading the AI Eraser model (once, ~28 MB) |
-| AI Eraser after its one-time download | |
-| Entering a key (held as *Pending* for 14 days until you're online) | Confirming a key, buying a key |
-
-### Without any API keys
-Everything above **plus**, when online: song info and album art (Deezer/iTunes), lyrics (LRCLIB), album pages and track
-lists, Discover previews, music-video info, MEGA and WebDAV clouds. **No key is needed for any music feature.**
-
-### What each optional key adds
-| Key | Unlocks | Without it |
+| Key | Unlocks | Where to get it |
 |---|---|---|
-| **TMDB** (token or v3 key) | Movie & TV posters, details, cast, trailers, episode info, Fix match, video Sync all | Videos play normally with a frame thumbnail and file name |
-| **Podcast Index** (key + secret) | Podcasts tab: search, trending, episodes | Saved (downloaded) episodes still play; no new search |
-| **Wyzie Subs** | Download subtitles by TMDB match (needs TMDB too) | Use subtitle files next to your videos |
-| **pCloud / Dropbox / Google Drive** app keys | Connecting those clouds | Use MEGA, WebDAV, or a sync folder |
+| **TMDB** (Read Access Token or v3 key) | Movie and TV posters, details, cast, trailers, episodes, Fix match, video Sync all | themoviedb.org → Settings → API → request a key (Developer, personal use) |
+| **Podcast Index** (key + secret) | Podcast search, trending, new episodes | api.podcastindex.org → sign up; enter **both** values |
+| **Wyzie Subs** | Subtitle downloads (needs TMDB too) | sub.wyzie.io |
+| **pCloud / Dropbox / Google Drive** | Connecting those clouds | Their developer consoles; register the redirect address shown in the app |
+
+**Test TMDB key** checks the key and starts matching your videos straight away.
 
 ---
 
-## 10. Getting the free API keys
-All free; paste them in **Settings → API keys** and tap **Save** (they're stored encrypted). Saving a TMDB key tests it
-and starts matching your videos straight away.
-
-- **TMDB** — sign up at themoviedb.org → profile → **Settings → API** → request a key (choose *Developer*, personal use)
-  → copy the **API Read Access Token** (or the v3 API key).
-- **Podcast Index** — api.podcastindex.org → sign up with your email → the **API key** and **secret** are emailed /
-  shown on the dashboard. Enter both.
-- **Wyzie Subs** — sub.wyzie.io → get a free key.
-- **pCloud** — pcloud.com → Developers → My applications → new app → add the redirect shown in the app → copy
-  Client ID and Client secret.
-- **Dropbox** — dropbox.com/developers → Create app → Scoped access, Full Dropbox → Permissions: `files.metadata.read`,
-  `files.content.read` → add the redirect shown in the app → copy the App key.
-- **Google Drive** — console.cloud.google.com → new project → enable **Google Drive API** → OAuth consent screen (add
-  yourself as a test user) → Credentials → OAuth client ID → **Desktop app** → copy Client ID and secret.
+## 15. Online vs offline
+| Works offline | Needs internet |
+|---|---|
+| Music and videos on the phone or in added folders | Streaming from the cloud (unless downloaded) |
+| Downloaded cloud files and podcast episodes | Podcast search and new episodes |
+| Sound engine, visualizers, skins, playlists, sleep timer | Discover previews |
+| Everything saved by **Sync all** | First look-ups for new songs and videos (they fill in later) |
+| Subtitle and `.lrc` files next to your media | Running Sync all |
+| The whole Gallery, including the eraser after its one-time download | Downloading the eraser model (once) |
+| Entering a key (held as *Pending* for 14 days) | Confirming or buying a key |
 
 ---
 
-## 11. Privacy & security
-- No account, ads or tracking. Your library stays on your phone.
-- Caches, API keys, cloud sign-ins and the activation key are encrypted on the device (AES-256-GCM, key held by the
-  Android Keystore).
+## 16. Settings map
+| Section | What's inside |
+|---|---|
+| **Your library sources** | This device, Add folder, Add cloud, remove a source |
+| **Cloud accounts** | Connect / disconnect clouds and their OAuth keys |
+| **API keys** | TMDB, Podcast Index, Wyzie |
+| **Library tools** | Look up info automatically, Music / Videos Sync all, lyrics for all songs, subtitle language, **Save downloads to**, Offline downloads |
+| **Sync** | Background sync schedule, Wi-Fi only |
+| **Playback & subtitles** | Video defaults (resume, autoplay, gestures, picture size, decoder, skip amount, PiP, background sound), player buttons, subtitle look and encoding |
+| **Sound** | Opens the sound engine and equaliser |
+| **Appearance** | Visualizer style, player skin, skin pattern around videos, background watermark, splash screen |
+| **Activation & security** | Trial / key status, enter or purchase a key |
+| **Footer** | App version, **Guide**, **Features**, open-source notices (FFmpeg, LGPL) |
+
+---
+
+## 17. Privacy & security
+- There's no account, no ads and no tracking. Your library stays on your phone.
+- Caches, API keys, cloud sign-ins and the activation key are encrypted on the device (AES-256-GCM, with the key held
+  by the Android Keystore).
 - Activation sends only the key, this app's device ID and the app name to the OrionMD activation server.
-- Online look-ups send only what's needed to find a match (artist/title or movie name) to Deezer, iTunes, LRCLIB,
-  TMDB, Podcast Index or Wyzie.
-- Media Hub is proprietary and release-signed by OrionMD. It checks its own signature at launch; a modified or re-signed
-  copy locks itself behind the owner password.
+- Online look-ups send only what's needed to find a match (artist and title, or a movie name).
+- The owner password is never stored. The app keeps only a salted PBKDF2 check value.
 
 ---
 
-## 12. Troubleshooting
+## 18. Troubleshooting
 | Problem | Fix |
 |---|---|
-| "Unknown artist" / no album art | Be online; info fills in automatically, or run **Sync all** for Music. Files named `Artist - Title` work best. |
-| No movie posters/info | Add a TMDB key and tap **Save** — it says "TMDB key works ✓", then matches your videos. Use **Fix match** for wrong titles. |
-| Podcasts asks for keys | Enter **both** Podcast Index key and secret and tap **Save** on each. |
-| No subtitles downloaded | Needs both a TMDB key and a Wyzie key; set the language in Settings → Library tools, then run video **Sync all**. |
-| Music or video says "audio track init failed" (v2.2–2.4) | Fixed in 2.5: if the hi-res output doesn't work on a device, Media Hub switches to the standard output by itself (effects still work) and remembers it. Sound → Output shows which one is in use. |
-| Sound sliders seem to do nothing | Fixed in 3.0 (they now change the sound while you drag). Width, surround and crossfeed work on stereo, so they're clearest on headphones; on a single built-in speaker there's little to hear. |
-| Quieter than other players | Sound → **Preamp** (+3…+9 dB) and/or **Volume boost**; check **Auto headroom** is off. With **DVC** on, also turn Media Hub's own volume up. |
-| A video won't play or stutters | Video → **More → Decoder → Software first** (or Hardware first) and try again. 10-bit / Hi10P files use the software decoder automatically; on slow phones 1080p 10-bit may stutter (720p is fine). |
-| Subtitles out of sync | **Subtitles → Delay**. For sound out of sync: **Audio → Audio delay**. |
-| Subtitles show odd characters | **Subtitles → Text encoding** (e.g. Windows-1251 for Cyrillic, Windows-1256 for Arabic). |
-| Update says to uninstall first | Install releases from GitHub *Releases* in order; don't mix in older test builds (uninstalling erases your data). |
-| Cloud won't connect | Check the Client ID/secret and that the redirect address shown in the app is registered with the provider. |
-| Trial ended | Buy a key at buymeacoffee.com/orionmd and enter it — nothing is lost. |
-| Key says "already used" | Each key works for one app on one device. Use a new key, or contact OrionMD. |
-| "Pending verification" | Connect to the internet and reopen the app — the key confirms automatically. |
+| **No sound from music** | Open **Sound**: check the **Output** card says *Running*, and that the **Volume** slider (with DVC on) isn't at the bottom. Try DVC off, restart Media Hub, and play again. |
+| Quieter than other players | Sound → **Preamp** (+3 to +9 dB) and/or **Volume boost**; make sure **Auto headroom** is off. With DVC on, turn up Media Hub's own volume. |
+| Sliders seem to do nothing | Check **Sound effects ON** at the top. Width, surround and crossfeed are clearest on headphones. |
+| Visualizer doesn't move | Make sure something is playing; the Sound screen should say *Engine running*. Update to the latest release. |
+| Notification doesn't open the player | Update to the latest release: tapping the notification opens Now Playing. |
+| "Unknown artist" / no album art | Go online, or run **Sync all** for Music. Files named `Artist - Title` work best. |
+| No movie posters or info | Add a TMDB key and tap **Save** / **Test**. Use **Fix match** for wrong titles. |
+| Video won't play or stutters | Video → More → **Decoder → Software first** (or Hardware first). |
+| Subtitles out of sync / odd characters | **Subtitles → Delay**, or **Subtitles → Text encoding**. For sound out of sync, use **Audio → Audio delay**. |
+| No subtitles downloaded | Needs both TMDB and Wyzie keys. Set the language in Library tools, then run video Sync all. |
+| Downloads don't show in other apps | Set **Save downloads to → Phone storage** (applies to new downloads). |
+| Update asks to uninstall first | Install only GitHub release builds, in order. Uninstalling erases your data. |
+| Cloud won't connect | Check the Client ID / secret, and that the redirect address shown in the app is registered with the provider. |
+| Trial ended / key "already used" / "Pending" | Buy a key at buymeacoffee.com/orionmd · each key works for one app on one device · go online and reopen to confirm a pending key. |
+
+When you report a problem, include the **version number** (splash screen or Settings footer) and your Sound settings
+(Hi-res and DVC on or off).
