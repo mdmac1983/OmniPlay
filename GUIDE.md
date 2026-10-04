@@ -78,6 +78,9 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
   - **Equaliser:** 10 bands (18 presets), 31 bands (third-octave, presets too) or **Parametric** — up to 12 filters
     (peak, low/high shelf, low/high cut) with frequency, gain and Q; start from your headphone's correction and
     fine-tune it.
+  - **Preamp + limiter** (like Poweramp): raise the level up to +15 dB before a peak limiter that stops clipping — the
+    quickest way to make everything louder (also in the music and video **Options** / **Audio** menus). **Auto
+    headroom** (off by default) turns EQ boosts down instead, for a cleaner but quieter sound.
   - **Headphone correction** for specific models, bass, treble, dialogue/vocal enhancer, stereo width, virtual
     surround, crossfeed, **balance**, reverb (room / hall / stadium), volume leveller, output trim, volume boost and a
     soft limiter.
@@ -274,6 +277,7 @@ and starts matching your videos straight away.
 | Podcasts asks for keys | Enter **both** Podcast Index key and secret and tap **Save** on each. |
 | No subtitles downloaded | Needs both a TMDB key and a Wyzie key; set the language in Settings → Library tools, then run video **Sync all**. |
 | Music or video says "audio track init failed" (v2.2–2.4) | Fixed in 2.5: if the hi-res output doesn't work on a device, Media Hub switches to the standard output by itself (effects still work) and remembers it. Sound → Output shows which one is in use. |
+| Quieter than other players | Sound → **Preamp** (+3…+9 dB) and/or **Volume boost**; check **Auto headroom** is off. With **DVC** on, also turn Media Hub's own volume up. |
 | A video won't play or stutters | Video → **More → Decoder → Software first** (or Hardware first) and try again. |
 | Subtitles out of sync | **Subtitles → Delay**. For sound out of sync: **Audio → Audio delay**. |
 | Subtitles show odd characters | **Subtitles → Text encoding** (e.g. Windows-1251 for Cyrillic, Windows-1256 for Arabic). |

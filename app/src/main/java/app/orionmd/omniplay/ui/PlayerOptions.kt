@@ -116,6 +116,17 @@ fun MusicOptions(st: AppState, onDone: () -> Unit) {
                                 .padding(horizontal = 12.dp, vertical = 6.dp))
                     }
                 }
+                SectionHeader("Loudness (preamp)")
+                var pre by remember { mutableStateOf(Dsp.cfg.preamp) }
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(0f, 3f, 6f, 9f, 12f).forEach { v ->
+                        val sel = kotlin.math.abs(pre - v) < .25f
+                        Text(if (v == 0f) "0 dB" else "+${v.toInt()} dB", fontSize = 13.sp, color = if (sel) androidx.compose.ui.graphics.Color.Black else C.tx,
+                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (sel) C.ac else C.s2)
+                                .clickable { pre = v; on = true; Sound.save(st, Dsp.cfg.copy(on = true, preamp = v)); Profiles.saveCurrent(st) }.padding(horizontal = 14.dp, vertical = 6.dp))
+                    }
+                }
+                Muted("Louder before the limiter, like Poweramp's preamp. Fine-tune it on the Sound screen.", Modifier.padding(top = 4.dp), 12.sp)
                 SectionHeader("More")
                 OptionRow(Ic.tune, "Sound & equaliser", "All settings: 10/31-band or parametric EQ, headphone correction, effects, output, DVC") { onDone(); st.soundOpen = true }
                 OptionRow(Ic.skin, "Player skin", "41 looks — also styles the video player") { onDone(); st.dialog = Dlg.SkinPick }

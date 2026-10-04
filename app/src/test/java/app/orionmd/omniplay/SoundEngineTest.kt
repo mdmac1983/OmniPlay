@@ -103,4 +103,38 @@ class SoundEngineTest {
         val back = DspCfg.parse(c.json().toString())
         assertEquals(0, back.bands); assertEquals(c.peq, back.peq)
     }
+
+    @Test fun preamp_and_limiter() {
+        // quiet music gets the full preamp gain
+        Dsp.set(DspCfg(on = true, preamp = 6f))
+        var core = DspCore(video = false); core.configure(48000)
+        var l = sine(440.0, 48000, 4800, 0.1); var r = l.copyOf()
+        core.process(l, r, l.size, true)
+        val g = Math.pow(10.0, 6 / 20.0)
+        assertEquals(0.1 * g, l.copyOfRange(2400, 4800).maxOf { abs(it) }, 0.002)
+        // loud music pushed +12 dB never goes over the ceiling
+        Dsp.set(DspCfg(on = true, preamp = 12f))
+        core = DspCore(video = false); core.configure(48000)
+        // music-like: a steady part at 0.2 with short drum hits up to 0.95
+        val src = DoubleArray(48000) { i -> 0.2 * kotlin.math.sin(2 * PI * 440 * i / 48000) + (if (i % 4800 < 40) 0.75 else 0.0) }
+        l = src.copyOf(); r = l.copyOf()
+        core.process(l, r, l.size, true)
+        assertTrue("peak ${l.maxOf { abs(it) }}", l.maxOf { abs(it) } <= 0.99)
+        // much louder overall than the original, without going over the top
+        val rmsIn = sqrt(src.sumOf { it * it } / src.size); val rmsOut = sqrt(l.sumOf { it * it } / l.size)
+        assertTrue("rms $rmsIn → $rmsOut", rmsOut > rmsIn * 2.0)   // at least +6 dB
+    }
+
+    @Test fun bass_boost_is_not_turned_down_any_more() {
+        Dsp.set(DspCfg(on = true, bass = 6f))
+        val core = DspCore(video = false); core.configure(48000)
+        val l = sine(60.0, 48000, 48000, 0.2); val r = l.copyOf()
+        core.process(l, r, l.size, true)
+        assertTrue("level ${l.copyOfRange(24000, 48000).maxOf { abs(it) }}", l.copyOfRange(24000, 48000).maxOf { abs(it) } > 0.2 * 1.6)   // ~+5 dB at 60 Hz
+        // the old behaviour is still there as an option
+        Dsp.set(DspCfg(on = true, bass = 6f, autoHeadroom = true))
+        val c2 = DspCore(video = false); c2.configure(48000)
+        val l2 = sine(60.0, 48000, 48000, 0.2); c2.process(l2, l2.copyOf(), l2.size, true)
+        assertTrue(l2.copyOfRange(24000, 48000).maxOf { abs(it) } < l.copyOfRange(24000, 48000).maxOf { abs(it) })
+    }
 }

@@ -514,6 +514,8 @@ class VideoActivity : Activity() {
         col.note("Equaliser preset")
         col.buttons(*DspCfg.PRESETS.take(9).map { (n, l) -> n to { saveDsp(Dsp.cfg.copy(on = true, video = true, bands = 10, eq = l)); toast("Equaliser: $n") } }.toTypedArray())
         col.buttons(*DspCfg.PRESETS.drop(9).map { (n, l) -> n to { saveDsp(Dsp.cfg.copy(on = true, video = true, bands = 10, eq = l)); toast("Equaliser: $n") } }.toTypedArray())
+        col.note("Loudness (preamp, with a limiter so it doesn't clip)")
+        col.buttons(*listOf(0f, 3f, 6f, 9f, 12f).map { v -> (if (v == 0f) "0 dB" else "+${v.toInt()} dB") to { saveDsp(Dsp.cfg.copy(on = true, video = true, preamp = v)); toast("Preamp " + if (v == 0f) "0 dB" else "+${v.toInt()} dB") } }.toTypedArray())
         col.note("Dialogue boost")
         col.buttons("Off" to { saveDsp(Dsp.cfg.copy(vocal = 0f)) }, "+3 dB" to { saveDsp(Dsp.cfg.copy(on = true, video = true, vocal = 3f)) }, "+6 dB" to { saveDsp(Dsp.cfg.copy(on = true, video = true, vocal = 6f)) })
         col.note("Night mode (evens out loud and quiet scenes)")

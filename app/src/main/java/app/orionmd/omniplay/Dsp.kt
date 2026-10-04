@@ -22,7 +22,7 @@ import kotlin.math.tanh
  * The music player's own sound engine (runs inside ExoPlayer's audio chain, so it works the same on every device and
  * doesn't depend on the phone's built-in effects): 10-band graphic equaliser, headphone correction (parametric filters
  * measured for a model, see [Headphones]), bass / treble, vocal (dialogue) enhancer, stereo width, surround
- * virtualizer, headphone crossfeed, reverb, volume leveler (compressor) and a soft limiter so nothing clips.
+ * virtualizer, headphone crossfeed, reverb, volume leveler (compressor), a preamp and a peak limiter so nothing clips.
  * Settings are a [DspCfg] (saved as JSON in pref "dsp"); a new one takes effect on the next audio buffer.
  */
 data class DspCfg(
@@ -49,13 +49,15 @@ data class DspCfg(
     val eq31: List<Float> = List(31) { 0f },        // dB per band (31-band mode), ±12
     val hiRes: Boolean = true,                      // OmniPlay's own hi-res output (32-bit float, own resampler)
     val resample: Boolean = true,                   // convert to the phone's native rate ourselves (skips Android's resampler)
+    val preamp: Float = 0f,                         // dB before the limiter, -12..+15 (like Poweramp's preamp)
+    val autoHeadroom: Boolean = false,              // turn everything down by part of the EQ's biggest boost (quieter, never limits)
 ) {
     fun json(): JSONObject = JSONObject().put("on", on).put("eq", JSONArray(eq.map { it.toDouble() })).put("corr", corr).put("corrAmt", corrAmt.toDouble())
         .put("bass", bass.toDouble()).put("treble", treble.toDouble()).put("vocal", vocal.toDouble()).put("width", width.toDouble())
         .put("surround", surround.toDouble()).put("crossfeed", crossfeed.toDouble()).put("reverb", reverb.toDouble()).put("room", room)
         .put("leveler", leveler.toDouble()).put("gain", gain.toDouble())
         .put("balance", balance.toDouble()).put("rg", rg).put("rgPre", rgPre.toDouble()).put("video", video)
-        .put("bands", bands).put("peq", JSONArray(peq.map { JSONObject().put("t", it.type.toString()).put("f", it.f.toDouble()).put("g", it.g.toDouble()).put("q", it.q.toDouble()) })).put("eq31", JSONArray(eq31.map { it.toDouble() })).put("hiRes", hiRes).put("resample", resample)
+        .put("preamp", preamp.toDouble()).put("autoHeadroom", autoHeadroom).put("bands", bands).put("peq", JSONArray(peq.map { JSONObject().put("t", it.type.toString()).put("f", it.f.toDouble()).put("g", it.g.toDouble()).put("q", it.q.toDouble()) })).put("eq31", JSONArray(eq31.map { it.toDouble() })).put("hiRes", hiRes).put("resample", resample)
 
     companion object {
         val FREQS = intArrayOf(31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
@@ -86,7 +88,7 @@ data class DspCfg(
                 o.optJSONArray("peq")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { f ->
                     Filt(f.optString("t", "P").firstOrNull() ?: 'P', f.optDouble("f", 1000.0).toFloat(), f.optDouble("g", 0.0).toFloat(), f.optDouble("q", 1.0).toFloat()) } } ?: emptyList(),
                 o.optJSONArray("eq31")?.let { a -> List(31) { a.optDouble(it, 0.0).toFloat() } } ?: List(31) { 0f },
-                o.optBoolean("hiRes", true), o.optBoolean("resample", true))
+                o.optBoolean("hiRes", true), o.optBoolean("resample", true), f("preamp", 0f), o.optBoolean("autoHeadroom", false))
         } catch (_: Exception) { DspCfg() }
 
         /** One-tap sound styles for the 10 bands (like Dolby's "intelligent equaliser" + the usual genre presets). */
@@ -254,7 +256,7 @@ class DspCore(private val video: Boolean) {
     private var env = 0.0
 
     fun configure(sampleRate: Int) { sr = sampleRate; built = null }
-    fun reset() { built = null }
+    fun reset() { built = null; limG = 1.0 }
 
     /** Whether effects run for the next buffer (false = pass the sound through untouched). */
     fun active(c: DspCfg = Dsp.cfg) = c.on && !Dsp.bypass && !(video && !c.video)
@@ -276,8 +278,10 @@ class DspCore(private val video: Boolean) {
     private fun build(c: DspCfg) {
         val f = dspChain(c, sr.toDouble())
         filters = f
-        val boost = (headroom(f) + c.vocal * .5) * .55   // part of the boost is kept (the soft limiter catches peaks), so changes are clearly heard
-        pre = 10.0.pow(-boost / 20)
+        // Poweramp-style: the preamp sets the level and the limiter catches the peaks. "Auto headroom" (old behaviour)
+        // instead turns everything down by part of the biggest EQ boost — cleaner but quieter.
+        val boost = if (c.autoHeadroom) (headroom(f) + c.vocal * .5) * .55 else 0.0
+        pre = 10.0.pow((c.preamp - boost) / 20)
         val rg = rgNow(c); builtRg = rg
         post = 10.0.pow((c.gain + rg) / 20.0) * (1 + c.leveler * 1.2) // leveler makeup gain (+ ReplayGain)
         // balance: turn the other side down (constant at the centre)
@@ -290,7 +294,7 @@ class DspCore(private val video: Boolean) {
         built = c
     }
 
-    /** Runs the effects on [n] frames in place ([stereo] false: only [L] is used and copied to [R]). Includes the soft limiter. */
+    /** Runs the effects on [n] frames in place ([stereo] false: only [L] is used and copied to [R]). Includes the preamp and the peak limiter. */
     fun process(L: DoubleArray, R: DoubleArray, n: Int, stereo: Boolean) {
         val c = Dsp.cfg
         if (built !== c || rgNow(c) != builtRg) build(c)
@@ -322,12 +326,20 @@ class DspCore(private val video: Boolean) {
                 env = if (lvl > env) att * env + (1 - att) * lvl else rel * env + (1 - rel) * lvl
                 if (env > thr) { val g = (thr * (env / thr).pow(1 / ratio)) / env; l *= g; r *= g }
             }
-            L[i] = soft(l * post * balL); R[i] = soft(r * post * balR)
+            l *= post * balL; r *= post * balR
+            // peak limiter (stereo-linked): instant attack, ~60 ms release, ceiling just under full scale
+            val peak = maxOf(abs(l), abs(r))
+            val target = if (peak > CEIL) CEIL / peak else 1.0
+            limG = if (target < limG) target else limG + (target - limG) * limRel
+            L[i] = soft(l * limG); R[i] = soft(r * limG)
         }
     }
+    private var limG = 1.0
+    private val limRel get() = 1 - exp(-1.0 / (sr * .06))
+    private companion object { const val CEIL = 0.977 }   // −0.2 dBFS
 
-    /** Soft limiter: untouched below 0.9, rounds off above instead of clipping. */
-    private fun soft(x: Double): Double { val a = abs(x); return if (a <= .9) x else (if (x < 0) -1 else 1) * (.9 + .1 * tanh((a - .9) / .1)) }
+    /** Safety net after the limiter: untouched below 0.98, rounds off anything above instead of clipping. */
+    private fun soft(x: Double): Double { val a = abs(x); return if (a <= .98) x else (if (x < 0) -1 else 1) * (.98 + .02 * tanh((a - .98) / .02)) }
 }
 
 /** The engine as an audio processor for ExoPlayer's standard (16-bit) chain — used when hi-res output is off. */

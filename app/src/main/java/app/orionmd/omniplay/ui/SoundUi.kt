@@ -182,9 +182,12 @@ fun SoundScreen(st: AppState) {
                         }
                     }
                     Knob("Volume leveler", c.leveler, 0f..1f, ::pct) { set(c.copy(leveler = it)) }
+                    Knob("Preamp", c.preamp, -12f..15f, { "%+.1f dB".format(Math.round(it * 2) / 2f) }) { set(c.copy(preamp = Math.round(it * 2) / 2f)) }
+                    Muted("Makes everything louder (or quieter) before the limiter — like Poweramp's preamp. The limiter keeps peaks from clipping; very high settings squash the sound.", size = 12.sp)
+                    ToggleRow("Auto headroom", "Turns the sound down by part of the equaliser's biggest boost so the limiter never works — cleaner, but quieter (how Media Hub sounded before 2.8).", c.autoHeadroom) { set(c.copy(autoHeadroom = it)) }
                     Knob("Output", c.gain, -6f..6f, { "%+.1f dB".format(Math.round(it * 2) / 2f) }) { set(c.copy(gain = Math.round(it * 2) / 2f)) }
                     Knob("Volume boost", boost, 0f..1500f, { if (it < 50) "off" else "+%.1f dB".format(it / 100f) }, done = { st.setPref("boost", boost.toInt().toString()); Fx.apply(st.store); Profiles.saveCurrent(st) }) { boost = it }
-                    Muted("Leveler evens out loud and quiet songs; volume boost makes everything louder (turn it down if it distorts). A soft limiter keeps the sound from clipping.", size = 12.sp)
+                    Muted("Leveler evens out loud and quiet songs; volume boost makes everything louder (turn it down if it distorts). A peak limiter keeps the sound from clipping.", size = 12.sp)
 
                     // ---------- loudness / ReplayGain ----------
                     SectionHeader("ReplayGain (music)")
