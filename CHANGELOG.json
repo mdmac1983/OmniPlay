@@ -1,5 +1,10 @@
 [
  {
+  "version": "2.4",
+  "date": "2026-10-04",
+  "notes": "Fix \"audio track init failed\"; Guide & Features viewer in Settings"
+ },
+ {
   "version": "2.3",
   "date": "2026-10-04",
   "notes": "Rename to Media Hub; new icon, splash and watermark; direct volume control"
