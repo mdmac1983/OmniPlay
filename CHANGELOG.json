@@ -1,5 +1,10 @@
 [
  {
+  "version": "3.3",
+  "date": "2026-10-04",
+  "notes": "Merge remote-tracking branch 'origin/claude/omniplay-hybrid-player-wr31no' into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
   "version": "3.2",
   "date": "2026-10-04",
   "notes": "Fix stuck \"Saving 0 files for offline\" notification"
