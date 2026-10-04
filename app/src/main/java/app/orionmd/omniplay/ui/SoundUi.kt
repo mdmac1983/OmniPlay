@@ -174,7 +174,7 @@ fun SoundScreen(st: AppState) {
                     Knob("Crossfeed", c.crossfeed, 0f..1f, ::pct) { set(c.copy(crossfeed = it)) }
                     Knob("Balance", c.balance, -1f..1f, { when { it < -.02f -> "L ${(-it * 100).toInt()}%"; it > .02f -> "R ${(it * 100).toInt()}%"; else -> "centre" } }) { set(c.copy(balance = if (kotlin.math.abs(it) < .03f) 0f else it)) }
                     Muted("These work on the difference between left and right, so they're clearest on headphones — on a tablet's or phone's built-in speaker(s) there's little stereo to widen. ", size = 12.sp)
-                    Muted("Width spreads the stereo image (Dolby-style stereo expand); surround adds a virtual room around you; crossfeed makes headphones sound less \"inside your head\".", size = 12.sp)
+                    Muted("Width spreads the stereo image (up to about 3× wider; the bass stays centred). Surround (3D) also spreads the centre of the mix, so even songs recorded almost in mono sound wide and out of your head. Crossfeed makes headphones sound less \"inside your head\" without making vocals quieter.", size = 12.sp)
 
                     // ---------- effects ----------
                     SectionHeader("Effects")
@@ -186,13 +186,13 @@ fun SoundScreen(st: AppState) {
                             Text(n, fontSize = 13.sp, color = if (c.room == k) Color.Black else C.tx, modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (c.room == k) C.ac else C.s2).clickable { set(c.copy(room = k)) }.padding(horizontal = 12.dp, vertical = 6.dp))
                         }
                     }
-                    Knob("Volume leveler", c.leveler, 0f..1f, ::pct) { set(c.copy(leveler = it)) }
+                    Knob("Loudness (leveller)", c.leveler, 0f..1f, ::pct) { set(c.copy(leveler = it)) }
                     Knob("Preamp", c.preamp, -12f..15f, { "%+.1f dB".format(Math.round(it * 2) / 2f) }) { set(c.copy(preamp = Math.round(it * 2) / 2f)) }
                     Muted("Makes everything louder (or quieter) before the limiter — like Poweramp's preamp. The limiter keeps peaks from clipping; very high settings squash the sound.", size = 12.sp)
                     ToggleRow("Auto headroom", "Turns the sound down by part of the equaliser's biggest boost so the limiter never works — cleaner, but quieter (how Media Hub sounded before 2.8).", c.autoHeadroom) { set(c.copy(autoHeadroom = it)) }
                     Knob("Output", c.gain, -6f..6f, { "%+.1f dB".format(Math.round(it * 2) / 2f) }) { set(c.copy(gain = Math.round(it * 2) / 2f)) }
                     Knob("Volume boost", boost, 0f..1500f, { if (it < 50) "off" else "+%.1f dB".format(it / 100f) }, done = { st.setPref("boost", boost.toInt().toString()); Fx.apply(st.store); Profiles.saveCurrent(st) }) { boost = it }
-                    Muted("Leveler evens out loud and quiet songs; volume boost makes everything louder (turn it down if it distorts). A peak limiter keeps the sound from clipping.", size = 12.sp)
+                    Muted("Loudness evens out loud and quiet parts and makes everything louder (up to about +5 dB on vocals) — the quickest way to Poweramp-like volume. Preamp raises the level before the limiter. EQ boosts on their own don't make vocals louder: the limiter makes room for them, so raise Loudness or Preamp with them. The look-ahead limiter keeps it all from clipping.", size = 12.sp)
 
                     // ---------- loudness / ReplayGain ----------
                     SectionHeader("ReplayGain (music)")

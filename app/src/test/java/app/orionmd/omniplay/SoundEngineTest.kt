@@ -70,16 +70,17 @@ class SoundEngineTest {
         val core = DspCore(video = false); core.configure(48000)
         val x = sine(440.0, 48000, 4800, 0.7); val l = x.copyOf(); val r = x.copyOf()
         core.process(l, r, x.size, true)
-        for (i in x.indices) { assertEquals(x[i], l[i], 1e-9); assertEquals(x[i], r[i], 1e-9) }
+        val d = core.latency   // the limiter looks 1.5 ms ahead: the output trails by that much, otherwise untouched
+        for (i in d until x.size) { assertEquals(x[i - d], l[i], 1e-9); assertEquals(x[i - d], r[i], 1e-9) }
     }
 
     @Test fun balance_and_replaygain() {
         Dsp.set(DspCfg(on = true, balance = 0.5f, rg = "track", rgPre = 0f)); Dsp.rgTrack = -6f
         val core = DspCore(video = false); core.configure(48000)
-        val l = DoubleArray(10) { 0.4 }; val r = DoubleArray(10) { 0.4 }
-        core.process(l, r, 10, true)
+        val l = DoubleArray(400) { 0.4 }; val r = DoubleArray(400) { 0.4 }
+        core.process(l, r, 400, true)
         val g = Math.pow(10.0, -6 / 20.0)
-        assertEquals(0.4 * g * 0.5, l[5], 1e-9); assertEquals(0.4 * g, r[5], 1e-9)
+        assertEquals(0.4 * g * 0.5, l[300], 1e-9); assertEquals(0.4 * g, r[300], 1e-9)
         Dsp.rgTrack = Float.NaN
     }
 
@@ -151,7 +152,7 @@ class SoundEngineTest {
         val cases = mapOf(
             "bass +6" to DspCfg(on = true, bass = 6f), "treble +6" to DspCfg(on = true, treble = 6f), "vocal +6" to DspCfg(on = true, vocal = 6f),
             "width 2" to DspCfg(on = true, width = 2f), "width 0 (mono)" to DspCfg(on = true, width = 0f), "surround 1" to DspCfg(on = true, surround = 1f),
-            "crossfeed 1" to DspCfg(on = true, crossfeed = 1f), "reverb .5" to DspCfg(on = true, reverb = .5f), "leveler 1" to DspCfg(on = true, leveler = 1f),
+            "reverb .5" to DspCfg(on = true, reverb = .5f), "leveler 1" to DspCfg(on = true, leveler = 1f),
             "balance L" to DspCfg(on = true, balance = -.6f), "output +4" to DspCfg(on = true, gain = 4f), "preamp +6" to DspCfg(on = true, preamp = 6f))
         val report = cases.map { (k, cfg) ->
             val (l, r) = run(cfg)
@@ -160,5 +161,10 @@ class SoundEngineTest {
         }
         println(report.joinToString("\n") { (k, db) -> "%-16s %6.1f dB".format(k, db) })
         report.forEach { (k, db) -> assertTrue("$k changes the sound by only $db dB", db > -20) }
+        // crossfeed only touches the difference between the ears (voice and bass stay as they are): it must narrow it
+        fun side(l: DoubleArray, r: DoubleArray) = (n / 2 until n).sumOf { ((l[it] - r[it]) / 2).let { d -> d * d } }
+        val (xl, xr) = run(DspCfg(on = true, crossfeed = 1f))
+        val narrower = 10 * kotlin.math.log10(side(fl, fr) / side(xl, xr))
+        assertTrue("crossfeed narrows the stereo image by only $narrower dB", narrower > 1.5)
     }
 }

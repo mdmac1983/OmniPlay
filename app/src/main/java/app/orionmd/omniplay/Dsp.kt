@@ -167,8 +167,8 @@ private class Reverb(sr: Int, room: String) {
         for (i in 0 until 2) { val b = bufs[i]; val p = pos[i]; val bo = b[p]; val y = -x + bo; b[p] = x + bo * .5f; pos[i] = (p + 1) % b.size; x = y }
         return x
     }
-    fun l(x: Float) = aps(combs(x * .015f, combL, cpL, lpL), apL, apPL)
-    fun r(x: Float) = aps(combs(x * .015f, combR, cpR, lpR), apR, apPR)
+    fun l(x: Float) = aps(combs(x * .03f, combL, cpL, lpL), apL, apPL)
+    fun r(x: Float) = aps(combs(x * .03f, combR, cpR, lpR), apR, apPR)
 }
 
 @OptIn(UnstableApi::class)
@@ -246,17 +246,23 @@ class DspCore(private val video: Boolean) {
 
     private var filters = emptyArray<Biquad>()
     private var vocalF: Biquad? = null
+    private var sideLp: Biquad? = null          // side below ~120 Hz stays as it is (bass stays centred and punchy)
+    private var surHp: Biquad? = null           // the part of the centre the 3D effect spreads out (above ~200 Hz)
     private var sideHp: Biquad? = null
-    private var xfL: Biquad? = null
+    private var xfLp: Biquad? = null            // crossfeed: low-passed copy of each side (l() = left, r() = right)
     private var verb: Reverb? = null
     private var pre = 1.0
     private var post = 1.0
+    private var makeup = 1.0
     private var balL = 1.0; private var balR = 1.0
     private val delay = FloatArray(16384); private var dPos = 0; private var dLen = 1
+    private val mDelay = FloatArray(8192); private var mPos = 0; private var tapA = 1; private var tapB = 1; private var tapC = 1
     private var env = 0.0
 
-    fun configure(sampleRate: Int) { sr = sampleRate; built = null }
-    fun reset() { built = null; limG = 1.0 }
+    fun configure(sampleRate: Int) { sr = sampleRate; built = null; look = (sampleRate * .0015).toInt().coerceIn(1, LA_MAX - 1) }
+    /** Frames the output trails the input by (the limiter's look-ahead). */
+    val latency get() = look - 1
+    fun reset() { built = null; limG = 1.0; laL.fill(0.0); laR.fill(0.0); laT.fill(1.0); laPos = 0 }
 
     /** Whether effects run for the next buffer (false = pass the sound through untouched). */
     fun active(c: DspCfg = Dsp.cfg) = c.on && !Dsp.bypass && !(video && !c.video)
@@ -283,60 +289,92 @@ class DspCore(private val video: Boolean) {
         val boost = if (c.autoHeadroom) (headroom(f) + c.vocal * .5) * .55 else 0.0
         pre = 10.0.pow((c.preamp - boost) / 20)
         val rg = rgNow(c); builtRg = rg
-        post = 10.0.pow((c.gain + rg) / 20.0) * (1 + c.leveler * 1.2) // leveler makeup gain (+ ReplayGain)
+        post = 10.0.pow((c.gain + rg) / 20.0)
+        // leveller make-up: brings the squeezed peaks back up to (nearly) full scale, so it really makes things louder
+        val ratio = 1 + c.leveler * 4.0
+        makeup = if (c.leveler > .01f) (1 / LEV_THR).pow((1 - 1 / ratio) * .9) else 1.0
         // balance: turn the other side down (constant at the centre)
         balL = if (c.balance > 0) 1.0 - c.balance else 1.0; balR = if (c.balance < 0) 1.0 + c.balance else 1.0
         vocalF = if (c.vocal > .05f) Biquad('P', 2500.0, c.vocal.toDouble(), .8, sr.toDouble()) else null
+        sideLp = Biquad('l', 120.0, 0.0, .7, sr.toDouble())
+        surHp = Biquad('h', 200.0, 0.0, .7, sr.toDouble())
         sideHp = Biquad('h', 180.0, 0.0, .7, sr.toDouble())
-        xfL = if (c.crossfeed > .01f) Biquad('l', 700.0, 0.0, .7, sr.toDouble()) else null
+        xfLp = if (c.crossfeed > .01f) Biquad('l', 700.0, 0.0, .7, sr.toDouble()) else null
         verb = if (c.reverb > .01f) Reverb(sr, c.room) else null
         dLen = (sr * .012).toInt().coerceIn(1, delay.size - 1); delay.fill(0f); dPos = 0
+        // 3D: three short delays of the centre, different for each ear (complementary, so it still sums to mono cleanly)
+        tapA = (sr * .0071).toInt(); tapB = (sr * .0127).toInt(); tapC = (sr * .0193).toInt(); mDelay.fill(0f); mPos = 0
         built = c
     }
+
+    /** Stereo width 0..2 → gain on the side (above the bass): 1 = as recorded, 2 = about 3.2× (+10 dB). */
+    private fun widthGain(w: Double) = if (w <= 1) w else 1 + (w - 1) * 2.2
 
     /** Runs the effects on [n] frames in place ([stereo] false: only [L] is used and copied to [R]). Includes the preamp and the peak limiter. */
     fun process(L: DoubleArray, R: DoubleArray, n: Int, stereo: Boolean) {
         val c = Dsp.cfg
         if (built !== c || rgNow(c) != builtRg) build(c)
-        val width = c.width.toDouble(); val sur = c.surround.toDouble(); val xf = c.crossfeed.toDouble() * .45
-        val wet = c.reverb.toDouble() * 1.4; val lev = c.leveler.toDouble()
+        val wg = widthGain(c.width.toDouble()); val sur = c.surround.toDouble(); val xf = c.crossfeed.toDouble() * .5
+        val wet = c.reverb.toDouble() * 1.4; val dry = 1 - c.reverb * .12; val lev = c.leveler.toDouble()
         val att = exp(-1.0 / (sr * .01)); val rel = exp(-1.0 / (sr * .25))
-        val thr = 0.18; val ratio = 1 + lev * 4
+        val ratio = 1 + lev * 4
+        val relL = limRel
         for (i in 0 until n) {
             var l = L[i] * pre
             var r = if (stereo) R[i] * pre else l
             for (f in filters) { l = f.l(l); r = f.r(r) }
-            if (stereo) {
-                var m = (l + r) * .5; var s = (l - r) * .5
-                vocalF?.let { m = it.l(m) }
-                s *= width
-                if (sur > .01) {
-                    // virtual surround: a short (12 ms) echo of the side signal widens the stage past the speakers
-                    val sh = sideHp!!.l(s)
-                    val d = delay[(dPos - dLen + delay.size) % delay.size].toDouble()
-                    delay[dPos] = sh.toFloat(); dPos = (dPos + 1) % delay.size
-                    s += d * sur * .9 + sh * sur * .35
-                }
-                l = m + s; r = m - s
-                xfL?.let { f -> val cl = f.l(r); val cr = f.r(l); l = (l + cl * xf) / (1 + xf * .5); r = (r + cr * xf) / (1 + xf * .5) }
-            } else vocalF?.let { l = it.l(l); r = l }
-            verb?.let { v -> val mono = ((l + r) * .5).toFloat(); val vl = v.l(mono); val vr = v.r(mono); l = l * (1 - c.reverb * .35) + vl * wet; r = r * (1 - c.reverb * .35) + vr * wet }
+            var m = (l + r) * .5; var s = (l - r) * .5
+            vocalF?.let { m = it.l(m) }
+            // width: the side above the bass is scaled; the bass side stays put (keeps the low end tight and centred)
+            val sLow = sideLp!!.l(s); s = sLow + (s - sLow) * wg
+            if (sur > .01) {
+                // 3D / surround: (1) spread the centre itself — delayed copies of it go to the left and right ears with
+                // opposite signs, so even a mono-ish recording gets a wide, out-of-the-head stage; (2) a 12 ms echo of
+                // the side pushes the edges further out
+                val mh = surHp!!.l(m)
+                mDelay[mPos] = mh.toFloat()
+                fun tap(d: Int) = mDelay[(mPos - d + mDelay.size) % mDelay.size].toDouble()
+                val spread = tap(tapA) * .55 - tap(tapB) * .4 + tap(tapC) * .25
+                mPos = (mPos + 1) % mDelay.size
+                val sh = sideHp!!.l(s)
+                val d = delay[(dPos - dLen + delay.size) % delay.size].toDouble()
+                delay[dPos] = sh.toFloat(); dPos = (dPos + 1) % delay.size
+                s += spread * sur * .85 + d * sur * .7 + sh * sur * .3
+            }
+            l = m + s; r = m - s
+            // crossfeed (headphones): each ear hears a little of the other side's lows, minus its own — mono content
+            // (voice, bass) is untouched, so it doesn't get quieter
+            // (plus a little of the highs, like the shadow of your head)
+            xfLp?.let { f -> val lpL = f.l(l); val lpR = f.r(r); val d = (lpR - lpL) * xf + (r - l) * xf * .3; l += d; r -= d }
+            verb?.let { v -> val mono = ((l + r) * .5).toFloat(); val vl = v.l(mono); val vr = v.r(mono); l = l * dry + vl * wet; r = r * dry + vr * wet }
             if (lev > .01) {
                 val lvl = maxOf(abs(l), abs(r))
                 env = if (lvl > env) att * env + (1 - att) * lvl else rel * env + (1 - rel) * lvl
-                if (env > thr) { val g = (thr * (env / thr).pow(1 / ratio)) / env; l *= g; r *= g }
+                if (env > LEV_THR) { val g = (LEV_THR * (env / LEV_THR).pow(1 / ratio)) / env; l *= g; r *= g }
+                l *= makeup; r *= makeup
             }
             l *= post * balL; r *= post * balR
-            // peak limiter (stereo-linked): instant attack, ~60 ms release, ceiling just under full scale
+            // look-ahead peak limiter (stereo-linked, 1.5 ms): the gain starts coming down just before a peak arrives
+            // instead of chopping it, so a high preamp / big boosts stay clean; ~60 ms release
             val peak = maxOf(abs(l), abs(r))
-            val target = if (peak > CEIL) CEIL / peak else 1.0
-            limG = if (target < limG) target else limG + (target - limG) * limRel
-            L[i] = soft(l * limG); R[i] = soft(r * limG)
+            laL[laPos] = l; laR[laPos] = r; laT[laPos] = if (peak > CEIL) CEIL / peak else 1.0
+            var want = 1.0; for (k in 0 until look) { val t = laT[(laPos - k + LA_MAX) % LA_MAX]; if (t < want) want = t }
+            limG = if (want < limG) limG + (want - limG) * .35 else limG + (want - limG) * relL
+            val o = (laPos - look + 1 + LA_MAX) % LA_MAX
+            val g = minOf(limG, laT[o])
+            L[i] = soft(laL[o] * g); R[i] = soft(laR[o] * g)
+            laPos = (laPos + 1) % LA_MAX
         }
     }
     private var limG = 1.0
     private val limRel get() = 1 - exp(-1.0 / (sr * .06))
-    private companion object { const val CEIL = 0.977 }   // −0.2 dBFS
+    private var look = 72
+    private val laL = DoubleArray(LA_MAX); private val laR = DoubleArray(LA_MAX); private val laT = DoubleArray(LA_MAX) { 1.0 }; private var laPos = 0
+    private companion object {
+        const val CEIL = 0.977        // −0.2 dBFS
+        const val LEV_THR = 0.18      // leveller threshold (−15 dBFS)
+        const val LA_MAX = 1024
+    }
 
     /** Safety net after the limiter: untouched below 0.98, rounds off anything above instead of clipping. */
     private fun soft(x: Double): Double { val a = abs(x); return if (a <= .98) x else (if (x < 0) -1 else 1) * (.98 + .02 * tanh((a - .98) / .02)) }
