@@ -106,6 +106,12 @@ class VideoActivity : Activity() {
     private var shuffle = false
     private var zoom = 1f; private var panX = 0f; private var panY = 0f
 
+    // the music player's skin, carried over to the video player (Now Playing → palette, or More → Skin here)
+    private var skin = app.orionmd.omniplay.ui.SKINS[0]
+    private val allPills = mutableListOf<TextView>()
+    private lateinit var skinBg: SkinBgView
+    private var accent = 0xFF9E86FF.toInt()
+
     private val speeds = floatArrayOf(.5f, .75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
     private val sizes = listOf("fit" to "Best fit", "zoom" to "Fill screen (crop)", "fill" to "Fit width", "stretch" to "Stretch",
         "r16x9" to "16:9", "r4x3" to "4:3", "r21x9" to "21:9 (2.39:1)", "r185" to "1.85:1", "r16x10" to "16:10", "r5x4" to "5:4", "r1x1" to "1:1")
@@ -129,6 +135,9 @@ class VideoActivity : Activity() {
         applyOrientation(store.getPref("vorient", "sensor"))
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        skin = app.orionmd.omniplay.ui.skinOf(store.getPref("playerSkin", "midnight"))
+        skinBg = SkinBgView(this)
+        root.addView(skinBg, FrameLayout.LayoutParams(-1, -1))
         view = PlayerView(this).apply {
             setShowSubtitleButton(false); setShowNextButton(true); setShowPreviousButton(true)
             setShowFastForwardButton(true); setShowRewindButton(true); keepScreenOn = true
@@ -187,6 +196,8 @@ class VideoActivity : Activity() {
         root.addView(unlockBtn, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(40) })
         setContentView(root)
         hideBars()
+        view.setBackgroundColor(Color.TRANSPARENT)
+        applySkin()
         view.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> if (!locked) bar.visibility = if (msg.visibility == View.VISIBLE) View.VISIBLE else v })
 
         styleSubtitles()
@@ -568,6 +579,7 @@ class VideoActivity : Activity() {
         col.action("Playlist…  (${queue.length()})") { done(); playlistSheet() }
         col.action("Video track / quality…") { done(); videoSheet() }
         col.action("Media information") { done(); infoDialog() }
+        col.action("Skin: ${skin.name}" + (if (skin.theme.isNotEmpty()) " (${skin.theme})" else "")) { done(); skinSheet() }
         col.header("Frame by frame")
         col.buttons("◀ Previous frame" to { frameStep(-1) }, "Next frame ▶" to { frameStep(1) })
         col.header("Playback")
@@ -682,6 +694,66 @@ class VideoActivity : Activity() {
             .setMessage(lines.joinToString("\n")).setPositiveButton("Close", null).setOnDismissListener { hideBars() }.show()
     }
 
+
+    // ================================================================= skin
+    private fun argb(c: androidx.compose.ui.graphics.Color): Int { return with(c) { androidx.compose.ui.graphics.Color(red, green, blue, alpha) }.let { (it.alpha * 255).toInt() shl 24 or ((it.red * 255).toInt() shl 16) or ((it.green * 255).toInt() shl 8) or (it.blue * 255).toInt() } }
+    private fun withAlpha(c: Int, a: Int) = (c and 0x00FFFFFF) or (a shl 24)
+    /** The accent, kept readable on the dark controls (very dark accents fall back to the skin's text colour or white). */
+    private fun accentOnDark(): Int {
+        fun lum(c: Int) = (0.299 * ((c shr 16) and 255) + 0.587 * ((c shr 8) and 255) + 0.114 * (c and 255)) / 255
+        val a = argb(skin.accent); if (lum(a) > .3) return a
+        val t = argb(skin.text); return if (lum(t) > .3) t else Color.WHITE
+    }
+    private fun applySkin() {
+        val s = skin; accent = accentOnDark()
+        val base = argb(s.bg.first()); val dark = !s.light
+        val fg = if (dark) argb(s.text) else Color.WHITE
+        val pillBg = if (dark) withAlpha(base, 0xB0) else 0x99000000.toInt()
+        bar.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(withAlpha(if (dark) base else Color.BLACK, 0xCC), 0x00000000))
+        title.setTextColor(fg); clockTv.setTextColor(fg)
+        allPills.forEach { p ->
+            p.setTextColor(fg); p.compoundDrawableTintList = android.content.res.ColorStateList.valueOf(fg)
+            p.background = GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(pillBg); setStroke(dp(1), withAlpha(accent, 0xAA)) }
+        }
+        hud.background = GradientDrawable().apply { cornerRadius = dp(20).toFloat(); setColor(withAlpha(if (dark) base else Color.BLACK, 0xD8)); setStroke(dp(1), withAlpha(accent, 0x88)) }
+        hud.setTextColor(fg); hud.compoundDrawableTintList = android.content.res.ColorStateList.valueOf(fg)
+        view.findViewById<androidx.media3.ui.DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress)?.apply {
+            setPlayedColor(accent); setScrubberColor(accent); setBufferedColor(withAlpha(accent, 0x66)); setUnplayedColor(0x44FFFFFF)
+        }
+        listOf(androidx.media3.ui.R.id.exo_play_pause, androidx.media3.ui.R.id.exo_prev, androidx.media3.ui.R.id.exo_next,
+            androidx.media3.ui.R.id.exo_rew_with_amount, androidx.media3.ui.R.id.exo_ffwd_with_amount).forEach { id ->
+            (view.findViewById<View>(id) as? android.widget.ImageView)?.imageTintList = android.content.res.ColorStateList.valueOf(if (id == androidx.media3.ui.R.id.exo_play_pause) accent else fg)
+        }
+        skinBg.show(if (store.getPref("vskinbg", "1") == "1") s else null)
+    }
+    private fun skinSheet() = sheet("Skin") { col, done ->
+        col.note("The same skins as the music player. The pattern shows in the space around the picture (turn that off in Settings → Playback).")
+        app.orionmd.omniplay.ui.SKINS.groupBy { it.theme }.forEach { (theme, list) ->
+            col.header(theme.ifEmpty { "Classic" })
+            list.forEach { sk -> col.option(sk.name, sk.id == skin.id) { skin = sk; store.setPref("playerSkin", sk.id); applySkin(); toast("Skin: ${sk.name}"); done() } }
+        }
+    }
+
+    /** Draws the skin's background (gradient + pattern, dimmed) behind the video — visible around the picture. */
+    private class SkinBgView(ctx: android.content.Context) : View(ctx) {
+        private var skin: app.orionmd.omniplay.ui.PlayerSkin? = null
+        private var bmp: android.graphics.Bitmap? = null
+        fun show(s: app.orionmd.omniplay.ui.PlayerSkin?) { skin = s; render(); invalidate() }
+        private fun render() {
+            bmp?.recycle(); bmp = null
+            val s = skin ?: return; if (width <= 0 || height <= 0) return
+            // drawn at half size and scaled up: the patterns are soft, and it keeps memory low on big screens
+            bmp = try { app.orionmd.omniplay.ui.skinBitmap(s, width / 2, height / 2, resources.displayMetrics.density / 2, dim = .45f) } catch (_: Throwable) { null }
+        }
+        override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) { render() }
+        private val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+        override fun onDraw(c: android.graphics.Canvas) {
+            val b = bmp
+            if (b == null) { c.drawColor(Color.BLACK); return }
+            c.drawBitmap(b, null, android.graphics.Rect(0, 0, width, height), paint)
+        }
+    }
+
     // ================================================================= small dialog toolkit
     private fun sheet(title: String, build: (LinearLayout, () -> Unit) -> Unit) {
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(12)) }
@@ -700,7 +772,7 @@ class VideoActivity : Activity() {
         setOnClickListener { onClick() }; if (onLong != null) setOnLongClickListener { onLong(); true }
     }
     private fun LinearLayout.option(t: String, selected: Boolean, sub: String? = null, onClick: () -> Unit) =
-        addView(rowView((if (selected) "●  " else "○  ") + t + (sub?.let { "   ($it)" } ?: ""), null, onClick).apply { if (selected) setTextColor(0xFF9E86FF.toInt()) })
+        addView(rowView((if (selected) "●  " else "○  ") + t + (sub?.let { "   ($it)" } ?: ""), null, onClick).apply { if (selected) setTextColor(accentOnDark()) })
     private fun LinearLayout.action(t: String, onLong: (() -> Unit)? = null, onClick: () -> Unit) = addView(rowView(t, onLong, onClick))
     private fun LinearLayout.buttons(vararg b: Pair<String, () -> Unit>) {
         val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(4), dp(4), dp(4), dp(4)) }
@@ -911,6 +983,7 @@ class VideoActivity : Activity() {
         background = GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(0x66FFFFFF); setStroke(1, 0x55FFFFFF) }
         setOnClickListener { onClick(); if (!locked) view.showController() }
         layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) }
+        allPills += this
     }
     private val hideHud = Runnable { hud.visibility = View.GONE }
     private fun hudShow(t: String, ic: androidx.compose.ui.graphics.vector.ImageVector? = null) { hud.text = t; hud.setCompoundDrawablesRelative(ic?.let { icon(it, 26) }, null, null, null); hud.compoundDrawablePadding = if (t.isEmpty()) 0 else dp(8); hud.gravity = Gravity.CENTER_VERTICAL; hud.visibility = View.VISIBLE; ui.removeCallbacks(hideHud); ui.postDelayed(hideHud, 900) }

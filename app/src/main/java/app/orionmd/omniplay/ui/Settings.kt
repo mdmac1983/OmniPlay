@@ -213,6 +213,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     Pick(st, "vdecoder", "Decoder (hardware acceleration)", listOf("auto" to "Automatic", "hw" to "Hardware first", "sw" to "Software first"), "auto")
     Pick(st, "vresize", "Picture size", listOf("fit" to "Best fit", "zoom" to "Fill screen", "fill" to "Fit width", "stretch" to "Stretch", "r16x9" to "16:9", "r4x3" to "4:3", "r21x9" to "21:9"), "fit")
     Toggle(st, "vbgaudio", "Keep sound playing when you leave the player", "Like VLC's audio-only background play", "0")
+    Toggle(st, "vskinbg", "Skin pattern around the picture", "The video player uses your player skin (colours, buttons, seek bar); this also shows its pattern in the space around the video", "1")
     SectionHeader("Player buttons")
     Muted("Choose which buttons appear along the top of the video player. Close, More and Lock are always there.", size = 12.sp)
     listOf("subs" to "Subtitles", "audio" to "Audio (tracks, delay, sound)", "speed" to "Speed", "size" to "Picture size", "rotate" to "Rotation",

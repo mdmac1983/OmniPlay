@@ -477,6 +477,11 @@ private fun GalleryVideo(x: GItem, onChrome: (Boolean) -> Unit) {
                 setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                 setControllerVisibilityListener(androidx.media3.ui.PlayerView.ControllerVisibilityListener { v -> onChrome(v == android.view.View.VISIBLE) })
                 setBackgroundColor(android.graphics.Color.BLACK)
+                // the player skin's accent on the seek bar and play button (like the full video player)
+                val sk = skinOf(app.orionmd.omniplay.Store(c).getPref("playerSkin", "midnight"))
+                val acc = sk.accent.let { (0xFF shl 24) or ((it.red * 255).toInt() shl 16) or ((it.green * 255).toInt() shl 8) or (it.blue * 255).toInt() }
+                findViewById<androidx.media3.ui.DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress)?.apply { setPlayedColor(acc); setScrubberColor(acc); setBufferedColor((acc and 0x00FFFFFF) or 0x66000000) }
+                (findViewById<android.view.View>(androidx.media3.ui.R.id.exo_play_pause) as? android.widget.ImageView)?.imageTintList = android.content.res.ColorStateList.valueOf(acc)
             }
         },
         update = { it.player = player },

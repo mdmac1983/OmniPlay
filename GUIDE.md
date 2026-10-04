@@ -90,7 +90,11 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
     connect Bluetooth. Hold "compare" to hear the original.
 - **Visualizers:** dozens of styles (bars, waves, circular, digital gauges, dashboards) driven by the real audio; full
   screen, behind lyrics, or mini bars.
-- **Skins:** several looks for the Now Playing screen.
+- **Skins** (Now Playing → palette button): 41 looks — classics (Midnight, Neon, Vinyl, Gold luxe, Polaroid…) and
+  themed packs inspired by Fortnite, Marshmello, Supreme, Chrome Hearts, **Gucci, Louis Vuitton, Prada, Ethika,
+  Under Armour, Nike, Jordan and Adidas** (their colours, prints and textures — no logos). The skin also styles the
+  **video player** (buttons, seek bar, play button, menus, and the pattern around the picture) and the Gallery's
+  video player; change it there under **More → Skin**.
 - **Lyrics:** time-synced (follows the song, tap a line to jump) or plain. Uses `.lrc` files next to your songs first,
   then LRCLIB online. Saved for offline.
 - **Song info & album art:** genre, year, length and covers from Deezer, with iTunes as backup. Songs without an artist
@@ -116,7 +120,7 @@ A VLC-style player (Media3 / ExoPlayer with Media Hub's own sound engine and sub
     for videos, equaliser presets, dialogue boost, night mode.
   - **Speed** 0.25×–4× in 0.05 steps, **Picture size** (best fit, fill/crop, fit width, stretch, 16:9, 4:3, 21:9,
     1.85:1, 16:10, 5:4, 1:1), rotation lock, sleep timer, A-B repeat, **repeat one / all**, volume boost, screenshot,
-    picture-in-picture, skip intro, **lock**.
+    picture-in-picture, skip intro, **lock**. Styled with your player skin (More → Skin).
   - **More** — jump to time, **bookmarks** (per video), **playlist** (jump to any item), shuffle, video track /
     quality, **media information** (codecs, resolution, frame rate, bitrate, HDR, decoders, audio output), **frame by
     frame**, keep sound playing in the background, **decoder**: automatic, hardware first or software first.
