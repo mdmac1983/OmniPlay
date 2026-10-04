@@ -1,5 +1,10 @@
 [
  {
+  "version": "3.1",
+  "date": "2026-10-04",
+  "notes": "Play 10-bit MKV: built-in FFmpeg (LGPL) software decoders"
+ },
+ {
   "version": "3.0",
   "date": "2026-10-04",
   "notes": "Resumable cloud downloads with progress, pause and resume"
