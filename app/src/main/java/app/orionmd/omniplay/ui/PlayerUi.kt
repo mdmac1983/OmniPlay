@@ -132,6 +132,7 @@ fun NowPlaying(st: AppState) {
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.size(40.dp))
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        SkinLogo(sk.id, Modifier.padding(bottom = 6.dp).height(40.dp).widthIn(max = 160.dp))
                         Text(label(t), fontSize = 22.sp, fontWeight = if (sk.heavy) FontWeight.Black else FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = sk.font,
                             fontStyle = if (sk.italic) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
                             color = if (sk.boxTitle) Color.White else sk.text,

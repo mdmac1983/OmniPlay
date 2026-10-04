@@ -29,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontFamily
@@ -119,6 +120,7 @@ fun SkinBackground(st: AppState, t: org.json.JSONObject, s: PlayerSkin) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(s.bg)))
         }
         if (s.pattern.isNotEmpty()) Canvas(Modifier.fillMaxSize()) { skinPattern(s) }
+        if (st.pref("skinLogoWm", "0") == "1") SkinLogo(s.id, Modifier.align(Alignment.Center).fillMaxWidth(.75f).aspectRatio(1f), alpha = .1f)
     }
 }
 
@@ -272,6 +274,7 @@ fun SkinSwatch(s: PlayerSkin, selected: Boolean, modifier: Modifier = Modifier) 
                 Box(Modifier.padding(top = 8.dp).fillMaxWidth(.6f).aspectRatio(12f).clip(RoundedCornerShape(2.dp)).background(s.accent))
                 Box(Modifier.padding(top = 8.dp).fillMaxWidth(.18f).aspectRatio(1f).clip(CircleShape).background(if (s.outlinePlay) Color.Transparent else s.playBg).border(2.dp, s.playBg, CircleShape))
             }
+            SkinLogo(s.id, Modifier.align(Alignment.TopEnd).padding(5.dp).fillMaxWidth(.32f).aspectRatio(1f))
         }
         if (s.theme.isNotEmpty()) Text(s.theme, fontSize = 10.sp, color = C.mu, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
         Text(s.name, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
@@ -288,4 +291,35 @@ fun skinBitmap(s: PlayerSkin, w: Int, h: Int, density: Float, dim: Float = 0f): 
         if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
     }
     return img.asAndroidBitmap()
+}
+
+/**
+ * Your own logo on a skin: any picture from the phone (a transparent PNG looks best), shown as a badge in the music and
+ * video players and, if you like, as a faint watermark. Kept only on this device (Media Hub ships no brand logos).
+ */
+object SkinLogos {
+    /** Bumped when a logo changes, so screens reload it. */
+    private val genState = androidx.compose.runtime.mutableIntStateOf(0)
+    var gen: Int get() = genState.intValue; set(v) { genState.intValue = v }
+    private fun file(ctx: android.content.Context, id: String) = java.io.File(java.io.File(ctx.filesDir, "skinlogos").apply { mkdirs() }, "$id.png")
+    fun has(ctx: android.content.Context, id: String) = file(ctx, id).exists()
+    fun load(ctx: android.content.Context, id: String): android.graphics.Bitmap? = file(ctx, id).takeIf { it.exists() }?.let { try { android.graphics.BitmapFactory.decodeFile(it.path) } catch (_: Throwable) { null } }
+    /** Copies the picked picture (scaled to at most 600 px, transparency kept). */
+    fun save(ctx: android.content.Context, id: String, uri: android.net.Uri): Boolean = try {
+        val src = ctx.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) } ?: error("unreadable")
+        val sc = minOf(1f, 600f / maxOf(src.width, src.height))
+        val b = if (sc < 1f) android.graphics.Bitmap.createScaledBitmap(src, (src.width * sc).toInt().coerceAtLeast(1), (src.height * sc).toInt().coerceAtLeast(1), true) else src
+        file(ctx, id).outputStream().use { b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        gen++; true
+    } catch (_: Throwable) { false }
+    fun remove(ctx: android.content.Context, id: String) { file(ctx, id).delete(); gen++ }
+}
+
+/** The skin's logo badge (nothing if this skin has none). */
+@Composable
+fun SkinLogo(skinId: String, modifier: Modifier = Modifier, alpha: Float = 1f) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val g = SkinLogos.gen
+    val bmp: androidx.compose.ui.graphics.ImageBitmap? = androidx.compose.runtime.remember(skinId, g) { SkinLogos.load(ctx, skinId)?.asImageBitmap() }
+    if (bmp != null) androidx.compose.foundation.Image(bmp, null, modifier.alpha(alpha), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
 }

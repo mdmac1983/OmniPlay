@@ -70,7 +70,11 @@ fun SoundScreen(st: AppState) {
     val prof = Profiles.current(st)
     var c by remember(prof) { mutableStateOf(Sound.load(st.store)) }
     // changing anything switches the effects on (so a change is always heard)
-    fun set(n: DspCfg) { val m = if (n.on == c.on && !n.on) n.copy(on = true) else n; c = m; Sound.save(st, m); Profiles.saveCurrent(st) }
+    // live: the engine hears every slider movement straight away; saving waits until you stop moving it
+    fun set(n: DspCfg) { val m = if (n.on == c.on && !n.on) n.copy(on = true) else n; c = m; Dsp.set(m) }
+    androidx.compose.runtime.LaunchedEffect(c) { kotlinx.coroutines.delay(400); if (st.pref("dsp", "") != c.json().toString()) { Sound.save(st, c); Profiles.saveCurrent(st) } }
+    val latest = androidx.compose.runtime.rememberUpdatedState(c)
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { val v = latest.value; if (st.pref("dsp", "") != v.json().toString()) { Sound.save(st, v); Profiles.saveCurrent(st) } } }
     var boost by remember(prof) { mutableStateOf((st.pref("boost", "0").toIntOrNull() ?: 0).toFloat()) }
 
     Box(Modifier.fillMaxSize().background(C.bg).clickable(enabled = false) {}) {
@@ -169,6 +173,7 @@ fun SoundScreen(st: AppState) {
                     Knob("Dialogue / vocals", c.vocal, 0f..8f, ::plusDb) { set(c.copy(vocal = it)) }
                     Knob("Crossfeed", c.crossfeed, 0f..1f, ::pct) { set(c.copy(crossfeed = it)) }
                     Knob("Balance", c.balance, -1f..1f, { when { it < -.02f -> "L ${(-it * 100).toInt()}%"; it > .02f -> "R ${(it * 100).toInt()}%"; else -> "centre" } }) { set(c.copy(balance = if (kotlin.math.abs(it) < .03f) 0f else it)) }
+                    Muted("These work on the difference between left and right, so they're clearest on headphones — on a tablet's or phone's built-in speaker(s) there's little stereo to widen. ", size = 12.sp)
                     Muted("Width spreads the stereo image (Dolby-style stereo expand); surround adds a virtual room around you; crossfeed makes headphones sound less \"inside your head\".", size = 12.sp)
 
                     // ---------- effects ----------
@@ -281,8 +286,8 @@ private fun Knob(label: String, value: Float, range: ClosedFloatingPointRange<Fl
     var v by remember(value) { mutableStateOf(value) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, fontSize = 13.sp, color = C.mu, modifier = Modifier.width(labelW.dp))
-        Slider(v, { v = it; if (done != null) onChange(it) }, Modifier.weight(1f), valueRange = range,
-            onValueChangeFinished = { if (done != null) done() else onChange(v) },
+        Slider(v, { v = it; onChange(it) }, Modifier.weight(1f), valueRange = range,
+            onValueChangeFinished = { done?.invoke() },
             colors = SliderDefaults.colors(thumbColor = C.tx, activeTrackColor = C.ac, inactiveTrackColor = C.s3))
         Text(shown(v), fontSize = 12.sp, color = C.mu, modifier = Modifier.width(62.dp).padding(start = 6.dp))
     }

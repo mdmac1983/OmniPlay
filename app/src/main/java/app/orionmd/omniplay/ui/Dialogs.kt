@@ -63,6 +63,7 @@ fun Dialogs(st: AppState) {
             Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 SKINS.chunked(3).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { row.forEach { sk -> SkinSwatch(sk, sk.id == cur, Modifier.weight(1f).clickable { st.setPref("playerSkin", sk.id); Profiles.saveCurrent(st) }) }; repeat(3 - row.size) { Spacer(Modifier.weight(1f)) } } }
             }
+            SkinLogoEditor(st, cur)
             Btn("Done", { st.dialog = null }, Modifier.fillMaxWidth().padding(top = 12.dp))
         }
         is Dlg.AddToPlaylist -> DlgBox(st, if (d.queue) "Save queue to a playlist" else "Add to playlist") {
@@ -111,5 +112,28 @@ private fun FixMatchDialog(st: AppState, d: Dlg.FixMatch) {
                 { st.tmdbSetMatch(d.key, m); st.dialog = null; st.say("Matched: " + m.optString("title")) }, thumbW = if (mv) 64.dp else 40.dp, thumbRatio = if (mv) 16f / 9f else 2f / 3f)
         }
         Buttons(cancel = "Close", ok = "No match", okKind = BtnKind.Danger, onCancel = { st.dialog = null }) { st.tmdbSetMatch(d.key, null); st.dialog = null }
+    }
+}
+
+/** Add / change / remove your own logo on the chosen skin. */
+@Composable
+private fun SkinLogoEditor(st: AppState, skinId: String) {
+    val sk = skinOf(skinId)
+    val has = remember(skinId, SkinLogos.gen) { SkinLogos.has(st.ctx, skinId) }
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) st.say(if (SkinLogos.save(st.ctx, skinId, uri)) "Logo added to ${sk.name}" else "Couldn't read that picture")
+    }
+    Column(Modifier.padding(top = 14.dp).fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(C.s2).padding(12.dp)) {
+        Text("Logo for \"${sk.name}\"", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+        Muted("Add your own logo to this skin — any picture on your phone (a transparent PNG looks best). It shows above the song title, in the video player and on the skin's swatch, and stays on this device.", size = 12.sp)
+        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            SkinLogo(skinId, Modifier.size(44.dp).padding(end = 8.dp))
+            Btn(if (has) "Change logo" else "Add logo…", { pick.launch("image/*") }, small = true)
+            if (has) { Spacer(Modifier.width(8.dp)); Btn("Remove", { SkinLogos.remove(st.ctx, skinId) }, small = true, kind = BtnKind.Ghost) }
+        }
+        Row(Modifier.padding(top = 6.dp).clickable { st.setPref("skinLogoWm", if (st.pref("skinLogoWm", "0") == "1") "0" else "1") }, verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Checkbox(st.pref("skinLogoWm", "0") == "1", { st.setPref("skinLogoWm", if (it) "1" else "0") })
+            Text("Also show it large and faint in the background", fontSize = 13.sp)
+        }
     }
 }

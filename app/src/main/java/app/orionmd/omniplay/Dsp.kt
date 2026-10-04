@@ -299,7 +299,7 @@ class DspCore(private val video: Boolean) {
         val c = Dsp.cfg
         if (built !== c || rgNow(c) != builtRg) build(c)
         val width = c.width.toDouble(); val sur = c.surround.toDouble(); val xf = c.crossfeed.toDouble() * .45
-        val wet = c.reverb.toDouble() * .6; val lev = c.leveler.toDouble()
+        val wet = c.reverb.toDouble() * 1.4; val lev = c.leveler.toDouble()
         val att = exp(-1.0 / (sr * .01)); val rel = exp(-1.0 / (sr * .25))
         val thr = 0.18; val ratio = 1 + lev * 4
         for (i in 0 until n) {
@@ -320,7 +320,7 @@ class DspCore(private val video: Boolean) {
                 l = m + s; r = m - s
                 xfL?.let { f -> val cl = f.l(r); val cr = f.r(l); l = (l + cl * xf) / (1 + xf * .5); r = (r + cr * xf) / (1 + xf * .5) }
             } else vocalF?.let { l = it.l(l); r = l }
-            verb?.let { v -> val mono = ((l + r) * .5).toFloat(); val vl = v.l(mono); val vr = v.r(mono); l = l * (1 - wet * .4) + vl * wet; r = r * (1 - wet * .4) + vr * wet }
+            verb?.let { v -> val mono = ((l + r) * .5).toFloat(); val vl = v.l(mono); val vr = v.r(mono); l = l * (1 - c.reverb * .35) + vl * wet; r = r * (1 - c.reverb * .35) + vr * wet }
             if (lev > .01) {
                 val lvl = maxOf(abs(l), abs(r))
                 env = if (lvl > env) att * env + (1 - att) * lvl else rel * env + (1 - rel) * lvl

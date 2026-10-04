@@ -101,7 +101,9 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
   themed packs inspired by Fortnite, Marshmello, Supreme, Chrome Hearts, **Gucci, Louis Vuitton, Prada, Ethika,
   Under Armour, Nike, Jordan and Adidas** (their colours, prints and textures — no logos). The skin also styles the
   **video player** (buttons, seek bar, play button, menus, and the pattern around the picture) and the Gallery's
-  video player; change it there under **More → Skin**.
+  video player; change it there under **More → Skin**. **Your own logo:** in the skin picker, **Add logo…** puts any
+  picture from your phone (a transparent PNG looks best) on that skin — above the song title, in the video player's
+  top bar and on the swatch; optionally also large and faint in the background. It stays on your device.
 - **Lyrics:** time-synced (follows the song, tap a line to jump) or plain. Uses `.lrc` files next to your songs first,
   then LRCLIB online. Saved for offline.
 - **Song info & album art:** genre, year, length and covers from Deezer, with iTunes as backup. Songs without an artist
@@ -278,6 +280,7 @@ and starts matching your videos straight away.
 | Podcasts asks for keys | Enter **both** Podcast Index key and secret and tap **Save** on each. |
 | No subtitles downloaded | Needs both a TMDB key and a Wyzie key; set the language in Settings → Library tools, then run video **Sync all**. |
 | Music or video says "audio track init failed" (v2.2–2.4) | Fixed in 2.5: if the hi-res output doesn't work on a device, Media Hub switches to the standard output by itself (effects still work) and remembers it. Sound → Output shows which one is in use. |
+| Sound sliders seem to do nothing | Fixed in 2.10 (they now change the sound while you drag). Width, surround and crossfeed work on stereo, so they're clearest on headphones; on a single built-in speaker there's little to hear. |
 | Quieter than other players | Sound → **Preamp** (+3…+9 dB) and/or **Volume boost**; check **Auto headroom** is off. With **DVC** on, also turn Media Hub's own volume up. |
 | A video won't play or stutters | Video → **More → Decoder → Software first** (or Hardware first) and try again. |
 | Subtitles out of sync | **Subtitles → Delay**. For sound out of sync: **Audio → Audio delay**. |

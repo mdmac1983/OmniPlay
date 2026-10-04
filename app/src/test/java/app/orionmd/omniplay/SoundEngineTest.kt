@@ -137,4 +137,28 @@ class SoundEngineTest {
         val l2 = sine(60.0, 48000, 48000, 0.2); c2.process(l2, l2.copyOf(), l2.size, true)
         assertTrue(l2.copyOfRange(24000, 48000).maxOf { abs(it) } < l.copyOfRange(24000, 48000).maxOf { abs(it) })
     }
+
+    /** Every spatial / effect setting must audibly change a stereo music-like signal (difference vs flat, in dB). */
+    @Test fun every_effect_changes_the_sound() {
+        val n = 48000; val rnd = java.util.Random(3)
+        // stereo: a shared (centre) part plus different left/right parts, with lows and highs
+        val baseL = DoubleArray(n); val baseR = DoubleArray(n)
+        for (i in 0 until n) { val c = .15 * kotlin.math.sin(2 * PI * 80 * i / 48000) + .1 * kotlin.math.sin(2 * PI * 1000 * i / 48000)
+            baseL[i] = c + .08 * (rnd.nextDouble() - .5); baseR[i] = c + .08 * (rnd.nextDouble() - .5) + .05 * kotlin.math.sin(2 * PI * 6000 * i / 48000) }
+        fun run(cfg: DspCfg): Pair<DoubleArray, DoubleArray> { Dsp.set(cfg); val core = DspCore(false); core.configure(48000); val l = baseL.copyOf(); val r = baseR.copyOf(); core.process(l, r, n, true); return l to r }
+        val (fl, fr) = run(DspCfg(on = true))
+        val sig = sqrt((0 until n).sumOf { fl[it] * fl[it] + fr[it] * fr[it] })
+        val cases = mapOf(
+            "bass +6" to DspCfg(on = true, bass = 6f), "treble +6" to DspCfg(on = true, treble = 6f), "vocal +6" to DspCfg(on = true, vocal = 6f),
+            "width 2" to DspCfg(on = true, width = 2f), "width 0 (mono)" to DspCfg(on = true, width = 0f), "surround 1" to DspCfg(on = true, surround = 1f),
+            "crossfeed 1" to DspCfg(on = true, crossfeed = 1f), "reverb .5" to DspCfg(on = true, reverb = .5f), "leveler 1" to DspCfg(on = true, leveler = 1f),
+            "balance L" to DspCfg(on = true, balance = -.6f), "output +4" to DspCfg(on = true, gain = 4f), "preamp +6" to DspCfg(on = true, preamp = 6f))
+        val report = cases.map { (k, cfg) ->
+            val (l, r) = run(cfg)
+            val diff = sqrt((n / 2 until n).sumOf { (l[it] - fl[it]).let { d -> d * d } + (r[it] - fr[it]).let { d -> d * d } } * 2)
+            k to 20 * kotlin.math.log10(diff / sig)
+        }
+        println(report.joinToString("\n") { (k, db) -> "%-16s %6.1f dB".format(k, db) })
+        report.forEach { (k, db) -> assertTrue("$k changes the sound by only $db dB", db > -20) }
+    }
 }

@@ -110,6 +110,7 @@ class VideoActivity : Activity() {
     private var skin = app.orionmd.omniplay.ui.SKINS[0]
     private val allPills = mutableListOf<TextView>()
     private lateinit var skinBg: SkinBgView
+    private lateinit var logoView: android.widget.ImageView
     private var accent = 0xFF9E86FF.toInt()
 
     private val speeds = floatArrayOf(.5f, .75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
@@ -161,7 +162,10 @@ class VideoActivity : Activity() {
                 setPadding(dp(8), dp(8), dp(8), dp(8)); setOnClickListener { close() }
                 background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0x66000000) }
             }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(10) })
-            addView(title, LinearLayout.LayoutParams(0, -2, 1f)); addView(clockTv)
+            addView(title, LinearLayout.LayoutParams(0, -2, 1f))
+            logoView = android.widget.ImageView(this@VideoActivity).apply { scaleType = android.widget.ImageView.ScaleType.FIT_CENTER; visibility = View.GONE }
+            addView(logoView, LinearLayout.LayoutParams(dp(72), dp(30)).apply { marginStart = dp(8) })
+            addView(clockTv)
         })
         val pills = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
         bar.addView(android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(pills) })
@@ -775,7 +779,9 @@ class VideoActivity : Activity() {
             androidx.media3.ui.R.id.exo_rew_with_amount, androidx.media3.ui.R.id.exo_ffwd_with_amount).forEach { id ->
             (view.findViewById<View>(id) as? android.widget.ImageView)?.imageTintList = android.content.res.ColorStateList.valueOf(if (id == androidx.media3.ui.R.id.exo_play_pause) accent else fg)
         }
-        skinBg.show(if (store.getPref("vskinbg", "1") == "1") s else null)
+        val logo = app.orionmd.omniplay.ui.SkinLogos.load(this, s.id)
+        logoView.setImageBitmap(logo); logoView.visibility = if (logo != null) View.VISIBLE else View.GONE
+        skinBg.show(if (store.getPref("vskinbg", "1") == "1") s else null, logo.takeIf { store.getPref("skinLogoWm", "0") == "1" })
     }
     private fun skinSheet() = sheet("Skin") { col, done ->
         col.note("The same skins as the music player. The pattern shows in the space around the picture (turn that off in Settings → Playback).")
@@ -789,7 +795,8 @@ class VideoActivity : Activity() {
     private class SkinBgView(ctx: android.content.Context) : View(ctx) {
         private var skin: app.orionmd.omniplay.ui.PlayerSkin? = null
         private var bmp: android.graphics.Bitmap? = null
-        fun show(s: app.orionmd.omniplay.ui.PlayerSkin?) { skin = s; render(); invalidate() }
+        private var logo: android.graphics.Bitmap? = null
+        fun show(s: app.orionmd.omniplay.ui.PlayerSkin?, wm: android.graphics.Bitmap? = null) { skin = s; logo = wm; render(); invalidate() }
         private fun render() {
             bmp?.recycle(); bmp = null
             val s = skin ?: return; if (width <= 0 || height <= 0) return
@@ -802,6 +809,11 @@ class VideoActivity : Activity() {
             val b = bmp
             if (b == null) { c.drawColor(Color.BLACK); return }
             c.drawBitmap(b, null, android.graphics.Rect(0, 0, width, height), paint)
+            logo?.let { l ->   // your skin logo, large and faint
+                val side = minOf(width, height) * .6f; val sc = side / maxOf(l.width, l.height)
+                val w = l.width * sc; val h = l.height * sc; val left = (width - w) / 2; val top = (height - h) / 2
+                c.drawBitmap(l, null, android.graphics.RectF(left, top, left + w, top + h), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG).apply { alpha = 30 })
+            }
         }
     }
 
