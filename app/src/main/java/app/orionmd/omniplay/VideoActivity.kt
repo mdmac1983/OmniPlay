@@ -335,7 +335,7 @@ class VideoActivity : Activity() {
                     toast("Subtitles off")
                 }
             }
-            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) { updatePipParams(); ui.post { applyRatio() } }
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) { updatePipParams(); ui.post { applyRatio(); setZoom(zoom, panX, panY) } }
         })
         p.setMediaItem(item, startAt); resolved = base + 1
         autoSubs()
@@ -541,18 +541,29 @@ class VideoActivity : Activity() {
     }
     private var sizeKey = "fit"
     private fun sizeSheet() = sheet("Picture size") { col, done ->
-        sizes.forEach { (k, n) -> col.option(n, sizeKey == k) { sizeBtn.text = applySize(k).substringBefore(" ("); store.setPref("vresize", k); toast(n); done() } }
-        if (zoom != 1f) col.action("Reset zoom (${(zoom * 100).toInt()}%)") { setZoom(1f, 0f, 0f); done() }
-        col.note("Tip: pinch the picture to zoom in, and drag with two fingers to move it.")
+        sizes.forEach { (k, n) -> col.option(n, sizeKey == k && zoom == 1f) { setZoom(1f, 0f, 0f); sizeBtn.text = applySize(k).substringBefore(" ("); store.setPref("vresize", k); toast(n); done() } }
+        if (zoom != 1f) col.action("Back to normal size (now ${(zoom * 100).toInt()}%)") { setZoom(1f, 0f, 0f); done() }
+        col.note("Tip: pinch out to make the picture bigger, pinch in to make it smaller (down to 25%), and drag with two fingers to move it. Let go near 100% and it snaps back.")
     }
+    /** Pinch size: 25 % (a small picture in the middle) up to 400 % (zoomed in, drag to move). */
     private fun setZoom(z: Float, x: Float, y: Float) {
-        zoom = z.coerceIn(1f, 4f); val f = contentFrame ?: return
-        val maxX = f.width * (zoom - 1) / 2; val maxY = f.height * (zoom - 1) / 2
-        panX = x.coerceIn(-maxX, maxX); panY = y.coerceIn(-maxY, maxY)
+        zoom = z.coerceIn(.25f, 4f); val f = contentFrame ?: return
+        if (zoom > 1f) {
+            val maxX = f.width * (zoom - 1) / 2; val maxY = f.height * (zoom - 1) / 2
+            panX = x.coerceIn(-maxX, maxX); panY = y.coerceIn(-maxY, maxY)
+        } else {
+            // smaller than the screen: it can be moved around inside the screen
+            val maxX = f.width * (1 - zoom) / 2; val maxY = f.height * (1 - zoom) / 2
+            panX = x.coerceIn(-maxX, maxX); panY = y.coerceIn(-maxY, maxY)
+        }
         f.scaleX = zoom; f.scaleY = zoom; f.translationX = panX; f.translationY = panY
     }
+    private fun zoomLabel() = if (kotlin.math.abs(zoom - 1f) < .01f) "100% (${sizes.firstOrNull { it.first == sizeKey }?.second?.substringBefore(" (") ?: "Best fit"})" else "${(zoom * 100).toInt()}%"
     private val scaler by lazy { android.view.ScaleGestureDetector(this, object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
-        override fun onScale(d: android.view.ScaleGestureDetector): Boolean { setZoom(zoom * d.scaleFactor, panX, panY); hudShow("Zoom ${(zoom * 100).toInt()}%", Icons.Rounded.ZoomIn); return true }
+        override fun onScale(d: android.view.ScaleGestureDetector): Boolean {
+            val before = zoom; setZoom(zoom * d.scaleFactor, panX, panY)
+            hudShow(zoomLabel(), if (zoom >= before) Icons.Rounded.ZoomIn else Icons.Rounded.ZoomOut); return true
+        }
     }) }
     private var pinching = false; private var lastFx = 0f; private var lastFy = 0f
 
@@ -973,13 +984,16 @@ class VideoActivity : Activity() {
             return if (unlockBtn.visibility == View.VISIBLE) super.dispatchTouchEvent(ev) else true
         }
         if (player == null) return super.dispatchTouchEvent(ev)
-        // two fingers: pinch to zoom, drag to move the picture (like VLC)
+        // two fingers: pinch in / out to resize, drag to move the picture (like VLC)
+        scaler.onTouchEvent(ev)   // sees every touch, so a pinch is recognised from the moment the second finger lands
         if (ev.pointerCount >= 2 || pinching) {
-            scaler.onTouchEvent(ev)
             when (ev.actionMasked) {
                 MotionEvent.ACTION_POINTER_DOWN -> { if (!pinching) { pinching = true; drag = Drag.NONE; cancelChild(ev) }; lastFx = (ev.getX(0) + ev.getX(1)) / 2; lastFy = (ev.getY(0) + ev.getY(1)) / 2 }
                 MotionEvent.ACTION_MOVE -> if (ev.pointerCount >= 2) { val fx = (ev.getX(0) + ev.getX(1)) / 2; val fy = (ev.getY(0) + ev.getY(1)) / 2; if (zoom > 1f) setZoom(zoom, panX + fx - lastFx, panY + fy - lastFy); lastFx = fx; lastFy = fy }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { pinching = false; if (zoom < 1.05f) setZoom(1f, 0f, 0f) }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    pinching = false
+                    if (kotlin.math.abs(zoom - 1f) < .07f) { setZoom(1f, 0f, 0f); hudShow(zoomLabel(), Icons.Rounded.FitScreen) }   // snaps back to the normal size
+                }
             }
             return true
         }

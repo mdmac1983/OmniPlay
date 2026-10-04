@@ -119,7 +119,8 @@ saved sound presets, effects on/off and every menu in one place.
   **HLS** (`.m3u8`) and **DASH** (`.mpd`), with recent links remembered. Other apps can **Open with → Media Hub**
   (file managers, browsers).
 - **Gestures:** swipe the left side for brightness, the right side for volume, sideways to scrub, double-tap the sides to
-  skip and the middle to pause, **pinch to zoom** and drag with two fingers to move the zoomed picture.
+  skip and the middle to pause, **pinch out / in to resize the picture** (25 %–400 %, snaps back near 100 %) and drag
+  with two fingers to move it.
 - **Top buttons** (choose which ones show: Settings → Playback & subtitles → Player buttons):
   - **Subtitles** — pick a track (files next to the video, downloaded ones, ones inside the video), **Load subtitle
     file…**, **delay** in 0.1 s / 1 s steps (earlier or later), **text encoding** (UTF-8, Windows-1250…1258, Cyrillic,
