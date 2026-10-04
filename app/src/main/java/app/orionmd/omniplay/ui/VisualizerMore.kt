@@ -103,7 +103,8 @@ internal val VIS_REG: List<VisDef> = run {
         t("car_g_classic", "Chrome twin dials (Mercedes G-Class style)", null) { carGClassic(it) }, t("car_g_wide", "Widescreen cockpit (Mercedes G-Class style)", null) { carGWide(it) },
         t("car_audi", "Virtual cockpit (Audi style)", null) { carAudi(it) }, t("car_audi_sport", "Sport view (Audi style)", null) { carAudiSport(it) },
         t("car_nsx_classic", "'90s analogue (Acura NSX style)", null) { carNsxClassic(it) }, t("car_nsx", "Drive-mode ring (Acura NSX style)", null) { carNsx(it) },
-        t("car_typer", "Digital rev arc (Honda Civic Type R style)", null) { carTypeR(it) }, t("car_typer_plus", "+R mode (Honda Civic Type R style)", null) { carTypeRPlus(it) })
+        t("car_typer", "Digital rev arc (Honda Civic Type R style)", null) { carTypeR(it) }, t("car_typer_plus", "+R mode (Honda Civic Type R style)", null) { carTypeRPlus(it) },
+        t("car_m3", "Digital cockpit (BMW M3 Competition style)", null) { carM3(it) }, t("car_m3_track", "M Track mode (BMW M3 Competition style)", null) { carM3Track(it) })
     l
 }
 

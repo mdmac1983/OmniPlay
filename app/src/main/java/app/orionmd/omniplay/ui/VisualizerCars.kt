@@ -463,3 +463,67 @@ internal fun DrawScope.carTypeRPlus(s: VisState) {
     t("ENGINE", b.x(.82f), b.y(.88f), b.h * .04f, Color(0xFFFFB3B3), spacing = .15f)
     t(kmh(s), b.x(.34f), b.y(.62f), b.h * .12f, Color.White, F.semi); t("km/h", b.x(.34f), b.y(.69f), b.h * .04f, Color(0xFFFFB3B3))
 }
+
+// ---------------------------------------------------------------- BMW M3 Competition style
+
+private val M_ORANGE = Color(0xFFFF7A1A); private val M_RED = Color(0xFFE8202A); private val M_BLUE = Color(0xFF2E7BFF)
+/** An open, angular arc gauge (the modern digital cockpit's look): numbers outside, the value as a glowing fill. */
+private fun DrawScope.mArc(c: Offset, r: Float, start: Float, sweep: Float, v: Float, labels: List<String>, redFrom: Float, fill: Color) {
+    drawArc(Color.White.copy(alpha = .1f), start, sweep, false, Offset(c.x - r, c.y - r), Size(r * 2, r * 2), style = Stroke(r * .07f))
+    val segs = 48; val lit = (v.coerceIn(0f, 1f) * segs).toInt()
+    for (k in 0 until segs) {
+        val a = start + sweep * (k + .5f) / segs; val f = k / (segs - 1f)
+        val col = if (f >= redFrom) M_RED else fill
+        drawLine(if (k < lit) col else col.copy(alpha = .08f), pol(c, a, r * .93f), pol(c, a, r * 1.07f), r * .045f)
+    }
+    labels.forEachIndexed { i, l -> val a = start + sweep * i / (labels.size - 1); val p = pol(c, a, r * 1.22f)
+        t(l, p.x, p.y + r * .05f, r * .11f, if (i.toFloat() / (labels.size - 1) >= redFrom) M_RED else Color(0xFFE6E6E6), F.semi) }
+    // tick marks inside, and a bright tip where the value ends
+    for (i in 0 until labels.size * 2 - 1) { val a = start + sweep * i / (labels.size * 2 - 2); drawLine(Color.White.copy(alpha = .5f), pol(c, a, r * .82f), pol(c, a, r * (if (i % 2 == 0) .9f else .86f)), 2f) }
+    val tip = start + sweep * v.coerceIn(0f, 1f); drawLine(Color.White, pol(c, tip, r * .8f), pol(c, tip, r * 1.1f), r * .03f, cap = StrokeCap.Round)
+}
+
+/** Digital cockpit (M view): angular speed and rev arcs either side, gear and speed in the middle, drive-mode chips. */
+internal fun DrawScope.carM3(s: VisState) {
+    val b = box(); housing(b, Color(0xFF0B0C0F), Color(0xFF020203), Color(0xFF23262B), .05f)
+    panel(b.x(.02f), b.y(.05f), b.w * .96f, b.h * .9f, Color(0xFF030406), M_BLUE, Color(0xFF181B20), .05f)
+    val r = b.h * .28f
+    // speed on the left (rising counter-clockwise), revs on the right (rising clockwise) — the open, mirrored pair
+    mArc(Offset(b.x(.25f), b.y(.5f)), r, 225f, -190f, s.spd(), listOf("0", "50", "100", "150", "200", "250", "300"), 2f, M_BLUE)
+    mArc(Offset(b.x(.75f), b.y(.5f)), r, -45f, 190f, s.rpm(), listOf("0", "1", "2", "3", "4", "5", "6", "7", "8"), .85f, M_ORANGE)
+    t(kmh(s), b.x(.25f), b.y(.55f), r * .45f, Color.White, F.semi); t("km/h", b.x(.25f), b.y(.66f), r * .12f, Color(0xFFAAB3BD), spacing = .1f)
+    t(rpmText(s, 7200), b.x(.75f), b.y(.55f), r * .3f, Color.White, F.semi); t("rpm", b.x(.75f), b.y(.66f), r * .12f, Color(0xFFAAB3BD), spacing = .1f)
+    // centre: gear in an angular frame, M1 / M2 chips, drive mode
+    val cx = b.x(.5f); val cy = b.y(.5f); val gw = b.w * .07f; val gh = b.h * .2f
+    val hex = Path().apply { moveTo(cx - gw, cy - gh * .6f); lineTo(cx - gw * .6f, cy - gh); lineTo(cx + gw * .6f, cy - gh); lineTo(cx + gw, cy - gh * .6f)
+        lineTo(cx + gw, cy + gh * .6f); lineTo(cx + gw * .6f, cy + gh); lineTo(cx - gw * .6f, cy + gh); lineTo(cx - gw, cy + gh * .6f); close() }
+    drawPath(hex, Color(0xFF0E1218)); drawPath(hex, M_BLUE.copy(alpha = .7f), style = Stroke(3f))
+    t("M${s.gear()}", cx, cy + gh * .35f, gh * .9f, Color.White, F.semi)
+    listOf("M1", "M2").forEachIndexed { i, l -> val on = (i == 0) == (s.rpm() < .6f); val x = cx - b.w * .05f + i * b.w * .1f; val y = b.y(.22f)
+        drawRoundRect(if (on) M_BLUE else Color(0xFF1A1E24), Offset(x - b.w * .035f, y - b.h * .05f), Size(b.w * .07f, b.h * .07f), CornerRadius(6f))
+        t(l, x, y + b.h * .005f, b.h * .05f, Color.White, F.semi) }
+    t(if (s.rpm() > .6f) "SPORT PLUS" else "SPORT", cx, b.y(.88f), b.h * .045f, if (s.rpm() > .6f) M_RED else Color(0xFFAAB3BD), spacing = .2f)
+}
+
+/** M Mode "Track": everything but the essentials off — a horizontal rev band with shift lights, a huge gear, speed. */
+internal fun DrawScope.carM3Track(s: VisState) {
+    val b = box(.45f); housing(b, Color(0xFF0B0C0F), Color(0xFF020203), Color(0xFF23262B), .05f)
+    panel(b.x(.02f), b.y(.05f), b.w * .96f, b.h * .9f, Color(0xFF020203), M_RED, Color(0xFF181B20), .05f)
+    // shift lights: blue → red, all flashing red when it's time to shift
+    if (!b.small) { val n = 14; val lit = (s.rpm() * n * 1.05f).toInt(); val w = b.w * .5f; val all = lit >= n
+        for (k in 0 until n) { val col = if (all) M_RED else if (k < n * .5f) M_BLUE else if (k < n * .8f) M_ORANGE else M_RED
+            val p = Offset(b.x(.5f) - w / 2 + w * (k + .5f) / n, b.y(.13f)); val on = k < lit
+            drawRoundRect(if (on) col else col.copy(alpha = .12f), Offset(p.x - w / n * .38f, p.y - b.h * .025f), Size(w / n * .76f, b.h * .05f), CornerRadius(3f)) } }
+    // the rev band: a tapered strip that thickens towards the limiter
+    val l = b.x(.06f); val w = b.w * .88f; val top = b.y(.24f); val segs = 60; val lit = (s.rpm() * segs).toInt()
+    for (k in 0 until segs) { val f = k / (segs - 1f); val h = b.h * (.05f + .1f * f)
+        val col = if (f > .86f) M_RED else if (f > .7f) M_ORANGE else Color.White
+        drawRect(if (k < lit) col else col.copy(alpha = .07f), Offset(l + w * k / segs, top + b.h * .15f - h), Size(w / segs * .7f, h)) }
+    (0..8).forEach { k -> t("$k", l + w * k / 8f, top + b.h * .23f, b.h * .05f, if (k >= 7) M_RED else Color(0xFFBBBBBB), F.semi) }
+    t("${s.gear()}", b.x(.5f), b.y(.88f), b.h * .42f, Color.White, F.semi)
+    t(kmh(s), b.x(.2f), b.y(.78f), b.h * .17f, Color.White, F.semi); t("km/h", b.x(.2f), b.y(.86f), b.h * .045f, Color(0xFFAAB3BD), spacing = .1f)
+    // right: oil temp / boost readouts, M-traction level
+    t("%.1f".format(s.mn(0, 10) * 1.7f), b.x(.8f), b.y(.66f), b.h * .1f, Color.White, F.semi); t("BOOST bar", b.x(.8f), b.y(.72f), b.h * .04f, Color(0xFFAAB3BD), spacing = .1f)
+    t("${(80 + s.mn(10, 24) * 50).toInt()}°", b.x(.8f), b.y(.83f), b.h * .1f, Color.White, F.semi); t("OIL", b.x(.8f), b.y(.89f), b.h * .04f, Color(0xFFAAB3BD), spacing = .1f)
+    t("TRACK", b.x(.08f), b.y(.92f), b.h * .045f, M_RED, F.semi, Paint.Align.LEFT, spacing = .2f)
+}

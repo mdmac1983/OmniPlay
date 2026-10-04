@@ -104,4 +104,19 @@ class HiResSinkTest {
         assertTrue(sink.handleBuffer(buffer(4410), 0, 1))
         assertEquals(4410L * 4, good.bytes)
     }
+
+    /** The visualizers get the music in 16-bit output mode as well (they used to get nothing there and stood still). */
+    @Test fun visualizer_is_fed_in_16_bit_mode_too() {
+        for (floatOk in listOf(true, false)) {
+            HiResSink.setMode(0)
+            var got = 0L
+            val tee = object : androidx.media3.exoplayer.audio.TeeAudioProcessor.AudioBufferSink {
+                override fun flush(sampleRateHz: Int, channelCount: Int, encoding: Int) {}
+                override fun handleBuffer(buffer: ByteBuffer) { got += buffer.remaining() }
+            }
+            val fake = FakeSink { floatOk || it.pcmEncoding != C.ENCODING_PCM_FLOAT }
+            play(HiResSink(fake, false, 48000, tee))
+            assertTrue("float=$floatOk: visualizer got $got bytes", got > 300_000)   // ~1 s of 48 kHz float stereo
+        }
+    }
 }

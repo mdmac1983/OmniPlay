@@ -174,7 +174,6 @@ class HiResSink(
             val out = convert(buffer) { dropped -> pts += dropped * 1_000_000L / inRate }
             pts += delayFrames * 1_000_000L / outRate
             if (out != null && out.hasRemaining()) {
-                if (tee != null && outFloat) tee.handleBuffer(out.duplicate().order(ByteOrder.nativeOrder()))
                 if (!super.handleBuffer(out, pts, 1)) { pending = out; pendingPts = pts }
             }
             return true
@@ -256,6 +255,13 @@ class HiResSink(
                 n -= d; delayFrames -= d
             }
             if (n <= 0) return null
+        }
+        // the visualizers get every buffer as float — in 16-bit output mode too (they used to get nothing then, so on
+        // devices / Bluetooth links that fall back to 16-bit they stood still)
+        tee?.let { t ->
+            val fb = ByteBuffer.allocate(n * 8).order(ByteOrder.nativeOrder())
+            for (i in 0 until n) { fb.putFloat(xL[i].toFloat()); fb.putFloat(xR[i].toFloat()) }
+            fb.flip(); try { t.handleBuffer(fb) } catch (_: Exception) {}
         }
         // a fresh buffer each time: the inner sink may keep writing from it after accepting it
         if (outFloat) {
