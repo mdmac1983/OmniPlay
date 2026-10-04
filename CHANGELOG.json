@@ -1,5 +1,10 @@
 [
  {
+  "version": "2.2",
+  "date": "2026-10-04",
+  "notes": "Sound engine: hi-res output for music and video, parametric EQ"
+ },
+ {
   "version": "2.1",
   "date": "2026-10-02",
   "notes": "AI Eraser: don't crash low-memory phones"
