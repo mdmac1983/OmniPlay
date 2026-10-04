@@ -1,5 +1,10 @@
 [
  {
+  "version": "2.5",
+  "date": "2026-10-04",
+  "notes": "Fix audio failing on some devices for good; VLC-style video player"
+ },
+ {
   "version": "2.4",
   "date": "2026-10-04",
   "notes": "Fix \"audio track init failed\"; Guide & Features viewer in Settings"
