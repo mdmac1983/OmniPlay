@@ -1,5 +1,10 @@
 [
  {
+  "version": "2.6",
+  "date": "2026-10-04",
+  "notes": "Skins: Gucci, Louis Vuitton, Prada, Ethika, Under Armour, Nike, Jordan, Adidas; skins in the video player"
+ },
+ {
   "version": "2.5",
   "date": "2026-10-04",
   "notes": "Fix audio failing on some devices for good; VLC-style video player"
