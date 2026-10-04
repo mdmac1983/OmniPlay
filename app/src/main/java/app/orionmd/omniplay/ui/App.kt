@@ -34,8 +34,9 @@ fun OmniApp(st: AppState) {
         }
     }
     // when a full-screen surface is up, show only that
-    if (st.visFull) { VisualizerFull(st); return }
-    if (st.soundOpen) { SoundScreen(st); return }
+    // (dialogs are drawn on top of these too — the skin / visualizer pickers open from the Sound screen)
+    if (st.visFull) { VisualizerFull(st); Dialogs(st); return }
+    if (st.soundOpen) { SoundScreen(st); Dialogs(st); st.toast?.let { (m, _) -> Toast(m) { st.toast = null } }; return }
     if (st.sheetOpen && st.player.track != null) { NowPlaying(st); Dialogs(st); return }
     // full-screen gallery pages (no tab bar)
     when (val top = st.pages.lastOrNull()) {

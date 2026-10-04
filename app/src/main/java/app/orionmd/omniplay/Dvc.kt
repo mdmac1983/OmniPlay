@@ -13,7 +13,7 @@ import kotlin.math.pow
  * Direct Volume Control (DVC), like Poweramp's: Android's media volume is set to maximum and the volume is applied
  * inside Media Hub's 64-bit engine instead ([HiResSink]), so quiet listening keeps full resolution and the effects get
  * the whole range. Volume keys (and the video player's volume swipe) then change Media Hub's own volume — in the
- * background too, through a remote-volume media session.
+ * app, from its own key handling.
  *
  * Safety: when DVC takes over it starts from the loudness you had (via Android's standard media volume curve, a little
  * quieter), and whenever nothing is playing in Media Hub the system volume is put back to the matching level, so other
@@ -109,22 +109,11 @@ object Dvc {
     private fun engage() {
         engaged = true; Store(app).setPref("dvcEngaged", "1")
         try { am.setStreamVolume(AudioManager.STREAM_MUSIC, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC), 0) } catch (_: Exception) {}
-        // volume keys in the background → Media Hub's volume
-        try {
-            val p = object : VolumeProvider(VOLUME_CONTROL_ABSOLUTE, MAX, level) {
-                override fun onSetVolumeTo(volume: Int) { setLevel(volume) }
-                override fun onAdjustVolume(direction: Int) { if (direction != 0) step(direction > 0) }
-            }
-            provider = p
-            val s = session ?: MediaSession(app, "MediaHubDVC").also { session = it }
-            s.setPlaybackToRemote(p)
-            s.setPlaybackState(PlaybackState.Builder().setState(PlaybackState.STATE_PLAYING, 0, 1f).build())
-            s.isActive = true
-        } catch (_: Exception) {}
+        // (no separate "remote volume" media session any more: on some phones it left the music silent while DVC
+        // was on. The volume keys change DVC's level through the app's own key handling while it's on screen.)
     }
     private fun disengage() {
         engaged = false; Store(app).setPref("dvcEngaged", "0")
         try { am.setStreamVolume(AudioManager.STREAM_MUSIC, systemFromLevel(), 0) } catch (_: Exception) {}
-        try { session?.isActive = false } catch (_: Exception) {}
     }
 }

@@ -218,13 +218,13 @@ fun SoundScreen(st: AppState) {
                     }
                     if (c.hiRes) ToggleRow("Own resampler (skip Android's)", "Converts songs to this phone's native rate (${HiResSink.nativeRate(st.ctx) / 1000.0} kHz) with a high-quality filter, so Android's mixer doesn't resample them again. Applies from the next song.", c.resample) { set(c.copy(resample = it)) }
 
-                    if (c.hiRes && HiResSink.active && HiResSink.mode < 3) {
-                        ToggleRow("Direct volume control (DVC)", "Like Poweramp's DVC: Android's media volume is set to maximum and Media Hub sets the volume itself in its 64-bit engine — quiet listening keeps full detail. The volume keys (and the video volume swipe) control Media Hub while it plays, in the background too. When nothing is playing, the system volume goes back to the same loudness so other apps aren't loud.", dvcOn) {
+                    if (c.hiRes) {
+                        ToggleRow("Direct volume control (DVC)", "Like Poweramp's DVC: Android's media volume is set to maximum and Media Hub sets the volume itself in its 64-bit engine — quiet listening keeps full detail. The volume keys (and the video volume swipe) change Media Hub's volume while it is on screen. When nothing is playing, the system volume goes back to the same loudness so other apps aren't loud.", dvcOn) {
                             app.orionmd.omniplay.Dvc.setEnabled(it); dvcOn = app.orionmd.omniplay.Dvc.enabled; dvcLevel = app.orionmd.omniplay.Dvc.level.toFloat()
                         }
+                        if (!app.orionmd.omniplay.Dvc.available) Muted("Restart Media Hub to use DVC (the hi-res output starts with the app).", Modifier.padding(vertical = 4.dp), 12.sp)
                         if (dvcOn) Knob("Volume", dvcLevel, 0f..100f, { if (it < 1) "mute" else "${it.toInt()} · %.1f dB".format(-60 * (1 - it / 100)) }) { dvcLevel = it; app.orionmd.omniplay.Dvc.setLevel(it.toInt()) }
-                    } else if (c.hiRes) Muted("Restart Media Hub to switch the hi-res output on — direct volume control (DVC) becomes available then.", Modifier.padding(vertical = 4.dp), 12.sp)
-                    else Muted("Direct volume control (DVC) needs the hi-res output.", Modifier.padding(vertical = 4.dp), 12.sp)
+                    } else Muted("Direct volume control (DVC) needs the hi-res output.", Modifier.padding(vertical = 4.dp), 12.sp)
 
                     // ---------- videos ----------
                     SectionHeader("Videos")
