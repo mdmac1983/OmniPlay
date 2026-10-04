@@ -86,6 +86,10 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
     control Media Hub while it plays (in the background too). When nothing is playing, the system volume returns to the
     same loudness so other apps aren't loud. Needs the hi-res output.
   - **ReplayGain** (off / track / album, with preamp) plays tagged songs at the same loudness.
+  - **Saved sound presets** — save every sound setting (10/31-band or parametric EQ, headphone correction, all effects,
+    balance, ReplayGain, volume boost) under your own name, e.g. "Car" or "Movie dialogue"; switch with one tap from the
+    Sound screen, the music player's **Options** (⋮) button or the video player's **Options** button. Press and hold a
+    preset to update it with the current sound, rename or delete it. Output settings (hi-res, DVC) aren't changed.
   - **Sound profiles** (Speaker, Headphones, Earbuds, Bluetooth, Custom) can switch automatically when you plug in or
     connect Bluetooth. Hold "compare" to hear the original.
 - **Visualizers:** dozens of styles (bars, waves, circular, digital gauges, dashboards) driven by the real audio; full
@@ -106,7 +110,8 @@ The OrionMD artwork appears as the launch splash and as a subtle background wate
 ---
 
 ## 5. Video player
-A VLC-style player (Media3 / ExoPlayer with Media Hub's own sound engine and subtitle layer).
+A VLC-style player (Media3 / ExoPlayer with Media Hub's own sound engine and subtitle layer). **Options** gathers
+saved sound presets, effects on/off and every menu in one place.
 - **Plays** MP4, MKV, AVI, MOV, WebM, TS and more; **network streams** (Video tab → link icon): http(s) files, live
   **HLS** (`.m3u8`) and **DASH** (`.mpd`), with recent links remembered. Other apps can **Open with → Media Hub**
   (file managers, browsers).

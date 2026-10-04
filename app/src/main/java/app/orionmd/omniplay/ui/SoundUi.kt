@@ -120,6 +120,10 @@ fun SoundScreen(st: AppState) {
                     }
                     if (!c.on) Muted("Sound effects are off — switch them on above (or change any setting) to hear the changes.", Modifier.padding(top = 10.dp), 13.sp)
 
+                    // ---------- saved presets ----------
+                    SectionHeader("Saved sound presets")
+                    SoundPresetsPanel(st) { c = Sound.load(st.store); boost = (st.pref("boost", "0").toIntOrNull() ?: 0).toFloat() }
+
                     // ---------- headphone model ----------
                     SectionHeader("Headphone correction")
                     Select(c.corr, listOf("" to "None") + Headphones.ALL.map { it.id to "${it.name}  ·  ${it.kind}" }, { set(c.copy(corr = it)) }, Modifier.fillMaxWidth())

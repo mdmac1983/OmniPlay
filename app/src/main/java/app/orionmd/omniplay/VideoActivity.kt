@@ -179,7 +179,7 @@ class VideoActivity : Activity() {
         fun on(k: String) = store.getPref("vbtn_$k", "1") == "1"   // Settings → Playback → Player buttons
         if (on("sleep")) extra += sleepBtn; if (on("ab")) extra += abBtn; if (on("repeat")) extra += repBtn; if (on("boost")) extra += boostBtn
         if (store.getPref("vshot", "1") == "1") extra += pill("", Icons.Rounded.PhotoCamera) { screenshot() }
-        val main = listOfNotNull(pill("Close", Icons.Rounded.Close) { close() }, subsBtn.takeIf { on("subs") }, audioBtn.takeIf { on("audio") },
+        val main = listOfNotNull(pill("Close", Icons.Rounded.Close) { close() }, pill("Options", Icons.Rounded.Tune) { optionsSheet() }, subsBtn.takeIf { on("subs") }, audioBtn.takeIf { on("audio") },
             speedBtn.takeIf { on("speed") }, sizeBtn.takeIf { on("size") }, rotBtn.takeIf { on("rotate") })
         (main + extra + (if (pipSupported && on("pip")) listOf(pill("Picture-in-picture", Icons.Rounded.PictureInPictureAlt) { enterPip() }) else emptyList()) +
             listOf(pill("More", Icons.Rounded.MoreHoriz) { moreSheet() }, pill("Lock", Icons.Rounded.Lock) { setLocked(true) })).forEach { pills.addView(it) }
@@ -695,6 +695,44 @@ class VideoActivity : Activity() {
     }
 
 
+
+    // ================================================================= options (sound presets + shortcuts)
+    private fun optionsSheet(): Unit = sheet("Options") { col, done ->
+        col.header("Sound presets")
+        val list = SoundPresets.all(store); val last = SoundPresets.last(store)
+        if (list.isEmpty()) col.note("No saved presets yet — tap \"Save current sound\" to keep the sound you're hearing (equaliser, effects, volume boost).")
+        else col.note("Tap to use · press and hold to update, rename or delete")
+        list.forEach { p ->
+            col.addView(rowView((if (p.id == last) "●  " else "○  ") + p.name + "\n     " + SoundPresets.describe(p.cfg), { done(); presetMenu(p) }) {
+                SoundPresets.apply(store, p); toast("Sound: ${p.name}"); done()
+            }.apply { if (p.id == last) setTextColor(accentOnDark()) })
+        }
+        col.action("Save current sound…") { done(); presetName("Save sound preset", "") { n -> val p = SoundPresets.saveCurrent(store, n); store.setPref("soundPresetLast", p.id); toast("Saved \"${p.name}\"") } }
+        col.header("Sound")
+        val c = Dsp.cfg
+        col.option("Effects on for videos", c.on && c.video) { saveDsp(Dsp.cfg.copy(on = true, video = true)); done() }
+        col.option("Original sound (effects off for videos)", !(c.on && c.video)) { saveDsp(Dsp.cfg.copy(video = false)); done() }
+        col.header("Player")
+        col.action("Subtitles…") { done(); subsSheet() }
+        col.action("Audio: tracks, delay, equaliser…") { done(); audioSheet() }
+        col.action("Speed…") { done(); speedSheet() }
+        col.action("Picture size…") { done(); sizeSheet() }
+        col.action("Skin: ${skin.name}") { done(); skinSheet() }
+        col.action("More: jump, bookmarks, playlist, info, decoder…") { done(); moreSheet() }
+    }
+    private fun presetMenu(p: SoundPresets.Preset) = sheet(p.name) { col, done ->
+        col.action("Use this preset") { SoundPresets.apply(store, p); toast("Sound: ${p.name}"); done() }
+        col.action("Update with the current sound") { SoundPresets.saveCurrent(store, p.name); toast("Updated \"${p.name}\""); done() }
+        col.action("Rename…") { done(); presetName("Rename preset", p.name) { n -> SoundPresets.rename(store, p.id, n) } }
+        col.action("Delete") { SoundPresets.delete(store, p.id); toast("Deleted \"${p.name}\""); done() }
+    }
+    private fun presetName(title: String, initial: String, ok: (String) -> Unit) {
+        val et = android.widget.EditText(this).apply { hint = "e.g. Movie night, Dialogue, Headphones"; setText(initial); setSelectAllOnFocus(true); isSingleLine = true }
+        android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(title)
+            .setView(FrameLayout(this).apply { setPadding(dp(20), dp(8), dp(20), 0); addView(et) })
+            .setPositiveButton("Save") { _, _ -> et.text.toString().trim().takeIf { it.isNotEmpty() }?.let(ok) }
+            .setNegativeButton("Cancel", null).setOnDismissListener { hideBars() }.show()
+    }
     // ================================================================= skin
     private fun argb(c: androidx.compose.ui.graphics.Color): Int { return with(c) { androidx.compose.ui.graphics.Color(red, green, blue, alpha) }.let { (it.alpha * 255).toInt() shl 24 or ((it.red * 255).toInt() shl 16) or ((it.green * 255).toInt() shl 8) or (it.blue * 255).toInt() } }
     private fun withAlpha(c: Int, a: Int) = (c and 0x00FFFFFF) or (a shl 24)

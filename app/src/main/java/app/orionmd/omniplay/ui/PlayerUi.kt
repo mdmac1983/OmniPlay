@@ -81,6 +81,7 @@ fun NowPlaying(st: AppState) {
     val p = st.player; val t = p.track
     if (t == null) { androidx.compose.runtime.LaunchedEffect(Unit) { st.sheetOpen = false }; return }
     var seek by remember { mutableStateOf<Float?>(null) }
+    var optionsOpen by remember { mutableStateOf(false) }
     val queue = remember(p.index, p.size, t.optLong("i")) { Player.queue.let { q -> (maxOf(0, p.index) until minOf(q.length(), p.index + 30)).map { it to q.getJSONObject(it) } } }
     st.prefGen
     val sk = skinOf(st.pref("playerSkin", "midnight"))
@@ -169,6 +170,7 @@ fun NowPlaying(st: AppState) {
                     IconBtn(Ic.tune, { st.soundOpen = true }, tint = if (app.orionmd.omniplay.Dsp.cfg.on || (st.pref("boost", "0").toIntOrNull() ?: 0) > 0) sk.accent else sk.text)
                     IconBtn(Ic.playlistAdd, { st.dialog = app.orionmd.omniplay.Dlg.AddToPlaylist(Player.queue.let { q -> (0 until q.length()).map { q.getJSONObject(it).optLong("i") } }, queue = true) }, tint = sk.text)
                     IconBtn(Ic.expand, { st.visFull = true }, tint = sk.text)
+                    IconBtn(Ic.more, { optionsOpen = true }, tint = sk.text)
                 }
                 val msg = p.error.ifEmpty { if (p.preparing) "Loading…" else "" }
                 if (msg.isNotEmpty()) Text(msg, color = C.warn, fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
@@ -185,6 +187,7 @@ fun NowPlaying(st: AppState) {
         }
         }
     }
+    if (optionsOpen) MusicOptions(st) { optionsOpen = false }
 }
 
 /** Lyrics for the playing song: time-synced ones follow the music (tap a line to jump there), plain ones scroll. */
