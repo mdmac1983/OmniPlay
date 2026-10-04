@@ -280,7 +280,7 @@ and starts matching your videos straight away.
 | Podcasts asks for keys | Enter **both** Podcast Index key and secret and tap **Save** on each. |
 | No subtitles downloaded | Needs both a TMDB key and a Wyzie key; set the language in Settings → Library tools, then run video **Sync all**. |
 | Music or video says "audio track init failed" (v2.2–2.4) | Fixed in 2.5: if the hi-res output doesn't work on a device, Media Hub switches to the standard output by itself (effects still work) and remembers it. Sound → Output shows which one is in use. |
-| Sound sliders seem to do nothing | Fixed in 2.10 (they now change the sound while you drag). Width, surround and crossfeed work on stereo, so they're clearest on headphones; on a single built-in speaker there's little to hear. |
+| Sound sliders seem to do nothing | Fixed in 3.0 (they now change the sound while you drag). Width, surround and crossfeed work on stereo, so they're clearest on headphones; on a single built-in speaker there's little to hear. |
 | Quieter than other players | Sound → **Preamp** (+3…+9 dB) and/or **Volume boost**; check **Auto headroom** is off. With **DVC** on, also turn Media Hub's own volume up. |
 | A video won't play or stutters | Video → **More → Decoder → Software first** (or Hardware first) and try again. |
 | Subtitles out of sync | **Subtitles → Delay**. For sound out of sync: **Audio → Audio delay**. |
