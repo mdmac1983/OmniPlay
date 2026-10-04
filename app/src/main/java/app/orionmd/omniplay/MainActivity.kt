@@ -90,6 +90,8 @@ class MainActivity : ComponentActivity(), Host {
 
     override fun openTree(cb: (Uri?) -> Unit) { treeCb = cb; try { treePicker.launch(null) } catch (_: Exception) { cb(null) } }
     override fun launch(intent: Intent) { startActivity(intent) }
+    // the downloads notification opens the Offline page
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); if (intent.getStringExtra("open") == "downloads" && ::st.isInitialized) st.open(Page.Downloads) }
     override fun confirmMedia(sender: android.content.IntentSender, cb: (Boolean) -> Unit) {
         mediaCb = cb; try { mediaConfirm.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build()) } catch (_: Exception) { cb(false) }
     }

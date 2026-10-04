@@ -141,7 +141,7 @@ fun MoviePage(st: AppState, p: Page.Movie, pad: PaddingValues) {
                     if (m != null && m.rating > 0) Text("★ %.1f".format(m.rating), color = C.ac, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                     Row(Modifier.padding(top = 10.dp)) { Btn("Play", { st.openVideo(x) }, icon = Ic.play, small = true) }
                     Row(Modifier.padding(top = 6.dp)) {
-                        Btn(if (st.isDownloaded(x)) "Saved" else "Download", { st.download(listOf(x)) }, icon = Ic.download, small = true, kind = BtnKind.Ghost)
+                        DownloadButton(st, x)
                         Spacer(Modifier.width(6.dp)); Btn("Fix match", { st.fixMatch(x) }, small = true, kind = BtnKind.Ghost)
                     }
                 }
@@ -188,8 +188,20 @@ fun ShowPage(st: AppState, p: Page.Show, pad: PaddingValues) {
 @Composable
 fun DownloadsPage(st: AppState, pad: PaddingValues) {
     val offline = remember(st.allItems, st.dl) { st.allItems.filter { st.isDownloaded(it) } }
+    val active = app.orionmd.omniplay.DlQueue.entries.values.sortedBy { it.title.lowercase() }
     LazyColumn(contentPadding = contentPad(pad)) {
         item { BackBar(st); Text("Offline", fontSize = 22.sp, fontWeight = FontWeight.Bold); Muted("${offline.size} items · ${bytes(Downloads.bytesUsed(st.ctx))}", size = 13.sp) }
+        if (active.isNotEmpty()) {
+            item {
+                Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Downloading (${active.size})", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    val allPaused = active.all { it.state == app.orionmd.omniplay.DlQueue.State.PAUSED || it.state == app.orionmd.omniplay.DlQueue.State.FAILED }
+                    Btn(if (allPaused) "Resume all" else "Pause all", { if (allPaused) app.orionmd.omniplay.DlQueue.resumeAll() else app.orionmd.omniplay.DlQueue.pauseAll() }, small = true, kind = BtnKind.Ghost)
+                }
+            }
+            items(active, key = { "dl" + it.id }) { e -> DownloadRow(e) }
+            item { Muted("Paused and unfinished downloads carry on from where they stopped — even after closing Media Hub.", Modifier.padding(vertical = 6.dp), 12.sp) }
+        }
         if (offline.isEmpty()) item { Empty("Nothing saved for offline yet.\nUse Download on a song, album or video.") }
         items(offline, key = { it.i }) { x ->
             Row(Modifier.fillMaxWidth().clickable { if (x.c == 2) st.openVideo(x, offline.filter { it.c == 2 }) else st.playItem(x, offline.filter { it.c == 3 }) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -198,5 +210,42 @@ fun DownloadsPage(st: AppState, pad: PaddingValues) {
                 IconBtn(Ic.trash, { st.removeDownload(x) }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
             }
         }
+    }
+}
+
+/** "Download" button that turns into live progress: 45 % (tap to pause), Paused 45 % (tap to resume), Saved. */
+@Composable
+internal fun DownloadButton(st: AppState, x: app.orionmd.omniplay.Item) {
+    val e = app.orionmd.omniplay.DlQueue.entries[x.i]
+    when {
+        st.isDownloaded(x) -> Btn("Saved", { st.open(Page.Downloads) }, icon = Ic.offline, small = true, kind = BtnKind.Ghost)
+        e == null -> Btn("Download", { st.download(listOf(x)) }, icon = Ic.download, small = true, kind = BtnKind.Ghost)
+        e.state == app.orionmd.omniplay.DlQueue.State.PAUSED || e.state == app.orionmd.omniplay.DlQueue.State.FAILED ->
+            Btn("Resume" + if (e.pct >= 0) " ${e.pct}%" else "", { app.orionmd.omniplay.DlQueue.resume(x.i) }, icon = Ic.play, small = true, kind = BtnKind.Ghost)
+        else -> Btn(if (e.pct >= 0) "${e.pct}%" else "Starting…", { app.orionmd.omniplay.DlQueue.pause(x.i) }, icon = Ic.pause, small = true, kind = BtnKind.Ghost)
+    }
+}
+
+@Composable
+private fun DownloadRow(e: app.orionmd.omniplay.DlQueue.Entry) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(e.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val size = if (e.total > 0) "${bytes(e.done)} of ${bytes(e.total)}" else if (e.done > 0) bytes(e.done) else ""
+                val status = when (e.state) {
+                    app.orionmd.omniplay.DlQueue.State.RUNNING -> listOf(if (e.pct >= 0) "${e.pct}%" else "Starting…", size, if (e.speed > 0) "${bytes(e.speed)}/s" else "", e.error).filter { it.isNotEmpty() }.joinToString(" · ")
+                    app.orionmd.omniplay.DlQueue.State.QUEUED -> listOf("Waiting", size).filter { it.isNotEmpty() }.joinToString(" · ")
+                    app.orionmd.omniplay.DlQueue.State.PAUSED -> listOf("Paused", if (e.pct >= 0) "${e.pct}%" else "", size).filter { it.isNotEmpty() }.joinToString(" · ")
+                    app.orionmd.omniplay.DlQueue.State.FAILED -> "Stopped: ${e.error}" + if (e.pct > 0) " · ${e.pct}% saved" else ""
+                }
+                Muted(status, size = 12.sp)
+            }
+            if (e.state == app.orionmd.omniplay.DlQueue.State.RUNNING || e.state == app.orionmd.omniplay.DlQueue.State.QUEUED) IconBtn(Ic.pause, { app.orionmd.omniplay.DlQueue.pause(e.id) }, size = 36.dp, iconSize = 22.dp)
+            else IconBtn(Ic.play, { app.orionmd.omniplay.DlQueue.resume(e.id) }, tint = C.ac, size = 36.dp, iconSize = 22.dp)
+            IconBtn(Ic.close, { app.orionmd.omniplay.DlQueue.cancel(e.id) }, tint = C.mu, size = 36.dp, iconSize = 20.dp)
+        }
+        androidx.compose.material3.LinearProgressIndicator(progress = { if (e.pct >= 0) e.pct / 100f else 0f }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            color = if (e.state == app.orionmd.omniplay.DlQueue.State.FAILED) C.warn else C.ac, trackColor = C.s3)
     }
 }

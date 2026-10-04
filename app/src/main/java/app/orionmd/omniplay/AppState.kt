@@ -112,6 +112,8 @@ class AppState(val ctx: Context, val host: Host) {
     // ---------- lifecycle ----------
     fun start() {
         Cloud.init(store)
+        DlQueue.onFinished = { _, ok -> scope.launch { refreshDownloads(); if (!ok) say("A download stopped — see Offline to resume it") } }
+        DlQueue.init(ctx)
         ImageLoader.init(ctx, store)
         online = Net.online(ctx)
         loadSources()
@@ -366,8 +368,10 @@ class AppState(val ctx: Context, val host: Host) {
     var dl by mutableStateOf(mapOf<Long, Boolean>())
     fun refreshDownloads() { dl = Downloads.index(ctx).let { o -> o.keys().asSequence().associate { it.toLong() to java.io.File(o.optString(it)).exists() } } }
     fun isDownloaded(x: Item) = dl[x.i] == true
+    /** Saving for offline goes through the download queue: progress, pause / resume, carries on after a restart. */
     fun download(list: List<Item>) {
-        scope.launch { var ok = 0; for (x in list) Downloads.download(ctx, x) { if (it) ok++ }; refreshDownloads(); say("Saved $ok for offline") }
+        val n = DlQueue.enqueue(ctx, list) { if (it.c == 2) vtitle(it) else it.title }
+        say(when { n == 0 && list.all { isDownloaded(it) } -> "Already saved for offline"; n == 0 -> "Already downloading"; n == 1 -> "Downloading…"; else -> "Downloading $n files…" })
     }
     fun removeDownload(x: Item) { Downloads.remove(ctx, x.i); refreshDownloads() }
 

@@ -37,17 +37,20 @@ object Downloads {
                 else -> false
             }
         } catch (_: Exception) { dest.delete(); false }
-        if (ok) { val o = index(ctx); o.put(item.i.toString(), dest.path); save(ctx, o)
-            // sidecar subtitles / lyrics for offline too
-            item.subs?.let { subs -> for (k in 0 until subs.length()) subs.optJSONObject(k)?.let { sub ->
-                try { val su = sub.optString("u"); val sf = File(dir(ctx), "${item.i}_${k}_" + sub.optString("n"));
-                    if (su.startsWith("omni://")) Cloud.resolve(su)?.let { (a, f) -> Cloud.open(a, f, 0).use { st -> sf.outputStream().use { st.input.copyTo(it) } } }
-                    else ctx.contentResolver.openInputStream(Uri.parse(su))?.use { i -> sf.outputStream().use { i.copyTo(it) } }
-                    sub.put("local", sf.path)
-                } catch (_: Exception) {} }
-            }
-        }
+        if (ok) register(ctx, item, dest)
         onDone(ok)
+    }
+
+    /** Records a finished offline copy (and saves its sidecar subtitles too). Blocking. */
+    fun register(ctx: Context, item: Item, dest: File) {
+        val o = index(ctx); o.put(item.i.toString(), dest.path); save(ctx, o)
+        item.subs?.let { subs -> for (k in 0 until subs.length()) subs.optJSONObject(k)?.let { sub ->
+            try { val su = sub.optString("u"); val sf = File(dir(ctx), "${item.i}_${k}_" + sub.optString("n"))
+                if (su.startsWith("omni://")) Cloud.resolve(su)?.let { (a, f) -> Cloud.open(a, f, 0).use { st -> sf.outputStream().use { st.input.copyTo(it) } } }
+                else ctx.contentResolver.openInputStream(Uri.parse(su))?.use { i -> sf.outputStream().use { i.copyTo(it) } }
+                sub.put("local", sf.path)
+            } catch (_: Exception) {} }
+        }
     }
 
     /**

@@ -180,6 +180,12 @@ Media Hub is built to work without internet. Two kinds of "offline":
 episodes play offline once **downloaded** (Download button on songs, albums, videos and episodes; manage them under
 *Offline* on the Dashboard or Settings → Library tools).
 
+**Downloading** shows a live percentage on the Download button (tap it to pause, again to resume) and on the
+*Offline* page: each file's %, MB done and speed, with **pause / resume / cancel** per file and **Pause all /
+Resume all**. Downloads keep going in the background (a notification shows the overall %), and a paused or
+interrupted download — even after closing Media Hub or losing the connection — **continues from where it stopped**
+instead of starting over. A dropped connection is retried automatically.
+
 **Your library info** — use **Sync all** (Dashboard, the download icon on the Music/Video tabs, or Settings → Library
 tools) to save everything the app normally fetches online:
 
