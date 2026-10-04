@@ -20,7 +20,7 @@ import kotlin.math.sin
 
 /*
  * The extra visualizer styles (the originals are in Visualizer.kt). Every style draws with the current palette PAL, so one
- * shape can come in several colour schemes. VIS_REG lists all 56 in their groups; VIS_STYLES (tap-to-cycle order) comes from it.
+ * shape can come in several colour schemes. VIS_REG lists them all in their groups; VIS_STYLES (tap-to-cycle order) comes from it.
  */
 
 internal val PAL_FIRE = listOf(Color(0xFF8B0000), Color(0xFFFF3D00), Color(0xFFFF8A00), Color(0xFFFFC400), Color(0xFFFFF59D))
@@ -86,6 +86,14 @@ internal val VIS_REG: List<VisDef> = run {
         t("db_hexcar", "Supercar hexagon", null) { dbHexcar(it) }, t("db_drift", "Drift", null) { dbDrift(it) }, t("db_lemans", "Le Mans endurance", null) { dbLeMans(it) },
         t("db_drag", "Drag strip", null) { dbDrag(it) }, t("db_synth", "Synthwave racer", null) { dbSynth(it) }, t("db_bike", "Superbike TFT", null) { dbBike(it) },
         t("db_raid", "Rally raid", null) { dbRaid(it) }, t("db_fe", "Formula E", null) { dbFormulaE(it) })
+    // inspired by classic amps and receivers (no brand names or logos; OrionMD lettering in a matching style)
+    g("Hi-fi faceplates",
+        t("hf_mac_twin", "Blue watt meters (McIntosh style)", null) { hfMacTwin(it) }, t("hf_mac_mono", "Blue monoblock (McIntosh style)", null) { hfMacMono(it) },
+        t("hf_mz_dial", "Champagne dial (Marantz style)", null) { hfMarantzDial(it) }, t("hf_mz_port", "Black porthole (Marantz style)", null) { hfMarantzPorthole(it) },
+        t("hf_ok_teal", "Teal VFD (Onkyo style)", null) { hfOnkyoTeal(it) }, t("hf_ok_white", "Ice VFD (Onkyo style)", null) { hfOnkyoWhite(it) },
+        t("hf_es_amber", "Amber peak meters (Sony ES style)", null) { hfSonyAmber(it) }, t("hf_es_champ", "Champagne spectrum (Sony ES style)", null) { hfSonyChampagne(it) },
+        t("hf_kw_spec", "Silver spectrum (Kenwood style)", null) { hfKenwoodSpectrum(it) }, t("hf_kw_meters", "Amber power meters (Kenwood style)", null) { hfKenwoodMeters(it) },
+        t("hf_pe_amber", "Piano black amber (Pioneer Elite style)", null) { hfEliteAmber(it) }, t("hf_pe_blue", "Piano black blue (Pioneer Elite style)", null) { hfEliteBlue(it) })
     l
 }
 

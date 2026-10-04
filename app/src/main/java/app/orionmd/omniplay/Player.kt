@@ -155,6 +155,7 @@ object Player {
 
     /** Where the song is now (ms) — read every frame by the visualizer. */
     fun positionMs(): Long = try { exo?.currentPosition ?: 0L } catch (_: Exception) { 0L }
+    fun durationMs(): Long = try { exo?.duration?.takeIf { it > 0 } ?: 0L } catch (_: Exception) { 0L }
 
     fun stop() {
         token++

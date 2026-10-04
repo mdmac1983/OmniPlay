@@ -49,3 +49,10 @@ A standalone, offline-first hybrid **music + video player** by OrionMD.
 - Proprietary, release-signed build; verifies it hasn't been re-signed/modified.
 - **Activation keys** (owner-signed) gate the app; **owner password** unlock; a tampered copy locks and erases its own data after repeated wrong attempts.
 - All caches, keys and sign-ins are encrypted on the device (AES-256-GCM, Android Keystore).
+
+### Hi-fi faceplate visualizers
+Twelve visualizers drawn as the front of classic amplifiers and receivers, two looks each, inspired by McIntosh (blue
+watt meters · blue monoblock), Marantz (champagne dial · black porthole), Onkyo (teal VFD · ice VFD), Sony ES (amber
+peak meters · champagne spectrum), Kenwood (silver spectrum · amber power meters) and Pioneer Elite (piano black amber ·
+piano black blue). No brand names or logos: each carries the OrionMD name in matching lettering. Needles, bars, the
+dial pointer (it follows the song) and the volume knobs move with the music. Pick them under Visualizer → Hi-fi faceplates.
