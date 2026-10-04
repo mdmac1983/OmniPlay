@@ -94,6 +94,16 @@ internal val VIS_REG: List<VisDef> = run {
         t("hf_es_amber", "Amber peak meters (Sony ES style)", null) { hfSonyAmber(it) }, t("hf_es_champ", "Champagne spectrum (Sony ES style)", null) { hfSonyChampagne(it) },
         t("hf_kw_spec", "Silver spectrum (Kenwood style)", null) { hfKenwoodSpectrum(it) }, t("hf_kw_meters", "Amber power meters (Kenwood style)", null) { hfKenwoodMeters(it) },
         t("hf_pe_amber", "Piano black amber (Pioneer Elite style)", null) { hfEliteAmber(it) }, t("hf_pe_blue", "Piano black blue (Pioneer Elite style)", null) { hfEliteBlue(it) })
+    // supercar clusters (no badges; the brand only names the style)
+    g("Supercar clusters",
+        t("car_ferrari", "Yellow rev counter (Ferrari style)", null) { carFerrari(it) }, t("car_laferrari", "Hypercar carbon (LaFerrari style)", null) { carLaFerrari(it) },
+        t("car_lfa", "Moving ring (Lexus LFA style)", null) { carLfa(it) }, t("car_lfa_slide", "Ring slid aside (Lexus LFA style)", null) { carLfaSlide(it) },
+        t("car_gt3", "Five dials (Porsche 911 GT3 style)", null) { carGt3(it) }, t("car_gt3_track", "Track screen (Porsche 911 GT3 style)", null) { carGt3Track(it) },
+        t("car_gtr", "Red-ring cluster (Nissan GT-R style)", null) { carGtr(it) }, t("car_gtr_mfd", "Multi-function display (Nissan GT-R style)", null) { carGtrMfd(it) },
+        t("car_g_classic", "Chrome twin dials (Mercedes G-Class style)", null) { carGClassic(it) }, t("car_g_wide", "Widescreen cockpit (Mercedes G-Class style)", null) { carGWide(it) },
+        t("car_audi", "Virtual cockpit (Audi style)", null) { carAudi(it) }, t("car_audi_sport", "Sport view (Audi style)", null) { carAudiSport(it) },
+        t("car_nsx_classic", "'90s analogue (Acura NSX style)", null) { carNsxClassic(it) }, t("car_nsx", "Drive-mode ring (Acura NSX style)", null) { carNsx(it) },
+        t("car_typer", "Digital rev arc (Honda Civic Type R style)", null) { carTypeR(it) }, t("car_typer_plus", "+R mode (Honda Civic Type R style)", null) { carTypeRPlus(it) })
     l
 }
 

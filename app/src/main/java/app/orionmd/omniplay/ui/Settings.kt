@@ -42,7 +42,7 @@ fun SettingsScreen(st: AppState, pad: PaddingValues) {
                         FooterLink(Ic.guide, "Guide") { st.open(Page.Doc("GUIDE.md", "User guide")) }
                         FooterLink(Ic.features, "Features") { st.open(Page.Doc("FEATURES.md", "Features")) }
                     }
-                    Muted("Media Hub · OrionMD · built for offline-first music & video", Modifier.padding(top = 12.dp), 11.sp)
+                    Muted("Media Hub v${app.orionmd.omniplay.BuildConfig.VERSION_NAME} · OrionMD · built for offline-first music & video", Modifier.padding(top = 12.dp), 11.sp)
                 }
             }
         }

@@ -13,6 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -68,5 +70,7 @@ fun SplashScreen(ms: Long = 2200, onDone: () -> Unit) {
     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0B0820))
         .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { onDone() }) {
         if (bmp != null) Image(bmp, "OrionMD Media Hub", Modifier.fillMaxSize().alpha(alpha.value), contentScale = if (wide) ContentScale.Fit else ContentScale.Crop)
+        androidx.compose.material3.Text("v" + app.orionmd.omniplay.BuildConfig.VERSION_NAME, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 18.dp).alpha(alpha.value),
+            color = androidx.compose.ui.graphics.Color.White.copy(alpha = .8f), fontSize = 13.sp, letterSpacing = 2.sp)
     }
 }

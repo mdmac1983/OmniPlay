@@ -56,3 +56,14 @@ watt meters · blue monoblock), Marantz (champagne dial · black porthole), Onky
 peak meters · champagne spectrum), Kenwood (silver spectrum · amber power meters) and Pioneer Elite (piano black amber ·
 piano black blue). No brand names or logos: each carries the OrionMD name in matching lettering. Needles, bars, the
 dial pointer (it follows the song) and the volume knobs move with the music. Pick them under Visualizer → Hi-fi faceplates.
+
+### Supercar cluster visualizers
+Sixteen visualizers drawn as car instrument clusters, two looks each, in the style of Ferrari (yellow rev counter ·
+LaFerrari hypercar carbon), Lexus LFA (moving ring · ring slid aside), Porsche 911 GT3 (five dials · track screen),
+Nissan GT-R (red-ring cluster · multi-function display), Mercedes G-Class (chrome twin dials · widescreen cockpit),
+Audi (virtual cockpit · sport view), Acura NSX ('90s analogue · drive-mode ring) and Honda Civic Type R (digital rev
+arc · +R mode). No badges or logos. The beat is the rev counter (needles, rev bars and shift lights), the mids are the
+speed, the spectrum fills the screens, G-meters and power bars.
+
+The visualizer picker's groups fold open and closed (tap a group); the group of the style you're using opens by itself.
+The version number shows on the splash screen and in the Settings footer.

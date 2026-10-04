@@ -55,7 +55,8 @@ fun Dialogs(st: AppState) {
             }
         }
         Dlg.VisPick -> DlgBox(st, "Visualizer style") {
-            for ((group, styles) in VIS_GROUPS) { Text(group, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)); BtnRow { styles.forEach { (id, name) -> Btn(name, { st.visStyle = id; st.setPref("visStyle", id); st.dialog = null }, kind = if (st.visStyle == id) BtnKind.Primary else BtnKind.Ghost, small = true) } } }
+            Muted("${VIS_STYLES.size} styles in ${VIS_GROUPS.size} groups — tap a group to open it.", size = 13.sp)
+            VisGroupList(st)
             Btn("Close", { st.dialog = null }, Modifier.fillMaxWidth().padding(top = 12.dp), kind = BtnKind.Ghost)
         }
         Dlg.SkinPick -> DlgBox(st, "Player skin") {
@@ -135,5 +136,24 @@ private fun SkinLogoEditor(st: AppState, skinId: String) {
             androidx.compose.material3.Checkbox(st.pref("skinLogoWm", "0") == "1", { st.setPref("skinLogoWm", if (it) "1" else "0") })
             Text("Also show it large and faint in the background", fontSize = 13.sp)
         }
+    }
+}
+
+/** The visualizer picker's groups, each collapsible (tap the header); the one holding the current style starts open. */
+@Composable
+internal fun VisGroupList(st: AppState) {
+    val curGroup = VIS_GROUPS.firstOrNull { (_, l) -> l.any { it.first == st.visStyle } }?.first
+    for ((group, styles) in VIS_GROUPS) {
+        val key = "visOpen_" + group
+        var open by androidx.compose.runtime.remember(group) { androidx.compose.runtime.mutableStateOf(st.pref(key, if (group == curGroup) "1" else "0") == "1") }
+        val sel = styles.any { it.first == st.visStyle }
+        androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(top = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .background(if (open) C.s3 else C.s2).clickable { open = !open; st.setPref(key, if (open) "1" else "0") }.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(group, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (sel) C.ac else C.tx, modifier = Modifier.weight(1f))
+            Text("${styles.size}", fontSize = 12.sp, color = C.mu, modifier = Modifier.padding(end = 8.dp))
+            Text(if (open) "▾" else "▸", fontSize = 16.sp, color = C.mu)
+        }
+        if (open) BtnRow { styles.forEach { (id, name) -> Btn(name, { st.visStyle = id; st.setPref("visStyle", id); st.dialog = null }, kind = if (st.visStyle == id) BtnKind.Primary else BtnKind.Ghost, small = true) } }
     }
 }
