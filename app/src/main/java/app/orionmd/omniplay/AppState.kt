@@ -60,6 +60,7 @@ sealed class Dlg {
     data class TextInput(val title: String, val label: String, val initial: String, val password: Boolean = false, val ok: (String) -> Unit) : Dlg()
     data class Choice(val title: String, val msg: String, val options: List<Pair<String, () -> Unit>>) : Dlg()
     data class FixMatch(val key: String, val query: String, val type: String, val year: Int) : Dlg()
+    data class EpisodeEdit(val item: Item) : Dlg()
     data class ConnectWebDav(val provider: String) : Dlg()
     data class CloudPassword(val provider: String) : Dlg()
     data object AddSource : Dlg()
@@ -143,7 +144,8 @@ class AppState(val ctx: Context, val host: Host) {
         scope.launch {
             val loaded = withContext(Dispatchers.IO) {
                 val items = ArrayList<Item>()
-                for (s in sources) items.addAll(Library.read(store, s.id))
+                val fixes = epFixesForLoad()
+                for (s in sources) Library.read(store, s.id).mapTo(items) { applyEpFix(it, fixes) }
                 val m = parseMeta(store.musicMeta())
                 val t = HashMap<String, JSONObject>(); val tc = store.tmdbCache(); tc.keys().forEach { k -> tc.optJSONObject(k)?.let { t[k] = it } }
                 Triple(items, m, t)
@@ -356,7 +358,24 @@ class AppState(val ctx: Context, val host: Host) {
     }
     fun fixMatch(x: Item) { mkey(x)?.let { dialog = Dlg.FixMatch(it, x.pt ?: x.title, if (x.k == "tv") "tv" else if (x.k == "mv") "mv" else "movie", x.py) } }
     fun tmdbSetMatch(key: String, m: JSONObject?) {
-        scope.launch { withContext(Dispatchers.IO) { store.updateTmdb { it.put(key, m ?: JSONObject().put("none", true)) } }; loadLibrary() }
+        val v = m ?: JSONObject().put("none", true)
+        // a TV show matched to a different show: its saved episode details and subtitles belonged to the old one
+        val changed = key.startsWith("tv:") && tmdb[key]?.optInt("id") != v.optInt("id")
+        val eps = if (changed) videos().filter { mkey(it) == key } else emptyList()
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                if (changed) forgetShow(key, eps)
+                store.updateTmdb { it.put(key, v) }
+                // the new show's details and episode list straight away, when online
+                if (m != null && changed && Net.online(ctx)) {
+                    try { Tmdb.details(store, v).let { full -> store.updateTmdb { it.put(key, full) } } } catch (_: Exception) {}
+                    val id = v.optInt("id")
+                    val got = eps.map { it.se }.filter { it > 0 }.toSet().mapNotNull { se -> try { "$key#s$se" to Tmdb.season(store, id, se).put("tvid", id) } catch (_: Exception) { null } }
+                    if (got.isNotEmpty()) store.updateTmdb { c -> got.forEach { (k, o) -> c.put(k, o) } }
+                }
+            }
+            loadLibrary()
+        }
     }
     fun loadDetails(x: Item) {
         val key = mkey(x) ?: return; val m = tmdb[key] ?: return

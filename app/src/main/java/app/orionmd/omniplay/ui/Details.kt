@@ -1,6 +1,8 @@
 package app.orionmd.omniplay.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -144,6 +146,11 @@ fun MoviePage(st: AppState, p: Page.Movie, pad: PaddingValues) {
                         DownloadButton(st, x)
                         Spacer(Modifier.width(6.dp)); Btn("Fix match", { st.fixMatch(x) }, small = true, kind = BtnKind.Ghost)
                     }
+                    if (st.wyzieOn() && x.k == "movie") {
+                        val scope = rememberCoroutineScope(); var tick by remember { mutableIntStateOf(0) }
+                        val have = remember(tick, x.i) { x.subs != null || st.hasOnlineSub(x) }
+                        Btn(if (have) "Subtitles ✓" else "Get subtitles", { scope.launch { st.say(st.fetchSub(x)); tick++ } }, Modifier.padding(top = 6.dp), icon = Ic.cc, small = true, kind = BtnKind.Ghost, enabled = !have)
+                    }
                 }
             }
         }
@@ -158,6 +165,8 @@ fun ShowPage(st: AppState, p: Page.Show, pad: PaddingValues) {
     val first = eps.firstOrNull() ?: run { BackBar(st); Empty("No episodes."); return }
     val m = st.match(first)
     LaunchedEffect(p.key) { st.loadDetails(first) }
+    val seasons = remember(eps) { eps.map { it.se }.filter { it > 0 }.toSet() }
+    LaunchedEffect(p.key, m?.json?.optInt("id"), seasons) { if (m != null) st.loadSeasons(p.key, seasons) }
     LazyColumn(contentPadding = contentPad(pad)) {
         item { BackBar(st) }
         item {
@@ -168,19 +177,15 @@ fun ShowPage(st: AppState, p: Page.Show, pad: PaddingValues) {
                     m?.let { Muted(listOf(it.year, it.genres).filter { s -> s.isNotEmpty() }.joinToString(" · "), size = 12.sp) }
                     Muted("${eps.size} episodes", size = 12.sp)
                     Row(Modifier.padding(top = 10.dp)) { Btn("Play", { st.openVideo(first, eps) }, icon = Ic.play, small = true); Spacer(Modifier.width(6.dp)); Btn("Fix match", { st.fixMatch(first) }, small = true, kind = BtnKind.Ghost) }
+                    if (st.wyzieOn()) subProg?.let { (d, n) -> Btn("Stop subtitles $d / $n", { subProg = null }, Modifier.padding(top = 6.dp), small = true, kind = BtnKind.Ghost) }
+                        ?: Btn("Get subtitles for this show", { st.fetchSubs(eps) }, Modifier.padding(top = 6.dp), icon = Ic.cc, small = true, kind = BtnKind.Ghost)
                 }
             }
         }
         item { TmdbSections(st, m) }
-        item { SectionHeader("Episodes") }
-        items(eps, key = { it.i }) { e ->
-            Row(Modifier.fillMaxWidth().clickable { st.openVideo(e, eps) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(54.dp, 40.dp).clip(RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) { Icon(Ic.play, null, tint = C.mu) }
-                Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                    Text(listOf(epLabel(e), e.pt ?: e.title).filter { it.isNotEmpty() }.joinToString("  "), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                if (st.isDownloaded(e)) Icon(Ic.offline, "Offline", tint = C.ac2, modifier = Modifier.size(16.dp))
-            }
+        eps.groupBy { it.se }.forEach { (se, list) ->
+            item { SectionHeader(if (se > 0) "Season $se" else "Episodes") }
+            items(list, key = { it.i }) { e -> EpisodeRow(st, e, eps) }
         }
     }
 }
@@ -247,5 +252,27 @@ private fun DownloadRow(e: app.orionmd.omniplay.DlQueue.Entry) {
         }
         androidx.compose.material3.LinearProgressIndicator(progress = { if (e.pct >= 0) e.pct / 100f else 0f }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
             color = if (e.state == app.orionmd.omniplay.DlQueue.State.FAILED) C.warn else C.ac, trackColor = C.s3)
+    }
+}
+
+/** One episode: TMDB still, name, air date / length and summary. Tap plays; ⋮ (or press and hold) opens its edit menu. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun EpisodeRow(st: AppState, e: app.orionmd.omniplay.Item, eps: List<app.orionmd.omniplay.Item>) {
+    val info = st.epInfo(e)
+    val still = info?.optString("still")?.takeIf { it.isNotEmpty() }?.let { app.orionmd.omniplay.Img.Poster("w300", it) }
+    Row(Modifier.fillMaxWidth().combinedClickable(onClick = { st.openVideo(e, eps) }, onLongClick = { st.dialog = Dlg.EpisodeEdit(e) }).padding(vertical = 8.dp)) {
+        Box {
+            Thumb(still ?: st.artReq(e), epLabel(e), Modifier.width(120.dp).aspectRatio(16f / 9f), px = 300, corner = 8.dp)
+            Icon(Ic.play, null, tint = Color.White, modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).size(18.dp).clip(RoundedCornerShape(4.dp)).background(Color(0x99000000)))
+        }
+        Column(Modifier.padding(start = 12.dp).weight(1f)) {
+            val name = info?.optString("name")?.takeIf { it.isNotBlank() }
+            Text(listOfNotNull(epLabel(e).ifEmpty { null }, name ?: e.pt ?: e.title).joinToString(" · "), fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Muted(listOfNotNull(info?.optString("air")?.takeIf { it.isNotBlank() }, info?.optInt("runtime")?.takeIf { it > 0 }?.let { "$it min" },
+                if (st.isDownloaded(e)) "offline" else null, if (e.subs != null || st.hasOnlineSub(e)) "CC" else null).joinToString(" · "), size = 12.sp)
+            info?.optString("overview")?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 13.sp, lineHeight = 18.sp, color = C.tx.copy(alpha = .8f), maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
+        }
+        IconBtn(Ic.more, { st.dialog = Dlg.EpisodeEdit(e) }, size = 36.dp, iconSize = 20.dp, tint = C.mu)
     }
 }

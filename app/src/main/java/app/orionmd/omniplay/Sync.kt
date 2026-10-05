@@ -127,7 +127,7 @@ fun AppState.syncVideos(force: Boolean = false) {
                 // 5) TV: season & episode info
                 if (m != null && x.k == "tv" && x.se > 0) {
                     val sk = "$key#s${x.se}"
-                    if (!cache.has(sk)) try { cache.put(sk, Tmdb.season(store, m.optInt("id"), x.se)) } catch (_: Exception) {}
+                    if (cache.optJSONObject(sk)?.optInt("tvid") != m.optInt("id")) try { cache.put(sk, Tmdb.season(store, m.optInt("id"), x.se).put("tvid", m.optInt("id"))) } catch (_: Exception) {}
                 }
                 // 6) subtitles
                 if (m != null && subKey.isNotEmpty() && x.k != "mv" && x.subs == null && !Subs.saved(store, x.i, lang)) try {

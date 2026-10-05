@@ -17,6 +17,8 @@ object Subs {
     private fun file(store: Store, id: Long, lang: String) = File(dir(store), "${id}_$lang.srt")
     fun saved(store: Store, id: Long, lang: String) = file(store, id, lang).exists()
     fun count(store: Store) = dir(store).listFiles()?.size ?: 0
+    /** Removes this video's saved subtitles (every language). */
+    fun remove(store: Store, id: Long) { dir(store).listFiles { f -> f.name.startsWith("${id}_") }?.forEach { it.delete() } }
     fun clear(store: Store) { dir(store).listFiles()?.forEach { it.delete() } }
 
     private fun http(url: String): String {
