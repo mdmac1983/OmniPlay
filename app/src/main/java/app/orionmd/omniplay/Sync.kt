@@ -237,6 +237,24 @@ fun AppState.autoEnrich() {
     enriching = true; enrichAgain = false
     scope.launch {
         try {
+            // matches saved without their poster (older versions blanked it): fill them in from TMDB once
+            if (store.hasTmdb() && sync.video == null) {
+                val cache = withContext(Dispatchers.IO) { store.tmdbCache() }
+                val broken = cache.keys().asSequence().filter { k -> !k.contains("#") && cache.optJSONObject(k)?.let { m ->
+                    !m.optBoolean("none") && m.optInt("id") > 0 && m.optString("type") != "mv" && m.optString("poster").isBlank() && !m.optBoolean("posterChecked") } == true }.toList()
+                if (broken.isNotEmpty()) {
+                    withContext(Dispatchers.IO) {
+                        Api.each(broken) { k ->
+                            val m = synchronized(cache) { cache.optJSONObject(k) } ?: return@each
+                            val full = try { Tmdb.details(store, JSONObject(m.toString())) } catch (_: Exception) { return@each }
+                            full.put("posterChecked", true)   // a title TMDB has no poster for isn't asked again
+                            synchronized(cache) { cache.put(k, full) }
+                        }
+                        synchronized(cache) { store.saveTmdb(cache) }
+                    }
+                    loadLibrary(); ImageLoader.bump()
+                }
+            }
             // videos first (usually far fewer than songs): TMDB matches (needs a key)
             if (store.hasTmdb() && sync.video == null) {
                 val vids = videos()

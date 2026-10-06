@@ -18,6 +18,15 @@ import org.json.JSONObject
 private fun AppState.epFixes(): JSONObject = try { JSONObject(pref("epFix", "{}")) } catch (_: Exception) { JSONObject() }
 
 /** The item with your season / episode fix applied (unchanged when there's none). */
+/** A video's kind / show / season / episode read again from its name, so better name reading applies without a rescan. */
+internal fun reparse(x: Item): Item {
+    if (x.c != 2) return x
+    val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i)
+    try { Tmdb.parse(o) } catch (_: Exception) { return x }
+    return x.copy(k = o.optString("k").ifEmpty { null }, show = o.optString("show").ifEmpty { null }, se = o.optInt("se"), ep = o.optInt("ep"),
+        pt = o.optString("pt").ifEmpty { null }, py = o.optInt("py"), concert = o.optBoolean("concert"))
+}
+
 internal fun applyEpFix(x: Item, fixes: JSONObject): Item {
     if (x.k != "tv") return x
     val p = fixes.optString(x.i.toString()).split(':').takeIf { it.size == 2 } ?: return x

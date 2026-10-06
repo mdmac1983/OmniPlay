@@ -14,8 +14,20 @@ import java.net.URLEncoder
  *  - poster/backdrop images are cached in files/tmdbimg so they show offline
  */
 object Tmdb {
-    private val TV_RX = Regex("(?i)^(.*?)[\\s\\-\\[(]*s(\\d{1,2})[\\s._-]*e(\\d{1,3})")
+    private val TV_RX = Regex("(?i)^(.*?)[\\s\\-\\[(]*\\bs(\\d{1,2})[\\s._-]*e(\\d{1,3})")
     private val TV_RX2 = Regex("(?i)^(.*?)[\\s\\-]*\\b(\\d{1,2})x(\\d{2})\\b")
+    /** "Show Season 1 Episode 3", "Show - Season 1 - Ep 03" */
+    private val TV_RX3 = Regex("(?i)^(.*?)[\\s._-]*\\bseason[\\s._-]*(\\d{1,2})[\\s._-]*(?:episode|ep)[\\s._-]*(\\d{1,3})\\b")
+    /** "Show Episode 5", "Show Ep 05", "Show E05" (season 1, or the season folder's number) */
+    private val EP_RX = Regex("(?i)^(.*?)[\\s._-]*\\b(?:episode|ep|e)[\\s._-]*(\\d{1,3})\\b")
+    /** A season pack file: "Show S01 360p" */
+    private val SEASON_RX = Regex("(?i)^(.*?)[\\s._-]*\\b(?:s|season[\\s._-]*)(\\d{1,2})\\b(?![\\s._-]*e\\d)")
+    /** Anime releases: "[Group] Show - 05 (1080p) [hash]" */
+    private val ANIME_RX = Regex("^\\s*\\[[^]]+]\\s*(.+?)\\s+-\\s+(\\d{1,4})(?:v\\d)?(?=\\s|\\[|\\(|$)")
+    /** Website names some downloads start with: "www.Site.cz - Title" */
+    private val SITE_RX = Regex("(?i)^\\s*(?:\\[\\s*)?(?:www\\.)?[a-z0-9-]+\\.(?:com|net|org|cz|to|tv|me|io|in|ws|cc|co|mx|lol|xyz|sx|ag|is|pw|biz|info|club|site|win)(?:\\s*])?\\s*-?\\s*")
+    private val SEASON_FOLDER = Regex("(?i)^(season|series|s|staffel|saison|temporada)[\\s._-]*\\d+|^specials?$")
+    private val GENERIC_FOLDER = Regex("(?i)^(videos?|movies?|films?|tv|tv shows?|shows?|series|downloads?|download|media|dcim|camera|telegram|whatsapp video|anime|cartoons?|kids|complete|completed|new folder)$")
     private val YEAR_RX = Regex("(?<![0-9])(19[0-9]{2}|20[0-9]{2})(?![0-9])")
     private val JUNK = Regex("(?i)\\b(\\d{3,4}p|4k|uhd|hdr|bluray|blu-ray|blu ray|brrip|bdrip|webrip|web-dl|webdl|web|hdrip|dvdrip|dvd|hdtv|x264|x265|h264|h265|hevc|aac|ac3|dts|10bit|remux|proper|repack|extended|unrated|imax|yts|yify|rarbg|hdcam|hdts|camrip|hc|amzn|nf|dsnp|hmax|atvp|ddp?5|aac2|esubs?|subs|multi|dual audio|internal|limited|dubbed)\\b.*$")
     val CONCERT_RX = Regex("(?i)\\b(concert|in concert|unplugged|live (at|in|from|on)|world tour|[a-z']+ tour|tour \\d{4}|live \\d{4}|the .{2,30} live)\\b")
@@ -23,12 +35,14 @@ object Tmdb {
     private val MV_RX = Regex("(?i)(official (music )?video|music video|lyric video|official audio|\\(audio\\)|visualizer)")
 
     fun clean(s: String): String = s
+        .replace(SITE_RX, "")
         .replace(Regex("[._]+"), " ")
         .replace(Regex("(?<=\\S)-+(?=\\S)|\\s+-+\\s+"), " ")
         .replace(Regex("\\[[^]]*]"), " ")
         .replace(JUNK, " ")
+        .replace(Regex("\\(\\s*\\)|\\(\\s*$"), " ")
         .replace(Regex("\\s+"), " ")
-        .trim(' ', '-', '(', ')', '[', ']')
+        .trim(' ', '-', '(', ')', '[', ']', ':', ',')
 
     /** Adds k/pt/py/se/ep/show to a video record. */
     fun parse(o: JSONObject) {
@@ -44,28 +58,43 @@ object Tmdb {
         // concerts go with the music videos, not the movies ("Concerts/…", "… Live at Wembley", "MTV Unplugged", "The Eras Tour")
         val concert = low.any { CONCERT_FOLDER.containsMatchIn(it) } || CONCERT_RX.containsMatchIn(name.replace(Regex("[._]+"), " "))
 
-        val m = TV_RX.find(name) ?: TV_RX2.find(name)
+        val bare = name.replace(SITE_RX, "")
+        // season / episode: "S01E01", "1x01", "Season 1 Episode 1", then (TV folders or a show name before it) "Episode 5" / "E05" / "Ep 5"
+        val folderSeason = segs.lastOrNull()?.let { Regex("(?i)^(?:season|series|s|staffel|saison|temporada)[\\s._-]*(\\d{1,2})$").find(it.trim()) }?.groupValues?.get(1)?.toInt()
+        val anime = ANIME_RX.find(bare)
+        val m = TV_RX.find(bare) ?: TV_RX2.find(bare) ?: TV_RX3.find(bare)
+        val ep = if (m == null && anime == null) EP_RX.find(bare)?.takeIf { it.groupValues[1].isNotBlank() || tvFolder >= 0 || folderSeason != null } else null
+        val pack = if (m == null && anime == null && ep == null) SEASON_RX.find(bare)?.takeIf { it.groupValues[1].isNotBlank() } else null
+        val se = m?.groupValues?.get(2)?.toInt() ?: pack?.groupValues?.get(2)?.toInt() ?: if (ep != null || anime != null) (folderSeason ?: 1) else 0
+        val epNo = m?.groupValues?.get(3)?.toInt() ?: ep?.groupValues?.get(2)?.toInt() ?: anime?.groupValues?.get(2)?.toInt() ?: 0
+        val showPart = (m ?: ep ?: pack)?.groupValues?.get(1) ?: anime?.groupValues?.get(1)
+        val isTv = m != null || ep != null || pack != null || anime != null
         when {
-            mvFolder || (m == null && tvFolder < 0 && (MV_RX.containsMatchIn(name) || concert)) -> {
+            mvFolder || (!isTv && tvFolder < 0 && (MV_RX.containsMatchIn(name) || concert)) -> {
                 o.put("k", "mv"); o.put("pt", clean(name.replace(Regex("\\(\\d+ ?X ?\\d+\\)", RegexOption.IGNORE_CASE), "")))
                 if (concert) o.put("concert", true)
                 YEAR_RX.findAll(name).lastOrNull()?.takeIf { it.range.first > 0 }?.let { o.put("py", it.value.toInt()) }
             }
-            m != null || tvFolder >= 0 -> {
+            isTv || tvFolder >= 0 -> {
                 o.put("k", "tv")
-                var show = if (m != null) clean(m.groupValues[1]) else ""
-                if (show.isEmpty() && tvFolder >= 0) {
-                    // TV Shows/<Show>/Season 1/file → <Show>
-                    show = segs.drop(tvFolder + 1).firstOrNull { !Regex("(?i)^(season|s)\\s*\\d+").containsMatchIn(it) }?.let { clean(it) } ?: ""
+                var show = showPart?.let { clean(it) } ?: ""
+                if (show.isEmpty()) {
+                    // only "S01E01.mkv" / "Episode 5.mkv": the show is the folder it's in (TV Shows/<Show>/Season 1/file → <Show>)
+                    show = segs.asReversed().firstOrNull { f -> !SEASON_FOLDER.containsMatchIn(f.trim()) && !GENERIC_FOLDER.matches(f.trim()) }?.let { clean(it) } ?: ""
                 }
-                if (show.isEmpty()) show = clean(name)
-                o.put("show", YEAR_RX.replace(show, "").trim().ifEmpty { show })
-                if (m != null) { o.put("se", m.groupValues[2].toInt()); o.put("ep", m.groupValues[3].toInt()) }
-                o.put("pt", clean(name))
+                if (show.isEmpty() && !isTv) show = clean(name)
+                val showYear = YEAR_RX.findAll(show).lastOrNull()?.takeIf { it.range.first > 0 }
+                if (showYear != null) o.put("py", showYear.value.toInt())
+                show = clean(YEAR_RX.replace(show, "")).ifEmpty { show }
+                o.put("show", show.ifEmpty { clean(name) })
+                if (se > 0) o.put("se", se); if (epNo > 0) o.put("ep", epNo)
+                // the episode's own title, when the name has one after the number ("S01E02 - Bad Boy Comes Out")
+                val after = (m ?: ep)?.let { bare.substring(it.range.last + 1) } ?: anime?.let { bare.substring(it.range.last + 1) } ?: ""
+                o.put("pt", clean(after).ifEmpty { clean(name) })
             }
             else -> {
                 o.put("k", "movie")
-                var t = name.replace(Regex("[._]+"), " ").replace(Regex("(?<=\\S)-+(?=\\S)"), " ")
+                var t = bare.replace(Regex("[._]+"), " ").replace(Regex("(?<=\\S)-+(?=\\S)"), " ")
                 // a year is 1900..next year and not the first word ("2012", "1917" are titles; "Blade Runner 2049" isn't a year)
                 val maxYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) + 1
                 val years = YEAR_RX.findAll(t).filter { it.range.first > 0 && it.value.toInt() <= maxYear }.toList()
@@ -159,6 +188,8 @@ object Tmdb {
     }
 
     fun slim(r: JSONObject, type: String): JSONObject {
+        // already slim (search() results are): slimming again would blank the poster, backdrop, year and show title
+        if (r.has("type") && r.has("poster") && !r.has("poster_path")) return r
         val date = if (type == "tv") r.optString("first_air_date") else r.optString("release_date")
         return JSONObject()
             .put("id", r.optInt("id"))
@@ -176,8 +207,16 @@ object Tmdb {
         val kind = o.optString("k")
         if (kind == "mv") return if (o.optBoolean("concert")) concertMovie(store, o) ?: MvDb.match(o) else MvDb.match(o) ?: strictMovie(store, o)
         return if (kind == "tv") {
-            val show = o.optString("show")
-            search(store, show, "tv").optJSONObject(0)
+            val show = o.optString("show"); val y = o.optInt("py", 0)
+            var r = if (y > 0) search(store, show, "tv", y).optJSONObject(0) else null
+            if (r == null) r = search(store, show, "tv").optJSONObject(0)
+            // leftover words ("the office us", "Show Complete"): try dropping up to two from the end
+            var words = show.split(' ').filter { it.isNotBlank() }
+            while (r == null && words.size >= 2 && words.size > show.split(' ').size - 2) {
+                words = words.dropLast(1)
+                r = search(store, words.joinToString(" "), "tv").optJSONObject(0)
+            }
+            r
         } else {
             val t = o.optString("pt"); val y = o.optInt("py", 0)
             var r = if (y > 0) search(store, t, "movie", y).optJSONObject(0) else null
@@ -238,6 +277,12 @@ object Tmdb {
                 ?.optJSONArray("release_dates")?.let { ds -> (0 until ds.length()).map { ds.getJSONObject(it).optString("certification") }.firstOrNull { it.isNotBlank() } } } ?: "")
         }
         m.put("cast", cast)
+        // fill in anything a match is missing (matches saved by older versions lost these)
+        fun fill(k: String, v: String) { if (m.optString(k).isBlank() && v.isNotBlank() && v != "null") m.put(k, v) }
+        fill("poster", d.optString("poster_path")); fill("backdrop", d.optString("backdrop_path"))
+        fill("title", if (tv) d.optString("name") else d.optString("title"))
+        fill("year", (if (tv) d.optString("first_air_date") else d.optString("release_date")).take(4))
+        if (m.optDouble("rating", 0.0) <= 0) d.optDouble("vote_average", 0.0).takeIf { it > 0 }?.let { m.put("rating", it) }
         m.put("detailed", true); m.put("full", true)
         return m
     }

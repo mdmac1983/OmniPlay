@@ -157,7 +157,7 @@ class AppState(val ctx: Context, val host: Host) {
             val loaded = withContext(Dispatchers.IO) {
                 val items = ArrayList<Item>()
                 val fixes = epFixesForLoad()
-                for (s in sources) Library.read(store, s.id).mapTo(items) { applyEpFix(it, fixes) }
+                for (s in sources) Library.read(store, s.id).mapTo(items) { applyEpFix(reparse(it), fixes) }
                 val m = parseMeta(store.musicMeta())
                 val t = HashMap<String, JSONObject>(); val tc = store.tmdbCache(); tc.keys().forEach { k -> tc.optJSONObject(k)?.let { t[k] = it } }
                 Triple(items, m, t)
