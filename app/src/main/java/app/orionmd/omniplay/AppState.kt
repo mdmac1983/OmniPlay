@@ -23,6 +23,10 @@ interface Host {
     fun launch(intent: Intent)
     /** Shows a system confirmation (trash / restore / delete media); cb(true) when the user agreed. */
     fun confirmMedia(sender: android.content.IntentSender, cb: (Boolean) -> Unit)
+    /** The phone's own screen lock (PIN / pattern / fingerprint); cb(true) when confirmed. */
+    fun confirmDevice(title: String, cb: (Boolean) -> Unit)
+    /** Leave the app (Back on the lock screen). */
+    fun leave()
 }
 
 sealed class Page {
@@ -41,6 +45,9 @@ sealed class Page {
     data class TrackList(val src: String, val id: String, val title: String, val sub: String, val cover: String, val head: org.json.JSONObject) : Page()
     object Settings : Page()
     object Downloads : Page()
+    /** Settings → Saved on this device, and one category of it. */
+    object Storage : Page()
+    data class SavedFiles(val key: String) : Page()
     /** A bundled document (GUIDE.md / FEATURES.md). */
     data class Doc(val file: String, val title: String) : Page()
     // Gallery
@@ -63,6 +70,9 @@ sealed class Dlg {
     data class Choice(val title: String, val msg: String, val options: List<Pair<String, () -> Unit>>) : Dlg()
     data class FixMatch(val key: String, val query: String, val type: String, val year: Int) : Dlg()
     data class EpisodeEdit(val item: Item) : Dlg()
+    data class PinAsk(val title: String, val then: () -> Unit) : Dlg()
+    data class PinSet(val then: () -> Unit) : Dlg()
+    data object PickLockFolder : Dlg()
     data class ConnectWebDav(val provider: String) : Dlg()
     data class CloudPassword(val provider: String) : Dlg()
     data object AddSource : Dlg()
@@ -130,6 +140,15 @@ class AppState(val ctx: Context, val host: Host) {
     }
     /** A store link was opened: when you come back, the phone's music is rescanned so a bought song shows up. */
     private var storeVisit = false
+    /** Locked folders were changed, shown or hidden: rebuild the library and the gallery. */
+    fun refreshLocks() { loadLibrary(); applyGalleryFilter() }
+    /** A locked-folder key as a readable name. */
+    fun lockName(k: String): String = when {
+        k.startsWith("src:") -> sources.firstOrNull { it.id == k.substring(4) }?.name ?: "A removed source"
+        k.startsWith("dir:") -> k.substring(4)
+        k.startsWith("bucket:") -> (gallery.all ?: emptyList()).firstOrNull { it.bucketId == k.substring(7) }?.bucket?.let { "Gallery · $it" } ?: "A gallery folder"
+        else -> k
+    }
     fun openStore(u: String) { storeVisit = true; openUrl(u) }
     private var rescanJob: kotlinx.coroutines.Job? = null
     /** Rescans "This device" a few seconds from now (once, however many downloads finish meanwhile). */
@@ -158,6 +177,9 @@ class AppState(val ctx: Context, val host: Host) {
                 val items = ArrayList<Item>()
                 val fixes = epFixesForLoad()
                 for (s in sources) Library.read(store, s.id).mapTo(items) { applyEpFix(reparse(it), fixes) }
+                // locked sources / folders stay out until shown with the PIN
+                val locked = if (Lock.privateOpen) emptySet() else Lock.folders(store)
+                if (locked.isNotEmpty()) items.removeAll { Lock.hides(locked, it) }
                 val m = parseMeta(store.musicMeta())
                 val t = HashMap<String, JSONObject>(); val tc = store.tmdbCache(); tc.keys().forEach { k -> tc.optJSONObject(k)?.let { t[k] = it } }
                 Triple(items, m, t)

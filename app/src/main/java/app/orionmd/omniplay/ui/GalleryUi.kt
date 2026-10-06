@@ -78,6 +78,7 @@ fun GalleryScreen(st: AppState, pad: PaddingValues) {
     var folders by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         if (g.sel.isNotEmpty()) SelectionBar(st) else TopBar(st, "Gallery", actions = {
+            PrivateToggle(st)
             IconBtn(Ic.folder, { folders = true })
             IconBtn(Ic.trash, { st.open(Page.GTrash) })
             IconBtn(Ic.sync, { st.loadGallery() })
@@ -246,6 +247,10 @@ private fun AlbumMenu(st: AppState, a: GAlbum, onDone: () -> Unit) {
                 Btn("Set cover image…", { pickCover = true }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
                 Btn("Add to a group…", { toGroup = true }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
                 Btn("Share all", { st.shareItems(a.items.take(100)); onDone() }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
+                if (!a.custom) Btn(if (Lock.isLocked(st.store, a.key.replace("b:", "bucket:"))) "Unlock this folder" else "Lock with PIN", {
+                    st.toggleLock(a.key.replace("b:", "bucket:"), a.name); onDone()
+                    if (st.pages.lastOrNull() is Page.GAlbumPage) st.back()
+                }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
                 if (!a.custom) Btn("Hide this folder from Gallery", {
                     Gallery.setHidden(st, Gallery.hidden(st) + a.key.removePrefix("b:")); st.say("\"${a.name}\" hidden — bring it back with the folder button"); onDone()
                     if (st.pages.lastOrNull() is Page.GAlbumPage) st.back()

@@ -99,6 +99,8 @@ private fun Router(st: AppState, page: Page, pad: androidx.compose.foundation.la
         is Page.TrackList -> TrackListPage(st, page, pad)
         Page.Settings -> SettingsScreen(st, pad)
         Page.Downloads -> DownloadsPage(st, pad)
+        Page.Storage -> StoragePage(st, pad)
+        is Page.SavedFiles -> SavedFilesPage(st, page.key, pad)
         is Page.Doc -> DocPage(st, page, pad)
         is Page.GAlbumPage -> GAlbumScreen(st, page, pad)
         is Page.GGroupPage -> GGroupScreen(st, page, pad)

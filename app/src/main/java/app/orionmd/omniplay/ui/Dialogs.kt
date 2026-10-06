@@ -79,6 +79,9 @@ fun Dialogs(st: AppState) {
 
         is Dlg.FixMatch -> FixMatchDialog(st, d)
         is Dlg.EpisodeEdit -> EpisodeEditDialog(st, d.item)
+        is Dlg.PinAsk -> PinAskDialog(st, d)
+        is Dlg.PinSet -> PinSetDialog(st, d)
+        Dlg.PickLockFolder -> PickLockFolderDialog(st)
         is Dlg.CloudPassword -> { val p = Cloud.provider(d.provider)!!; var u by remember { mutableStateOf("") }; var pw by remember { mutableStateOf("") }
             DlgBox(st, "Connect ${p.name}") { Muted(p.help, size = 12.sp); Field(u, { u = it }, "Email", Modifier.fillMaxWidth().padding(top = 8.dp)); Field(pw, { pw = it }, "Password", Modifier.fillMaxWidth().padding(top = 8.dp), password = true)
                 Buttons(ok = "Connect", onCancel = { st.dialog = null }) { st.dialog = null; st.connectWithFields(d.provider, mapOf("user" to u.trim(), "pass" to pw)) } } }

@@ -164,25 +164,57 @@ fun AppState.loadGallery() {
 
 fun AppState.applyGalleryFilter() {
     val a = gallery.all ?: return
-    val hide = Gallery.hidden(this)
+    // folders hidden from the gallery, and folders locked with the PIN (unless shown right now)
+    val hide = Gallery.hidden(this) + (if (Lock.privateOpen) emptySet() else Lock.folders(store).filter { it.startsWith("bucket:") }.map { it.substring(7) })
     gallery.items = if (hide.isEmpty()) a else a.filter { it.bucketId !in hide }
     gallery.sel.retainAll(gallery.items.orEmpty().map { it.key }.toSet())
     gallery.tick++
 }
 
+/** After items left the gallery: drop them from the open viewer and the selection, and reload. */
+private fun AppState.gone(items: List<GItem>) {
+    val keys = items.map { it.key }.toSet()
+    gallery.viewList = gallery.viewList.filter { it.key !in keys }
+    gallery.sel.clear(); loadGallery()
+}
+
 /** Moves items to the trash (Android 11+, kept 30 days) or deletes them after confirming (older Android). */
 fun AppState.trashItems(items: List<GItem>) {
-    val uris = items.map { it.uri }
-    val s = Gallery.trashRequest(ctx, uris, true)
-    if (s != null) host.confirmMedia(s) { ok -> if (ok) { say("Moved ${items.size} to trash — kept for 30 days"); gallery.sel.clear(); loadGallery() } }
+    if (items.isEmpty()) return
+    val s = Gallery.trashRequest(ctx, items.map { it.uri }, true)
+    if (s != null) host.confirmMedia(s) { ok -> if (ok) { say("Moved ${items.size} to trash — kept for 30 days"); gone(items) } }
     else dialog = Dlg.Confirm("Delete ${items.size} item${if (items.size == 1) "" else "s"}?", "This Android version has no trash bin, so they're deleted permanently.", true) {
-        scope.launch { val n = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Gallery.deleteNow(ctx, uris) }; say("Deleted $n"); gallery.sel.clear(); loadGallery() } }
+        scope.launch { deleteLegacy(items) } }
+}
+
+/**
+ * Android 10 and older: deletes one by one. On Android 10, a photo another app saved needs your OK first (the system
+ * asks, then the delete is tried again).
+ */
+private suspend fun AppState.deleteLegacy(items: List<GItem>) {
+    var n = 0
+    for (x in items) {
+        val u = Uri.parse(x.uri)
+        val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try { ctx.contentResolver.delete(u, null, null) to null }
+            catch (e: SecurityException) { 0 to e }
+        }
+        if (r.first > 0) { n++; continue }
+        val e = r.second
+        if (Build.VERSION.SDK_INT >= 29 && e is android.app.RecoverableSecurityException) {
+            val ok = kotlinx.coroutines.suspendCancellableCoroutine<Boolean> { c -> host.confirmMedia(e.userAction.actionIntent.intentSender) { c.resumeWith(Result.success(it)) } }
+            if (ok && kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { try { ctx.contentResolver.delete(u, null, null) } catch (_: Exception) { 0 } } > 0) n++
+        }
+    }
+    say(if (n == items.size) "Deleted $n" else if (n == 0) "Couldn't delete — Android didn't allow it" else "Deleted $n of ${items.size}")
+    if (n > 0) gone(items)
 }
 fun AppState.restoreItems(items: List<GItem>) {
-    Gallery.trashRequest(ctx, items.map { it.uri }, false)?.let { s -> host.confirmMedia(s) { if (it) { say("Restored ${items.size}"); loadGallery() } } }
+    Gallery.trashRequest(ctx, items.map { it.uri }, false)?.let { s -> host.confirmMedia(s) { if (it) { say("Restored ${items.size}"); gone(items) } } }
 }
 fun AppState.deleteForever(items: List<GItem>) {
-    Gallery.deleteRequest(ctx, items.map { it.uri })?.let { s -> host.confirmMedia(s) { if (it) { say("Deleted ${items.size} permanently"); loadGallery() } } }
+    if (items.isEmpty()) return
+    Gallery.deleteRequest(ctx, items.map { it.uri })?.let { s -> host.confirmMedia(s) { if (it) { say("Deleted ${items.size} permanently"); gone(items) } } }
 }
 fun AppState.shareItems(items: List<GItem>) {
     if (items.isEmpty()) return

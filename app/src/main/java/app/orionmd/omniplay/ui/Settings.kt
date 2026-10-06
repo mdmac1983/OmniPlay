@@ -34,6 +34,8 @@ fun SettingsScreen(st: AppState, pad: PaddingValues) {
             item { Cat(st, "sync", "Sync", Ic.sync) { SyncSettings(st) } }
             item { Cat(st, "playback", "Playback & subtitles", Ic.movie) { Playback(st) } }
             item { Cat(st, "appearance", "Appearance", Ic.skin) { Appearance(st) } }
+            item { Cat(st, "lock", "Lock & privacy", Ic.lock) { LockSettings(st) } }
+            item { Cat(st, "storage", "Saved on this device", Ic.offline) { StorageSummary(st) } }
             item { Cat(st, "security", "Activation & security", Ic.shield) { Security(st) } }
             item {
                 // footer: the user guide and the feature list, as shipped with this version
@@ -69,7 +71,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         Switch(on, { st.setPref(k, if (it) "1" else "0") }, colors = SwitchDefaults.colors(checkedThumbColor = C.ac, checkedTrackColor = C.ac.copy(alpha = .5f)))
     }
 }
-@Composable private fun Pick(st: AppState, k: String, title: String, options: List<Pair<String, String>>, default: String) {
+@Composable internal fun Pick(st: AppState, k: String, title: String, options: List<Pair<String, String>>, default: String) {
     Column(Modifier.padding(vertical = 6.dp)) { Text(title, fontSize = 13.sp); Select(st.pref(k, default), options, { st.setPref(k, it) }, Modifier.fillMaxWidth().padding(top = 4.dp)) }
 }
 
@@ -80,6 +82,8 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
             Icon(when (s.kind) { "device" -> Ic.device; "folder" -> Ic.folder; else -> Ic.cloud }, null, tint = C.ac)
             Column(Modifier.padding(start = 12.dp).weight(1f)) { Text(s.name, fontWeight = FontWeight.SemiBold); Muted("${fmt(s.count)} items · ${if (s.lastScan > 0) "scanned ${ago(s.lastScan)}" else "not scanned"}" + if (s.sync) " · sync on" else "", size = 12.sp) }
             IconBtn(Ic.sync, { st.sync(s.id) }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
+            Lock.gen
+            IconBtn(Ic.lock, { st.toggleLock("src:${s.id}", s.name) }, tint = if (Lock.isLocked(st.store, "src:${s.id}")) C.ac else C.mu, size = 34.dp, iconSize = 20.dp)
             IconBtn(Ic.trash, { st.dialog = Dlg.Confirm("Remove \"${s.name}\"?", "Its library index is removed from Media Hub. Your actual files aren't touched.", true) { st.removeSource(s.id) } }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
         }
     }

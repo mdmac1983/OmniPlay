@@ -377,12 +377,36 @@ feature.**
 | **Playback & subtitles** | Video defaults (resume, autoplay, gestures, picture size, decoder, skip amount, PiP, background sound), player buttons, subtitle look and encoding |
 | **Sound** | Opens the sound engine and equaliser |
 | **Appearance** | Visualizer style, player skin, skin pattern around videos, background watermark, splash screen |
+| **Lock & privacy** | Set a PIN, lock Media Hub when it opens, lock folders, show / hide locked folders, change or remove the PIN |
+| **Saved on this device** | See everything Media Hub has saved (pictures, info, lyrics, subtitles, downloads…) and clear it |
 | **Activation & security** | Trial / key status, enter or purchase a key |
 | **Footer** | App version, **Guide**, **Features**, open-source notices (FFmpeg, LGPL) |
 
 ---
 
 ## 17. Privacy & security
+
+### PIN lock
+In **Settings → Lock & privacy**, set a PIN (4–8 digits). Then:
+- **Lock Media Hub:** the PIN is asked when the app opens, and again after it has been in the background for the time
+  you choose (immediately, 1, 5 or 30 minutes). Music keeps playing while it's locked.
+- **Lock folders:** tap the 🔒 next to a library source (Your library sources), a folder on the Music → Folders tab, a
+  gallery folder's menu (**Lock with PIN**), or use **Lock a folder…**. Locked folders disappear from Home, Music,
+  Video, Gallery and search. Tap the 🔒 at the top of Music, Video or Gallery (or **Show locked folders**) and enter
+  the PIN to see them; they hide again when Media Hub locks.
+- After 5 wrong PINs you have to wait before trying again. **Forgot PIN?** On the lock screen, unlock with your
+  phone's own screen lock (PIN, pattern or fingerprint), then set a new PIN.
+- The PIN itself is never stored, only a salted one-way check value, encrypted.
+
+### Saved on this device
+**Settings → Saved on this device → See & clear saved data** lists everything Media Hub keeps for offline use, with
+its size: song and video pictures, album covers, movie & TV pictures, song info, movie & TV info, lyrics, downloaded
+subtitles, offline downloads, the photo eraser model, your skin logos, library lists and temporary files.
+**View** shows the pictures (with what each belongs to), reads lyrics and subtitles, or lists the saved titles.
+**Clear** removes one category, and **Clear all saved pictures & info** removes everything that can be fetched
+again. Your own Fix match choices, downloads, logos and library lists are kept.
+
+### Data protection
 - There's no account, no ads and no tracking. Your library stays on your phone.
 - Caches, API keys, cloud sign-ins and the activation key are encrypted on the device (AES-256-GCM, with the key held
   by the Android Keystore).

@@ -39,6 +39,7 @@ fun MusicLibrary(st: AppState, pad: PaddingValues) {
     }
     Column(Modifier.fillMaxSize()) {
         TopBar(st, "Media Hub", actions = {
+            PrivateToggle(st)
             IconBtn(Ic.search, { st.open(Page.Discover) })
             IconBtn(Ic.podcast, { st.open(Page.Podcasts) })
             IconBtn(Ic.download, { st.dialog = Dlg.Confirm("Sync all music for offline?", "Downloads album art, song info (genre, year, length), album details and lyrics for every song and saves them on the device. Already-saved items are skipped.") { st.syncMusic() } })
@@ -147,7 +148,9 @@ private fun FolderList(st: AppState, songs: List<Item>, pad: PaddingValues) {
     LazyColumn(contentPadding = contentPad(pad)) {
         items(folders, key = { it.first }) { (f, n) ->
             Row(Modifier.fillMaxWidth().clickable { st.open(Page.FolderPage(f)) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Ic.folder, null, tint = C.ac); Column(Modifier.padding(start = 12.dp)) { Text(f.substringAfterLast('/'), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted("$n songs", size = 12.sp) }
+                Icon(Ic.folder, null, tint = C.ac); Column(Modifier.padding(start = 12.dp).weight(1f)) { Text(f.substringAfterLast('/'), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted("$n songs", size = 12.sp) }
+                Lock.gen
+                IconBtn(Ic.lock, { st.toggleLock("dir:$f", f.substringAfterLast('/')) }, tint = if (Lock.isLocked(st.store, "dir:$f")) C.ac else C.mu.copy(alpha = .5f), size = 34.dp, iconSize = 18.dp)
             }
         }
     }
@@ -192,6 +195,7 @@ fun VideoLibrary(st: AppState, pad: PaddingValues) {
         var stream by remember { mutableStateOf(false) }
         if (stream) StreamDialog(st) { stream = false }
         TopBar(st, "Video", actions = {
+            PrivateToggle(st)
             IconBtn(Ic.link, { stream = true })
             IconBtn(Ic.download, { st.dialog = Dlg.Confirm("Sync all videos for offline?", "Downloads TMDB details, posters, backdrops, cast, episode info and subtitles (with a Wyzie key) for every video and saves them on the device. Already-saved items are skipped.") { st.syncVideos() } })
             IconBtn(Ic.sync, { st.sync() })
