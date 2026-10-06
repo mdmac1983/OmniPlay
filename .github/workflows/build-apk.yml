@@ -100,3 +100,24 @@ jobs:
           body_path: release-notes.md
           files: out/MediaHub-v${{ steps.ver.outputs.version }}.apk
           make_latest: true
+
+      # The repos are private, so the apps look for updates in the public mdmac1983/releases (APKs only, no code).
+      # Needs the RELEASES_TOKEN secret: a fine-grained token with "Contents: read and write" on mdmac1983/releases.
+      - name: Public update repo set up?
+        id: pub
+        if: steps.sign.outputs.ok == 'true'
+        env: { T: "${{ secrets.RELEASES_TOKEN }}" }
+        run: if [ -n "$T" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "::notice::RELEASES_TOKEN isn't set, so this build isn't published to mdmac1983/releases (in-app updates won't see it)"; fi
+
+      - name: Publish to the public update repo
+        if: steps.sign.outputs.ok == 'true' && steps.pub.outputs.ok == 'true'
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: mdmac1983/releases
+          token: ${{ secrets.RELEASES_TOKEN }}
+          tag_name: mediahub-v${{ steps.ver.outputs.version }}
+          name: Media Hub v${{ steps.ver.outputs.version }}
+          body_path: release-notes.md
+          files: out/MediaHub-v${{ steps.ver.outputs.version }}.apk
+          make_latest: false

@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.orionmd.omniplay.cloud.Cloud
+import app.orionmd.omniplay.ui.autoCheckUpdates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -129,6 +130,7 @@ class AppState(val ctx: Context, val host: Host) {
         DlQueue.onFreeSaved = { scope.launch { rescanDeviceSoon() } }
         DlQueue.init(ctx)
         ImageLoader.init(ctx, store)
+        scope.launch { kotlinx.coroutines.delay(8000); autoCheckUpdates() }   // the daily check for a new version
         online = Net.online(ctx)
         loadSources()
         loadLibrary()

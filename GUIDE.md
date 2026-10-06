@@ -380,6 +380,7 @@ feature.**
 | **Lock & privacy** | Set a PIN, lock Media Hub when it opens, lock folders, show / hide locked folders, change or remove the PIN |
 | **Saved on this device** | See everything Media Hub has saved (pictures, info, lyrics, subtitles, downloads…) and clear it |
 | **Activation & security** | Trial / key status, enter or purchase a key |
+| **App updates** | Your version and the latest, what changed, **Update** (downloads and opens Android's installer; your data is kept), daily automatic check |
 | **Footer** | App version, **Guide**, **Features**, open-source notices (FFmpeg, LGPL) |
 
 ---

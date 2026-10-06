@@ -37,6 +37,7 @@ fun SettingsScreen(st: AppState, pad: PaddingValues) {
             item { Cat(st, "lock", "Lock & privacy", Ic.lock) { LockSettings(st) } }
             item { Cat(st, "storage", "Saved on this device", Ic.offline) { StorageSummary(st) } }
             item { Cat(st, "security", "Activation & security", Ic.shield) { Security(st) } }
+            item { Cat(st, "updates", "App updates" + if (Updater.result?.available == true) " · new version" else "", Ic.download) { UpdateSettings(st) } }
             item {
                 // footer: the user guide and the feature list, as shipped with this version
                 Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
