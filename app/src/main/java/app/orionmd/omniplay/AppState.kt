@@ -300,10 +300,8 @@ class AppState(val ctx: Context, val host: Host) {
         scope.launch {
             val list = songs(); lyricsProg = 0 to list.size
             withContext(Dispatchers.IO) {
-                list.forEachIndexed { i, x ->
+                Api.each(list, done = { n -> scope.launch { lyricsProg = n to list.size } }) { x ->
                     if (!Lyrics.has(ctx, x.i)) try { Lyrics.fetch(ctx, x.i, x.title, x.artist, x.album, durOf(x) / 1000) } catch (_: Exception) {}
-                    scope.launch { lyricsProg = (i + 1) to list.size }
-                    Thread.sleep(60)
                 }
             }
             lyricsProg = null; countLyrics(); say("Lyrics downloaded")
@@ -317,16 +315,15 @@ class AppState(val ctx: Context, val host: Host) {
             val list = songs(); val m = store.musicMeta(); var matched = 0
             metaProg = Triple(0, list.size, 0)
             withContext(Dispatchers.IO) {
-                list.forEachIndexed { i, x ->
-                    val key = "s:${x.i}"
-                    if (!force && m.has(key)) return@forEachIndexed
-                    val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { null }
-                    if (r != null) { m.put(key, r); matched++ } else m.put(key, JSONObject().put("none", true))
-                    if (i % 20 == 0) store.saveMusicMeta(m)
-                    val mm = matched; scope.launch { metaProg = Triple(i + 1, list.size, mm) }
-                    Thread.sleep(120)
+                val todo = list.filter { force || !m.has("s:${it.i}") }
+                val hits = java.util.concurrent.atomic.AtomicInteger()
+                Api.each(todo, done = { n -> if (n % 20 == 0) synchronized(m) { store.saveMusicMeta(m) }; val h = hits.get(); scope.launch { metaProg = Triple(n, todo.size, h) } }) { x ->
+                    val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { return@each }   // failed request: try again later
+                    synchronized(m) { m.put("s:${x.i}", r ?: JSONObject().put("none", true).put("t", System.currentTimeMillis())) }
+                    if (r != null) hits.incrementAndGet()
                 }
-                store.saveMusicMeta(m)
+                matched = hits.get()
+                synchronized(m) { store.saveMusicMeta(m) }
             }
             meta = parseMeta(m); metaProg = null; say("Found info for $matched songs")
         }
@@ -343,18 +340,16 @@ class AppState(val ctx: Context, val host: Host) {
             val vids = videos(); tmdbProg = 0 to vids.size
             withContext(Dispatchers.IO) {
                 val cache = store.tmdbCache()
-                vids.forEachIndexed { i, x ->
-                    val key = mkey(x) ?: return@forEachIndexed
-                    if (cache.optJSONObject(key)?.optBoolean("manual") == true) return@forEachIndexed   // your own fixes stay
-                    if (!force && !needsMatch(cache.optJSONObject(key))) return@forEachIndexed
-                    val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
-                    val m = try { Tmdb.autoMatch(store, o) } catch (_: Exception) { return@forEachIndexed }   // failed request: try again later
-                    cache.put(key, m?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: noMatch())
-                    if (i % 10 == 0) store.saveTmdb(cache)
-                    scope.launch { tmdbProg = (i + 1) to vids.size }
-                    Thread.sleep(120)
+                // one look-up per movie / show (a show's episodes share one)
+                val todo = vids.mapNotNull { x -> mkey(x)?.let { it to x } }.distinctBy { it.first }.filter { (key, _) ->
+                    cache.optJSONObject(key)?.optBoolean("manual") != true && (force || needsMatch(cache.optJSONObject(key)))   // your own fixes stay
                 }
-                store.saveTmdb(cache)
+                Api.each(todo, done = { n -> if (n % 10 == 0) synchronized(cache) { store.saveTmdb(cache) }; scope.launch { tmdbProg = n to todo.size } }) { (key, x) ->
+                    val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
+                    val m = try { Tmdb.autoMatch(store, o) } catch (_: Exception) { return@each }   // failed request: try again later
+                    synchronized(cache) { cache.put(key, m?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: noMatch()) }
+                }
+                synchronized(cache) { store.saveTmdb(cache) }
             }
             loadLibrary(); tmdbProg = null; say("Matched movies & TV")
         }

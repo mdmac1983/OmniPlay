@@ -132,7 +132,10 @@ object Tmdb {
                 return code to ((if (code in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() } ?: "")
             } finally { c.disconnect() }
         }
-        var r = if (token.isNotEmpty()) call(false) else call(true)
+        var r = Api.retry {
+            val x = if (token.isNotEmpty()) call(false) else call(true)
+            if (x.first == 429) throw RateLimited(1000) else x
+        }
         if (r.first == 401 && token.isNotEmpty() && key.isNotEmpty()) r = call(true)
         if (r.first == 401) throw Exception("TMDB rejected the key — check it in Settings → API keys")
         if (r.first !in 200..299) throw Exception("TMDB error ${r.first}")

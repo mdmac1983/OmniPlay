@@ -25,11 +25,17 @@ object MusicMeta {
     private val ALIASES = mapOf("mgk" to "machine gun kelly", "jxdn" to "jaden hossler", "nf" to "nf")
     private fun firstArtist(a: String) = a.split(Regex("(?i),|&|/|;| x | and | feat\\.? | ft\\.? "))[0].trim()
 
-    private fun get(url: String): JSONObject {
+    private fun get(url: String): JSONObject = Api.retry {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 15000; c.readTimeout = 20000
         c.setRequestProperty("User-Agent", Net.UA)
-        try { return JSONObject(c.inputStream.bufferedReader().use { it.readText() }) } finally { c.disconnect() }
+        try {
+            if (c.responseCode == 429) throw RateLimited((c.getHeaderField("Retry-After")?.toLongOrNull() ?: 0) * 1000)
+            val o = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
+            // Deezer answers "quota exceeded" (code 4) with HTTP 200
+            if (o.optJSONObject("error")?.optInt("code") == 4) throw RateLimited(1000)
+            o
+        } finally { c.disconnect() }
     }
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 
@@ -43,9 +49,8 @@ object MusicMeta {
             a.replace(" ", "") == b.replace(" ", "")
     }
 
-    private val albumCache = HashMap<Long, JSONObject>()
-    private var lastItunes = 0L
-    private var itunesPausedUntil = 0L
+    private val albumCache = java.util.concurrent.ConcurrentHashMap<Long, JSONObject>()
+    @Volatile private var itunesPausedUntil = 0L
 
     private fun deezer(artist: String, title: String): JSONObject? {
         val res = get("https://api.deezer.com/search?q=${enc(firstArtist(artist) + " " + title)}&limit=10").optJSONArray("data") ?: return null
@@ -81,14 +86,11 @@ object MusicMeta {
     }
 
     private fun itunes(artist: String, title: String): JSONObject? {
-        // Apple allows roughly 20 requests/minute; if it pushes back (403/429) skip iTunes for 2 minutes
+        // iTunes is only the backup; if Apple pushes back (403/429) it's skipped for 2 minutes
         if (System.currentTimeMillis() < itunesPausedUntil) return null
-        val wait = 4000 - (System.currentTimeMillis() - lastItunes)
-        if (wait > 0) Thread.sleep(wait)
-        lastItunes = System.currentTimeMillis()
         val res = try {
             get("https://itunes.apple.com/search?term=${enc(firstArtist(artist) + " " + title)}&entity=song&limit=10").optJSONArray("results") ?: return null
-        } catch (e: java.io.IOException) { itunesPausedUntil = System.currentTimeMillis() + 120_000; return null }
+        } catch (e: Exception) { itunesPausedUntil = System.currentTimeMillis() + 120_000; return null }
         val nt = norm(title)
         for (k in 0 until res.length()) {
             val r = res.getJSONObject(k)
@@ -107,10 +109,12 @@ object MusicMeta {
 
     fun lookup(artist: String, title: String): JSONObject? {
         if (title.isBlank()) return null
-        val d = try { deezer(artist, title) } catch (e: Exception) { null }
+        var failed: Exception? = null
+        val d = try { deezer(artist, title) } catch (e: Exception) { failed = e; null }
         if (d != null && d.optString("g").isNotEmpty()) return d
         val i = try { itunes(artist, title) } catch (e: Exception) { null }
-        if (d == null) return i
+        // Deezer couldn't be reached (and iTunes had nothing): that's not "no match" — the caller tries again later
+        if (d == null) return i ?: failed?.let { throw it }
         // Deezer matched but had no genre → borrow genre/year from iTunes if found
         if (i != null) { if (i.optString("g").isNotEmpty()) d.put("g", i.optString("g")); if (d.optString("y").isEmpty()) d.put("y", i.optString("y")) }
         return d

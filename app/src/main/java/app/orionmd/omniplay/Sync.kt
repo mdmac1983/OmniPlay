@@ -40,42 +40,38 @@ fun AppState.syncMusic(force: Boolean = false) {
     sync.cancel = false
     scope.launch {
         val list = songs()
-        var done = 0
         sync.music = SyncProg(0, list.size, "Song info & album art")
         withContext(Dispatchers.IO) {
             val m = store.musicMeta()
-            for (x in list) {
-                if (sync.cancel) break
+            Api.each(list, done = { d -> if (d % 20 == 0) synchronized(m) { store.saveMusicMeta(m) }; scope.launch { sync.music = SyncProg(d, list.size, "Info, album art & lyrics") } }) { x ->
+                if (sync.cancel) return@each
                 val key = "s:${x.i}"
                 // 1) Deezer / iTunes info
-                if (force || !m.has(key)) {
-                    val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { null }
-                    m.put(key, r ?: JSONObject().put("none", true))
-                    Thread.sleep(120)
+                if (force || synchronized(m) { !m.has(key) }) {
+                    var failed = false
+                    val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { failed = true; null }   // failed request: tried again next time
+                    if (!failed) synchronized(m) { m.put(key, r ?: JSONObject().put("none", true).put("t", System.currentTimeMillis())) }
                 }
                 // 2) album art image, saved encrypted for offline
-                m.optJSONObject(key)?.optString("cv")?.takeIf { it.isNotEmpty() }?.let { try { MusicMeta.cover(store, it) } catch (_: Exception) {} }
+                synchronized(m) { m.optJSONObject(key)?.optString("cv") }?.takeIf { it.isNotEmpty() }?.let { try { MusicMeta.cover(store, it) } catch (_: Exception) {} }
                 // 3) embedded cover from the file itself (device / folder songs)
                 if (x.th && !x.isCloud) ImageLoader.file(Img.Art(x.i, x.u, 3))
                 // 4) lyrics
                 if (!Lyrics.has(ctx, x.i)) try { Lyrics.fetch(ctx, x.i, x.title, x.artist, x.album, durOf(x) / 1000) } catch (_: Exception) {}
-                done++
-                if (done % 20 == 0) store.saveMusicMeta(m)
-                val d = done; scope.launch { sync.music = SyncProg(d, list.size, "Info, album art & lyrics") }
             }
-            store.saveMusicMeta(m)
+            synchronized(m) { store.saveMusicMeta(m) }
             // album pages: tracklists & covers
             val albums = list.filter { it.al != null }.groupBy { it.albKey }.values.map { it.first() }
             val info = store.albumInfo()
-            albums.forEachIndexed { i, a ->
-                if (sync.cancel) return@forEachIndexed
+            val albumLock = Any()
+            Api.each(albums, done = { d -> scope.launch { sync.music = SyncProg(d, albums.size, "Album details") } }) { a ->
+                if (sync.cancel) return@each
                 val k = a.albKey
                 if (force || !info.has(k)) {
                     val r = try { MusicMeta.album(a.artist, a.album) } catch (_: Exception) { null }
-                    store.updateAlbumInfo { it.put(k, r ?: JSONObject().put("none", true)) }
+                    synchronized(albumLock) { store.updateAlbumInfo { it.put(k, r ?: JSONObject().put("none", true)) } }
                     r?.optString("cover")?.takeIf { it.isNotEmpty() }?.let { try { MusicMeta.cover(store, it) } catch (_: Exception) {} }
                 }
-                scope.launch { sync.music = SyncProg(i + 1, albums.size, "Album details") }
             }
         }
         meta = parseMeta(store.musicMeta())
@@ -97,47 +93,47 @@ fun AppState.syncVideos(force: Boolean = false) {
         sync.video = SyncProg(0, vids.size, "Matching with TMDB")
         withContext(Dispatchers.IO) {
             val cache = store.tmdbCache()
-            val detailed = HashSet<String>()
-            vids.forEachIndexed { i, x ->
-                if (sync.cancel) return@forEachIndexed
-                val key = mkey(x) ?: return@forEachIndexed
+            fun get(k: String) = synchronized(cache) { cache.optJSONObject(k) }
+            fun put(k: String, v: JSONObject) = synchronized(cache) { cache.put(k, v) }
+            // each movie / show is one job (a show's episodes are done in turn); several jobs run at once
+            val groups = vids.mapNotNull { x -> mkey(x)?.let { it to x } }.groupBy({ it.first }, { it.second }).entries.toList()
+            val label = if (subKey.isEmpty()) "Details & posters" else "Details, posters & subtitles"
+            Api.each(groups, done = { d -> if (d % 10 == 0) synchronized(cache) { store.saveTmdb(cache) }; scope.launch { sync.video = SyncProg(d, groups.size, label) } }) { (key, eps) ->
+                val x0 = eps.first()
                 // 1) match
-                if (cache.optJSONObject(key)?.optBoolean("manual") != true && (force || needsMatch(cache.optJSONObject(key)))) {
-                    val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
+                if (get(key)?.optBoolean("manual") != true && (force || needsMatch(get(key)))) {
+                    val o = JSONObject().put("n", x0.n).put("f", x0.f).put("i", x0.i); Tmdb.parse(o)
                     val m = try { Tmdb.autoMatch(store, o) } catch (_: Exception) { null }
-                    if (m != null) cache.put(key, if (x.k == "mv") m else Tmdb.slim(m, if (x.k == "tv") "tv" else "movie"))
-                    else if (!cache.has(key) && Net.online(ctx)) cache.put(key, noMatch())
-                    Thread.sleep(100)
+                    if (m != null) put(key, if (x0.k == "mv") m else Tmdb.slim(m, if (x0.k == "tv") "tv" else "movie"))
+                    else if (get(key) == null && Net.online(ctx)) put(key, noMatch())
                 }
-                val m = cache.optJSONObject(key)?.takeIf { !it.optBoolean("none") }
-                if (m != null && key !in detailed) {
-                    detailed.add(key)
-                    // 2) full details
-                    if (!m.optBoolean("full")) try { cache.put(key, if (x.k == "mv") MvDb.complete(m) else Tmdb.details(store, m)) } catch (_: Exception) {}
-                    val mm = cache.optJSONObject(key)!!
-                    // 3) images
-                    mm.optString("poster").takeIf { it.isNotEmpty() }?.let { Tmdb.image(store, "w342", it) }
-                    mm.optString("backdrop").takeIf { it.isNotEmpty() }?.let { Tmdb.image(store, "w780", it) }
-                    // 4) cast, trailers, media (cached a week) + cast photos
-                    if (x.k != "mv") try {
-                        Tmdb.extras(store, mm.optString("type").ifEmpty { "movie" }, mm.optInt("id"))?.optJSONArray("cast")?.let { c ->
-                            for (k in 0 until minOf(c.length(), 9)) c.optJSONObject(k)?.optString("p")?.takeIf { it.isNotEmpty() }?.let { p -> Tmdb.image(store, "w185", p) }
-                        }
+                val m0 = get(key)?.takeIf { !it.optBoolean("none") } ?: return@each
+                // 2) full details
+                if (!m0.optBoolean("full")) try { put(key, if (x0.k == "mv") MvDb.complete(m0) else Tmdb.details(store, m0)) } catch (_: Exception) {}
+                val m = get(key) ?: m0
+                // 3) images
+                m.optString("poster").takeIf { it.isNotEmpty() }?.let { Tmdb.image(store, "w342", it) }
+                m.optString("backdrop").takeIf { it.isNotEmpty() }?.let { Tmdb.image(store, "w780", it) }
+                // 4) cast, trailers, media (cached a week) + cast photos
+                if (x0.k != "mv") try {
+                    Tmdb.extras(store, m.optString("type").ifEmpty { "movie" }, m.optInt("id"))?.optJSONArray("cast")?.let { c ->
+                        for (k in 0 until minOf(c.length(), 9)) c.optJSONObject(k)?.optString("p")?.takeIf { it.isNotEmpty() }?.let { p -> Tmdb.image(store, "w185", p) }
+                    }
+                } catch (_: Exception) {}
+                for (x in eps) {
+                    if (sync.cancel) return@each
+                    // 5) TV: season & episode info
+                    if (x.k == "tv" && x.se > 0) {
+                        val sk = "$key#s${x.se}"
+                        if (get(sk)?.optInt("tvid") != m.optInt("id")) try { put(sk, Tmdb.season(store, m.optInt("id"), x.se).put("tvid", m.optInt("id"))) } catch (_: Exception) {}
+                    }
+                    // 6) subtitles
+                    if (subKey.isNotEmpty() && x.k != "mv" && x.subs == null && !Subs.saved(store, x.i, lang)) try {
+                        Subs.fetch(store, subKey, x.i, m.optInt("id"), if (x.k == "tv") x.se else 0, if (x.k == "tv") x.ep else 0, lang, false)
                     } catch (_: Exception) {}
                 }
-                // 5) TV: season & episode info
-                if (m != null && x.k == "tv" && x.se > 0) {
-                    val sk = "$key#s${x.se}"
-                    if (cache.optJSONObject(sk)?.optInt("tvid") != m.optInt("id")) try { cache.put(sk, Tmdb.season(store, m.optInt("id"), x.se).put("tvid", m.optInt("id"))) } catch (_: Exception) {}
-                }
-                // 6) subtitles
-                if (m != null && subKey.isNotEmpty() && x.k != "mv" && x.subs == null && !Subs.saved(store, x.i, lang)) try {
-                    Subs.fetch(store, subKey, x.i, m.optInt("id"), if (x.k == "tv") x.se else 0, if (x.k == "tv") x.ep else 0, lang, false)
-                } catch (_: Exception) {}
-                if (i % 10 == 0) store.saveTmdb(cache)
-                scope.launch { sync.video = SyncProg(i + 1, vids.size, if (subKey.isEmpty()) "Details & posters" else "Details, posters & subtitles") }
             }
-            store.saveTmdb(cache)
+            synchronized(cache) { store.saveTmdb(cache) }
         }
         loadLibrary()
         sync.video = null; sync.videoAt = System.currentTimeMillis(); setPref("videoSyncAt", sync.videoAt.toString())
@@ -247,20 +243,18 @@ fun AppState.autoEnrich() {
                 val cache = withContext(Dispatchers.IO) { store.tmdbCache() }
                 val keys = vids.mapNotNull { x -> mkey(x)?.let { it to x } }.distinctBy { it.first }.filter { (k, _) -> needsMatch(cache.optJSONObject(k)) }
                 if (keys.isNotEmpty()) {
-                    var found = 0
+                    val hits = java.util.concurrent.atomic.AtomicInteger(); val stop = java.util.concurrent.atomic.AtomicBoolean(false)
                     withContext(Dispatchers.IO) {
-                        keys.forEachIndexed { i, (key, x) ->
+                        Api.each(keys, stop, done = { n -> if (n % 10 == 0) synchronized(cache) { store.saveTmdb(cache) }; scope.launch { tmdbProg = n to keys.size } }) { (key, x) ->
                             val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
                             // a failed request (no connection, server busy) isn't "no match": it's simply tried again next time
-                            val r = try { Tmdb.autoMatch(store, o) } catch (e: Tmdb.NoKey) { return@withContext } catch (_: Exception) { return@forEachIndexed }
-                            cache.put(key, r?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: noMatch())
-                            if (r != null) found++
-                            if (i % 10 == 0) store.saveTmdb(cache)
-                            scope.launch { tmdbProg = (i + 1) to keys.size }
-                            Thread.sleep(100)
+                            val r = try { Tmdb.autoMatch(store, o) } catch (e: Tmdb.NoKey) { stop.set(true); return@each } catch (_: Exception) { return@each }
+                            synchronized(cache) { cache.put(key, r?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: noMatch()) }
+                            if (r != null) hits.incrementAndGet()
                         }
-                        store.saveTmdb(cache)
+                        synchronized(cache) { store.saveTmdb(cache) }
                     }
+                    val found = hits.get()
                     tmdbProg = null; loadLibrary()
                     if (found > 0) say("Matched $found movie${if (found == 1) "" else "s"} / show${if (found == 1) "" else "s"} on TMDB")
                 }
@@ -274,17 +268,19 @@ fun AppState.autoEnrich() {
             if (pref("metaFix1", "0") != "1") setPref("metaFix1", "1")
             val todo = songs.filter { !m.has("s:${it.i}") }
             if (todo.isNotEmpty() && sync.music == null) {
-                var found = 0
+                val hits = java.util.concurrent.atomic.AtomicInteger(); val stop = java.util.concurrent.atomic.AtomicBoolean(false)
                 withContext(Dispatchers.IO) {
-                    todo.forEachIndexed { i, x ->
-                        val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { null }
-                        m.put("s:${x.i}", r ?: JSONObject().put("none", true).put("t", System.currentTimeMillis())); if (r != null) found++
-                        if (i % 15 == 0) { store.saveMusicMeta(m); val mm = parseMeta(m); scope.launch { meta = mm; metaProg = Triple(i + 1, todo.size, found) } }
-                        if (enrichAgain) { store.saveMusicMeta(m); return@withContext }   // new files were added: match them first, then carry on here
-                        Thread.sleep(120)
+                    Api.each(todo, stop, done = { n ->
+                        if (n % 15 == 0) { val mm = synchronized(m) { store.saveMusicMeta(m); parseMeta(m) }; val h = hits.get(); scope.launch { meta = mm; metaProg = Triple(n, todo.size, h) } }
+                        if (enrichAgain) stop.set(true)   // new files were added: match them first, then carry on here
+                    }) { x ->
+                        val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { return@each }   // failed request: try again next time
+                        synchronized(m) { m.put("s:${x.i}", r ?: JSONObject().put("none", true).put("t", System.currentTimeMillis())) }
+                        if (r != null) hits.incrementAndGet()
                     }
-                    store.saveMusicMeta(m)
+                    synchronized(m) { store.saveMusicMeta(m) }
                 }
+                val found = hits.get()
                 meta = parseMeta(m); metaProg = null
                 if (found > 0) say("Found info & album art for $found song${if (found == 1) "" else "s"}")
             }
