@@ -52,7 +52,7 @@ fun UpdateSettings(st: AppState) {
             Column(Modifier.weight(1f)) { Text("Check automatically", fontWeight = FontWeight.SemiBold); Muted("Once a day, and tell me when an update is out", size = 12.sp) }
             Switch(st.pref("autoUpdate", "1") == "1", { st.setPref("autoUpdate", if (it) "1" else "0") })
         }
-        Muted("Updates come from github.com/mdmac1983/releases. Android shows its install screen to confirm; your data is kept. Only updates signed with the same key as this app are installed.",
+        Muted("Android shows its install screen to confirm; your data is kept. Only updates signed with the same key as this app are installed.",
             Modifier.padding(top = 8.dp), 11.sp)
     }
 }
