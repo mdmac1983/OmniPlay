@@ -98,19 +98,34 @@ object Updater {
         return f
     }
 
-    private fun certs(pm: PackageManager, info: android.content.pm.PackageInfo?): Set<String> {
-        val sigs = if (Build.VERSION.SDK_INT >= 28) info?.signingInfo?.let { if (it.hasMultipleSigners()) it.apkContentsSigners else it.signingCertificateHistory } else @Suppress("DEPRECATION") info?.signatures
-        return sigs?.map { MessageDigest.getInstance("SHA-256").digest(it.toByteArray()).joinToString("") { b -> "%02x".format(b) } }?.toSet() ?: emptySet()
+    private fun hex(b: ByteArray) = MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { x -> "%02x".format(x) }
+    /** Every certificate Android reports for a package, by both the new and the old method (some versions fill only one). */
+    @Suppress("DEPRECATION")
+    private fun certs(info: android.content.pm.PackageInfo?): Set<String> {
+        val out = HashSet<String>()
+        if (Build.VERSION.SDK_INT >= 28) info?.signingInfo?.let { si ->
+            (if (si.hasMultipleSigners()) si.apkContentsSigners else si.signingCertificateHistory)?.forEach { out += hex(it.toByteArray()) }
+            si.apkContentsSigners?.forEach { out += hex(it.toByteArray()) }
+        }
+        info?.signatures?.forEach { out += hex(it.toByteArray()) }
+        return out
     }
 
-    /** True when the APK is this app, signed with the same key (otherwise Android would refuse it anyway). */
+    /**
+     * False only when the download is for another app, or is signed with a different key than the installed app.
+     * Some Android versions don't report a downloaded APK's signature at all; then Android's installer, which refuses
+     * an update signed with another key anyway, has the final say.
+     */
+    @Suppress("DEPRECATION")
     fun sameSigner(ctx: Context, apk: File): Boolean {
         val pm = ctx.packageManager
-        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
-        val other = pm.getPackageArchiveInfo(apk.path, flags)?.also { it.applicationInfo?.let { a -> a.sourceDir = apk.path; a.publicSourceDir = apk.path } } ?: return false
+        val flags = PackageManager.GET_SIGNATURES or (if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else 0)
+        val other = pm.getPackageArchiveInfo(apk.path, flags)?.also { it.applicationInfo?.let { a -> a.sourceDir = apk.path; a.publicSourceDir = apk.path } }
+            ?: return false   // not an APK Android can read
         if (other.packageName != ctx.packageName) return false
-        val mine = certs(pm, pm.getPackageInfo(ctx.packageName, flags))
-        return mine.isNotEmpty() && certs(pm, other).any { it in mine }
+        val theirs = certs(other); if (theirs.isEmpty()) return true
+        val mine = certs(pm.getPackageInfo(ctx.packageName, flags)); if (mine.isEmpty()) return true
+        return theirs.any { it in mine }
     }
 
     /** Android must allow this app to install updates (asked once, in system settings). */
