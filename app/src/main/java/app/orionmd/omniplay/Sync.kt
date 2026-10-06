@@ -102,10 +102,11 @@ fun AppState.syncVideos(force: Boolean = false) {
                 if (sync.cancel) return@forEachIndexed
                 val key = mkey(x) ?: return@forEachIndexed
                 // 1) match
-                if (force || !cache.has(key)) {
+                if (cache.optJSONObject(key)?.optBoolean("manual") != true && (force || needsMatch(cache.optJSONObject(key)))) {
                     val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
                     val m = try { Tmdb.autoMatch(store, o) } catch (_: Exception) { null }
-                    cache.put(key, m?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: JSONObject().put("none", true))
+                    if (m != null) cache.put(key, if (x.k == "mv") m else Tmdb.slim(m, if (x.k == "tv") "tv" else "movie"))
+                    else if (!cache.has(key) && Net.online(ctx)) cache.put(key, noMatch())
                     Thread.sleep(100)
                 }
                 val m = cache.optJSONObject(key)?.takeIf { !it.optBoolean("none") }
@@ -232,11 +233,38 @@ fun AppState.continueWatching(): List<Pair<Item, Float>> {
  * new / unmatched items are looked up; "Sync all" also saves lyrics, images and subtitles for offline.
  */
 private var enriching = false
+/** Something asked for a look-up while one was running (e.g. a folder was added): run again when it finishes. */
+private var enrichAgain = false
 fun AppState.autoEnrich() {
-    if (enriching || !Net.online(ctx) || pref("autoEnrich", "1") != "1") return
-    enriching = true
+    if (!Net.online(ctx) || pref("autoEnrich", "1") != "1") return
+    if (enriching) { enrichAgain = true; return }
+    enriching = true; enrichAgain = false
     scope.launch {
         try {
+            // videos first (usually far fewer than songs): TMDB matches (needs a key)
+            if (store.hasTmdb() && sync.video == null) {
+                val vids = videos()
+                val cache = withContext(Dispatchers.IO) { store.tmdbCache() }
+                val keys = vids.mapNotNull { x -> mkey(x)?.let { it to x } }.distinctBy { it.first }.filter { (k, _) -> needsMatch(cache.optJSONObject(k)) }
+                if (keys.isNotEmpty()) {
+                    var found = 0
+                    withContext(Dispatchers.IO) {
+                        keys.forEachIndexed { i, (key, x) ->
+                            val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
+                            // a failed request (no connection, server busy) isn't "no match": it's simply tried again next time
+                            val r = try { Tmdb.autoMatch(store, o) } catch (e: Tmdb.NoKey) { return@withContext } catch (_: Exception) { return@forEachIndexed }
+                            cache.put(key, r?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: noMatch())
+                            if (r != null) found++
+                            if (i % 10 == 0) store.saveTmdb(cache)
+                            scope.launch { tmdbProg = (i + 1) to keys.size }
+                            Thread.sleep(100)
+                        }
+                        store.saveTmdb(cache)
+                    }
+                    tmdbProg = null; loadLibrary()
+                    if (found > 0) say("Matched $found movie${if (found == 1) "" else "s"} / show${if (found == 1) "" else "s"} on TMDB")
+                }
+            }
             // songs: info + cover URL
             val songs = songs()
             val m = withContext(Dispatchers.IO) {
@@ -252,6 +280,7 @@ fun AppState.autoEnrich() {
                         val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { null }
                         m.put("s:${x.i}", r ?: JSONObject().put("none", true).put("t", System.currentTimeMillis())); if (r != null) found++
                         if (i % 15 == 0) { store.saveMusicMeta(m); val mm = parseMeta(m); scope.launch { meta = mm; metaProg = Triple(i + 1, todo.size, found) } }
+                        if (enrichAgain) { store.saveMusicMeta(m); return@withContext }   // new files were added: match them first, then carry on here
                         Thread.sleep(120)
                     }
                     store.saveMusicMeta(m)
@@ -259,32 +288,17 @@ fun AppState.autoEnrich() {
                 meta = parseMeta(m); metaProg = null
                 if (found > 0) say("Found info & album art for $found song${if (found == 1) "" else "s"}")
             }
-            // videos: TMDB matches (needs a key)
-            if (store.hasTmdb() && sync.video == null) {
-                val vids = videos()
-                val cache = withContext(Dispatchers.IO) { store.tmdbCache() }
-                val keys = vids.mapNotNull { x -> mkey(x)?.let { it to x } }.distinctBy { it.first }.filter { !cache.has(it.first) }
-                if (keys.isNotEmpty()) {
-                    var found = 0
-                    withContext(Dispatchers.IO) {
-                        keys.forEachIndexed { i, (key, x) ->
-                            val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
-                            val r = try { Tmdb.autoMatch(store, o) } catch (e: Tmdb.NoKey) { return@withContext } catch (_: Exception) { null }
-                            cache.put(key, r?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: JSONObject().put("none", true))
-                            if (r != null) found++
-                            if (i % 10 == 0) store.saveTmdb(cache)
-                            scope.launch { tmdbProg = (i + 1) to keys.size }
-                            Thread.sleep(100)
-                        }
-                        store.saveTmdb(cache)
-                    }
-                    tmdbProg = null; loadLibrary()
-                    if (found > 0) say("Matched $found movie${if (found == 1) "" else "s"} / show${if (found == 1) "" else "s"} on TMDB")
-                }
-            }
-        } finally { enriching = false }
+        } finally {
+            enriching = false
+            if (enrichAgain) autoEnrich()
+        }
     }
 }
+
+/** "No match" answers are tried again after a few days (TMDB adds titles; a title may have been mistyped then). */
+internal fun noMatch(): JSONObject = JSONObject().put("none", true).put("t", System.currentTimeMillis())
+internal fun needsMatch(m: JSONObject?): Boolean = m == null ||
+    (m.optBoolean("none") && !m.optBoolean("manual") && System.currentTimeMillis() - m.optLong("t") > 3L * 24 * 3600 * 1000)
 
 /** A new key was saved: drop earlier "not found" answers so they're tried again, then look everything up. */
 fun AppState.onKeySaved(k: String) {

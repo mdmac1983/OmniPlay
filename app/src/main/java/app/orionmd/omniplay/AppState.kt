@@ -333,10 +333,11 @@ class AppState(val ctx: Context, val host: Host) {
                 val cache = store.tmdbCache()
                 vids.forEachIndexed { i, x ->
                     val key = mkey(x) ?: return@forEachIndexed
-                    if (!force && cache.has(key)) return@forEachIndexed
+                    if (cache.optJSONObject(key)?.optBoolean("manual") == true) return@forEachIndexed   // your own fixes stay
+                    if (!force && !needsMatch(cache.optJSONObject(key))) return@forEachIndexed
                     val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
-                    val m = try { Tmdb.autoMatch(store, o) } catch (_: Exception) { null }
-                    cache.put(key, m?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: JSONObject().put("none", true))
+                    val m = try { Tmdb.autoMatch(store, o) } catch (_: Exception) { return@forEachIndexed }   // failed request: try again later
+                    cache.put(key, m?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: noMatch())
                     if (i % 10 == 0) store.saveTmdb(cache)
                     scope.launch { tmdbProg = (i + 1) to vids.size }
                     Thread.sleep(120)
@@ -358,7 +359,7 @@ class AppState(val ctx: Context, val host: Host) {
     }
     fun fixMatch(x: Item) { mkey(x)?.let { dialog = Dlg.FixMatch(it, x.pt ?: x.title, if (x.k == "tv") "tv" else if (x.k == "mv") "mv" else "movie", x.py) } }
     fun tmdbSetMatch(key: String, m: JSONObject?) {
-        val v = m ?: JSONObject().put("none", true)
+        val v = (m ?: JSONObject().put("none", true)).put("manual", true)
         // a TV show matched to a different show: its saved episode details and subtitles belonged to the old one
         val changed = key.startsWith("tv:") && tmdb[key]?.optInt("id") != v.optInt("id")
         val eps = if (changed) videos().filter { mkey(it) == key } else emptyList()

@@ -147,6 +147,9 @@ object Player {
         if (pos > 3000 || index <= 0) seek(0) else { index--; playIndex() }
     }
 
+    /** Swipe back: the previous song (the start of this one when it's the first). */
+    fun back() { when { index > 0 -> { index--; playIndex() }; repeat == "all" && queue.length() > 1 -> { index = queue.length() - 1; playIndex() }; else -> seek(0) } }
+
     fun jump(i: Int) { if (i in 0 until queue.length()) { index = i; playIndex() } }
 
     fun seek(ms: Int) { try { exo?.let { it.seekTo(ms.toLong()); Visual.basePosMs = ms.toLong() } } catch (_: Exception) {} }

@@ -6,6 +6,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,6 +52,19 @@ import app.orionmd.omniplay.Player
 import app.orionmd.omniplay.fmt
 import app.orionmd.omniplay.mmss
 
+/** Swipe left for the next song, right for the previous one; the content follows the finger a little. */
+@Composable
+private fun Modifier.songSwipe(follow: Float = .5f): Modifier {
+    var dx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    return pointerInput(Unit) {
+        val limit = 80.dp.toPx()
+        detectHorizontalDragGestures(
+            onDragEnd = { if (dx < -limit) Player.next() else if (dx > limit) Player.back(); dx = 0f },
+            onDragCancel = { dx = 0f },
+        ) { change, d -> change.consume(); dx += d }
+    }.graphicsLayer { translationX = dx * follow; alpha = 1f - (kotlin.math.abs(dx) / 1000f).coerceAtMost(.4f) }
+}
+
 private fun label(t: org.json.JSONObject) = t.optString("t").ifEmpty { t.optString("n") }
 
 @Composable
@@ -57,7 +72,7 @@ fun MiniPlayer(st: AppState) {
     val p = st.player; val t = p.track ?: return
     Box(Modifier.padding(horizontal = 8.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(C.s2).border(1.dp, C.line, RoundedCornerShape(14.dp))) {
         Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).clickable { st.sheetOpen = true }, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f).songSwipe(.25f).clickable { st.sheetOpen = true }, verticalAlignment = Alignment.CenterVertically) {
                 Thumb(st.playerArt(t), label(t), Modifier.size(44.dp), fallback = st.playerAlt(t))
                 Column(Modifier.padding(start = 10.dp).weight(1f)) {
                     Text(label(t), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -124,9 +139,11 @@ fun NowPlaying(st: AppState) {
                 }
             }
             item {
-                if (st.showLyrics) LyricsBox(st, t, p.pos, p.dur, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth().aspectRatio(.9f))
-                else if (st.showVis) NowPlayingVisual(st, t, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f))
-                else SkinArt(st, t, sk, p.playing, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth()) { st.toggleLyrics() }
+                Box(Modifier.songSwipe()) {
+                    if (st.showLyrics) LyricsBox(st, t, p.pos, p.dur, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth().aspectRatio(.9f))
+                    else if (st.showVis) NowPlayingVisual(st, t, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f))
+                    else SkinArt(st, t, sk, p.playing, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth()) { st.toggleLyrics() }
+                }
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
