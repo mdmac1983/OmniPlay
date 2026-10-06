@@ -1,5 +1,10 @@
 [
  {
+  "version": "5.4",
+  "date": "2026-10-06",
+  "notes": "App updates: don't refuse a correctly signed update"
+ },
+ {
   "version": "5.3",
   "date": "2026-10-06",
   "notes": "Gallery: asks for photo access instead of staying empty"
