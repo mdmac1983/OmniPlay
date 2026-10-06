@@ -28,6 +28,8 @@ interface Host {
     fun confirmDevice(title: String, cb: (Boolean) -> Unit)
     /** Leave the app (Back on the lock screen). */
     fun leave()
+    /** Asks Android for photo & video access (or opens the app's settings when it was refused for good); cb(true) when granted. */
+    fun askPhotoAccess(cb: (Boolean) -> Unit)
 }
 
 sealed class Page {

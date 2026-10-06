@@ -71,7 +71,10 @@ import kotlin.math.min
 @Composable
 fun GalleryScreen(st: AppState, pad: PaddingValues) {
     val g = st.gallery
-    LaunchedEffect(Unit) { if (g.items == null) st.loadGallery() }
+    // read again whenever Media Hub comes back (e.g. from Android's settings after allowing photo access)
+    LaunchedEffect(st.resumeTick) { st.loadGallery() }
+    val access = remember(st.resumeTick, g.tick) { Gallery.access(st.ctx) }
+    val askAccess = { st.host.askPhotoAccess { ok -> if (ok) st.loadGallery() } }
     var sub by remember { mutableStateOf(st.pref("gTab", "timeline")) }
     var newAlbum by remember { mutableStateOf(false) }
     var newGroup by remember { mutableStateOf(false) }
@@ -81,14 +84,19 @@ fun GalleryScreen(st: AppState, pad: PaddingValues) {
             PrivateToggle(st)
             IconBtn(Ic.folder, { folders = true })
             IconBtn(Ic.trash, { st.open(Page.GTrash) })
-            IconBtn(Ic.sync, { st.loadGallery() })
+            IconBtn(Ic.sync, { if (access == "full") st.loadGallery() else askAccess() })
         })
+        if (access == "partial") Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Muted("Showing only the photos you picked for Media Hub.", Modifier.weight(1f), 12.sp)
+            Btn("Allow all", askAccess, small = true, kind = BtnKind.Ghost)
+        }
         Seg(listOf("timeline" to "Timeline", "albums" to "Albums", "groups" to "Groups", "create" to "Create"), sub) { sub = it; st.setPref("gTab", it) }
         val items = g.items
         when {
+            access == "none" -> Empty("Media Hub isn't allowed to see your photos and videos.\nTap below and choose Allow (or, if Android opens Settings, turn on Photos and videos).", "Allow access") { askAccess() }
             items == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Progress(null) }
             items.isEmpty() && sub != "groups" && !g.all.isNullOrEmpty() -> Empty("Every folder is hidden.\nChoose which folders the Gallery shows.", "Choose folders") { folders = true }
-            items.isEmpty() && sub != "groups" -> Empty("No photos or videos found.\nAllow Media Hub to access photos and videos when Android asks, then tap refresh.", "Refresh") { st.loadGallery() }
+            items.isEmpty() && sub != "groups" -> Empty("No photos or videos found on this device.", "Refresh") { st.loadGallery() }
             sub == "timeline" -> Timeline(st, items, pad)
             sub == "albums" -> AlbumsGrid(st, items, pad) { newAlbum = true }
             sub == "groups" -> GroupsList(st, items, pad) { newGroup = true }

@@ -34,6 +34,22 @@ object Gallery {
     private val imgUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
     private val vidUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
 
+    /** "full", "partial" (Android 14 "Select photos": only the picked ones) or "none". */
+    fun access(ctx: Context): String {
+        fun has(p: String) = ctx.checkSelfPermission(p) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        return when {
+            Build.VERSION.SDK_INT >= 33 && (has(android.Manifest.permission.READ_MEDIA_IMAGES) || has(android.Manifest.permission.READ_MEDIA_VIDEO)) -> "full"
+            Build.VERSION.SDK_INT >= 34 && has("android.permission.READ_MEDIA_VISUAL_USER_SELECTED") -> "partial"
+            Build.VERSION.SDK_INT < 33 && has(android.Manifest.permission.READ_EXTERNAL_STORAGE) -> "full"
+            else -> "none"
+        }
+    }
+    fun permissions(): Array<String> = when {
+        Build.VERSION.SDK_INT >= 34 -> arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES, android.Manifest.permission.READ_MEDIA_VIDEO, "android.permission.READ_MEDIA_VISUAL_USER_SELECTED")
+        Build.VERSION.SDK_INT >= 33 -> arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES, android.Manifest.permission.READ_MEDIA_VIDEO)
+        else -> arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+
     fun load(ctx: Context, trashed: Boolean = false): List<GItem> {
         if (trashed && Build.VERSION.SDK_INT < 30) return emptyList()
         val out = ArrayList<GItem>()

@@ -34,9 +34,25 @@ class MainActivity : ComponentActivity(), Host {
     private val perms = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
         if (res.values.any { it } && ::st.isInitialized) { st.sync("device"); st.loadGallery() }
     }
+    private var photoCb: ((Boolean) -> Unit)? = null
+    private val photoPerms = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+        val ok = Gallery.access(this) != "none"
+        if (!ok && Gallery.permissions().none { shouldShowRequestPermissionRationale(it) }) openAppSettings()   // refused for good: only Settings can allow it
+        photoCb?.invoke(ok); photoCb = null
+    }
+    private fun openAppSettings() {
+        st.say("Allow \"Photos and videos\" for Media Hub, then come back")
+        try { startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } catch (_: Exception) {}
+    }
+    override fun askPhotoAccess(cb: (Boolean) -> Unit) {
+        if (Gallery.access(this) == "full") { cb(true); return }
+        photoCb = cb; Lock.ownTrip = true
+        try { photoPerms.launch(Gallery.permissions()) } catch (_: Exception) { Lock.ownTrip = false; photoCb = null; openAppSettings(); cb(false) }
+    }
     private fun askPermissions() {
         val want = if (android.os.Build.VERSION.SDK_INT >= 33) arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO, android.Manifest.permission.READ_MEDIA_VIDEO,
-            android.Manifest.permission.READ_MEDIA_IMAGES, android.Manifest.permission.POST_NOTIFICATIONS)
+            android.Manifest.permission.READ_MEDIA_IMAGES, android.Manifest.permission.POST_NOTIFICATIONS) +
+            (if (android.os.Build.VERSION.SDK_INT >= 34) arrayOf("android.permission.READ_MEDIA_VISUAL_USER_SELECTED") else emptyArray())
             else if (android.os.Build.VERSION.SDK_INT >= 29) arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
             // Android 9 and older: writing too, so downloads can go to the phone's Music / Movies / Pictures
             else arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
