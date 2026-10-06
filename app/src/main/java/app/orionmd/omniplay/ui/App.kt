@@ -96,6 +96,7 @@ private fun Router(st: AppState, page: Page, pad: androidx.compose.foundation.la
         is Page.CloudBrowse -> CloudBrowsePage(st, page, pad)
         Page.Podcasts -> PodcastsPage(st, pad)
         Page.Discover -> DiscoverScreen(st, pad)
+        is Page.TrackList -> TrackListPage(st, page, pad)
         Page.Settings -> SettingsScreen(st, pad)
         Page.Downloads -> DownloadsPage(st, pad)
         is Page.Doc -> DocPage(st, page, pad)

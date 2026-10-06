@@ -37,6 +37,8 @@ sealed class Page {
     data class CloudBrowse(val provider: String, val acctId: String, val folderId: String, val path: String) : Page()
     object Podcasts : Page()
     object Discover : Page()
+    /** Tracks of a Deezer album (previews) or an Internet Archive release (free downloads). */
+    data class TrackList(val src: String, val id: String, val title: String, val sub: String, val cover: String, val head: org.json.JSONObject) : Page()
     object Settings : Page()
     object Downloads : Page()
     /** A bundled document (GUIDE.md / FEATURES.md). */
@@ -114,6 +116,7 @@ class AppState(val ctx: Context, val host: Host) {
     fun start() {
         Cloud.init(store)
         DlQueue.onFinished = { _, ok -> scope.launch { refreshDownloads(); if (!ok) say("A download stopped — see Offline to resume it") } }
+        DlQueue.onFreeSaved = { scope.launch { rescanDeviceSoon() } }
         DlQueue.init(ctx)
         ImageLoader.init(ctx, store)
         online = Net.online(ctx)
@@ -125,7 +128,16 @@ class AppState(val ctx: Context, val host: Host) {
         if (pref("sync", "0") == "1") app.orionmd.omniplay.cloud.SyncWorker.schedule(ctx, pref("syncHours", "24").toLongOrNull() ?: 24, pref("syncWifiOnly", "1") == "1")
         countLyrics()
     }
-    fun onResume() { resumeTick++; val o = Net.online(ctx); if (o && !online) ImageLoader.bump(); online = o; refreshDownloads() }
+    /** A store link was opened: when you come back, the phone's music is rescanned so a bought song shows up. */
+    private var storeVisit = false
+    fun openStore(u: String) { storeVisit = true; openUrl(u) }
+    private var rescanJob: kotlinx.coroutines.Job? = null
+    /** Rescans "This device" a few seconds from now (once, however many downloads finish meanwhile). */
+    fun rescanDeviceSoon() {
+        if (sources.none { it.id == "device" }) return
+        rescanJob?.cancel(); rescanJob = scope.launch { kotlinx.coroutines.delay(4000); sync("device") }
+    }
+    fun onResume() { if (storeVisit) { storeVisit = false; rescanDeviceSoon() }; resumeTick++; val o = Net.online(ctx); if (o && !online) ImageLoader.bump(); online = o; refreshDownloads() }
 
     fun loadSources() {
         sources = try { JSONArray(pref("sources", "[]")).let { a -> (0 until a.length()).map { Source.of(a.getJSONObject(it)) } } } catch (_: Exception) { emptyList() }
@@ -398,6 +410,12 @@ class AppState(val ctx: Context, val host: Host) {
     // ---------- search (catalog) ----------
     var catalog by mutableStateOf<List<JSONObject>?>(null)
     fun searchCatalog(q: String) { scope.launch { catalog = withContext(Dispatchers.IO) { MusicMeta.searchCatalog(q) } } }
+    /** Plays songs straight from links (free downloads' full songs, or previews). */
+    fun playLinks(list: List<JSONObject>, start: Int) {
+        val q = JSONArray(); list.forEach { o -> q.put(JSONObject().put("i", idFor("link-" + o.optString("key").ifEmpty { o.optString("id") })).put("t", o.optString("t")).put("a", o.optString("a"))
+            .put("al", o.optString("al")).put("u", o.optString("stream").ifEmpty { o.optString("url").ifEmpty { o.optString("preview") } }).put("cv", o.optString("cover")).put("th", 0).put("d", o.optLong("d"))) }
+        Player.playQueue(ctx, "preview", q, start); pollPlayer(); sheetOpen = true
+    }
     fun playPreview(o: JSONObject) {
         val q = JSONArray().put(JSONObject().put("i", o.optLong("id")).put("t", o.optString("t")).put("a", o.optString("a")).put("al", o.optString("al"))
             .put("u", o.optString("preview")).put("cv", o.optString("cover")).put("th", 0).put("d", o.optLong("d")))

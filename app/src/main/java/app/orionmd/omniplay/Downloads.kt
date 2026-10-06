@@ -34,8 +34,9 @@ object Downloads {
     fun count(ctx: Context): Int = index(ctx).let { o -> o.keys().asSequence().count { present(ctx, o.optString(it)) } }
 
     /** Downloads go to the phone's storage (Music / Movies / Pictures → Media Hub) instead of the app's own. */
-    fun toDevice(ctx: Context) = store(ctx).getPref("dlTarget", "app") == "device" &&
-        (android.os.Build.VERSION.SDK_INT >= 29 || ctx.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+    fun toDevice(ctx: Context) = store(ctx).getPref("dlTarget", "app") == "device" && canPublish(ctx)
+    fun canPublish(ctx: Context) =
+        android.os.Build.VERSION.SDK_INT >= 29 || ctx.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
     /** Moves a finished download into Music / Movies / Pictures → Media Hub/<cloud folder>; returns where it is now. */
     fun publish(ctx: Context, item: Item, f: File): String {

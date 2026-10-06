@@ -72,7 +72,7 @@ never touched.
 | Tab | What's there |
 |---|---|
 | **Home** (Dashboard) | Library counts, trial status, **Sync all** with progress, Continue watching, Most played, **Recently added music / videos**, podcast episodes saved offline and shortcuts. |
-| **Music** | Songs, Albums, Artists, Genres, Playlists and Folders, plus search, Discover (previews), Podcasts, Sync all and rescan. |
+| **Music** | Songs, Albums, Artists, Genres, Playlists and Folders, plus search, Discover (Deezer previews, buy links, free downloads), Podcasts, Sync all and rescan. |
 | **Video** | All, Movies, TV (grouped by show) and Music videos, plus search, network streams, Sync all and rescan. |
 | **Gallery** | Every photo and video on the phone: timeline, albums, groups, viewer, editor, creative tools and trash. |
 | **Settings** | Sources, cloud accounts, API keys, library tools, sync, playback & subtitles, sound, appearance and activation. The **Guide** and **Features** links are at the bottom. |
@@ -93,6 +93,22 @@ never touched.
 - **Albums & artists:** album pages show the full official track list, with the songs you own ticked. You can preview
   the rest when online. Artist pages list their albums.
 - **Playlists:** your own, plus the automatic *Most played* and *Recently added*.
+
+### Discover: find new music
+Open **Discover** from the search icon on the Music tab. It has two halves:
+- **Deezer:** search **Songs** or **Albums** and play 30-second previews (an album opens its track list). Tap **⋯**
+  (or **Get the album**) to get the full song or album:
+  - **Open in Deezer**, if you have a subscription;
+  - or buy it as a DRM-free download from **Qobuz** (hi-res FLAC), **Bandcamp**, **7digital**, **iTunes** or **Amazon**.
+  Save the bought file on your phone; when you come back to Media Hub it rescans the phone, and the song appears in
+  your library.
+- **Free downloads:** full songs that artists share for free:
+  - **Internet Archive:** concert recordings from bands that allow taping and sharing (Live Music Archive) and
+    Creative Commons releases from netlabels. No key needed. Open a release to play it or **Download all**.
+  - **Jamendo:** thousands of Creative Commons songs. Needs a free client id: devportal.jamendo.com → sign up →
+    My applications → create one → paste the Client ID in **Settings → API keys**.
+  Play any song in full, or download it. Downloads show progress, can be paused and resumed, and are saved in
+  **Music → Media Hub → Free → Artist → Album**, where your library picks them up.
 - **Look up info automatically** (Settings → Library tools, on by default) fetches song info and TMDB matches for new
   items as soon as they're added.
 
@@ -342,7 +358,7 @@ feature.**
 |---|---|
 | Music and videos on the phone or in added folders | Streaming from the cloud (unless downloaded) |
 | Downloaded cloud files and podcast episodes | Podcast search and new episodes |
-| Sound engine, visualizers, skins, playlists, sleep timer | Discover previews |
+| Sound engine, visualizers, skins, playlists, sleep timer | Discover (previews, store links, free downloads) |
 | Everything saved by **Sync all** | First look-ups for new songs and videos (they fill in later) |
 | Subtitle and `.lrc` files next to your media | Running Sync all |
 | The whole Gallery, including the eraser after its one-time download | Downloading the eraser model (once) |

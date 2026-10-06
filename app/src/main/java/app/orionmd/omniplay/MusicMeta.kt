@@ -117,7 +117,7 @@ object MusicMeta {
     }
 
     // ---------- cover cache ----------
-    private val ALLOWED = listOf("dzcdn.net", "mzstatic.com", "theaudiodb.com", "img.youtube.com", "deezer.com")
+    private val ALLOWED = listOf("dzcdn.net", "mzstatic.com", "theaudiodb.com", "img.youtube.com", "deezer.com", "archive.org", "jamendo.com")
     /** Podcast artwork hosts (added as podcasts are shown; https only). */
     val extraHosts: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     fun coverAllowed(url: String) = try { val h = URL(url).host; ALLOWED.any { h.endsWith(it) } || (url.startsWith("https://") && h in extraHosts) } catch (e: Exception) { false }
@@ -202,13 +202,14 @@ object MusicMeta {
         (0 until r.length()).map { r.getJSONObject(it) }.map { x ->
             JSONObject().put("id", x.optLong("id")).put("t", x.optString("title")).put("a", x.optJSONObject("artist")?.optString("name") ?: "")
                 .put("al", x.optJSONObject("album")?.optString("title") ?: "").put("cover", x.optJSONObject("album")?.optString("cover_big") ?: "")
+                .put("alid", x.optJSONObject("album")?.optLong("id") ?: 0L)
                 .put("preview", x.optString("preview")).put("d", x.optInt("duration") * 1000L)
         }.filter { it.optString("preview").startsWith("https://") }
     } catch (_: Exception) {
         try {
             val r = get("https://itunes.apple.com/search?term=${enc(q)}&entity=song&limit=40").optJSONArray("results") ?: JSONArray()
             (0 until r.length()).map { r.getJSONObject(it) }.map { x ->
-                JSONObject().put("id", x.optLong("trackId")).put("t", x.optString("trackName")).put("a", x.optString("artistName")).put("al", x.optString("collectionName"))
+                JSONObject().put("src", "itunes").put("id", x.optLong("trackId")).put("t", x.optString("trackName")).put("a", x.optString("artistName")).put("al", x.optString("collectionName"))
                     .put("cover", x.optString("artworkUrl100").replace("100x100bb", "600x600bb")).put("preview", x.optString("previewUrl")).put("d", x.optLong("trackTimeMillis"))
             }.filter { it.optString("preview").startsWith("https://") }
         } catch (_: Exception) { emptyList() }

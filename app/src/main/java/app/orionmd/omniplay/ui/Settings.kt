@@ -132,6 +132,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     SecretField(st, "podKey", "Podcast Index API key", "podcastindex.org → sign up → API Keys. For the Podcasts tab.")
     SecretField(st, "podSecret", "Podcast Index API secret", "The secret shown next to the key above.")
     SecretField(st, "wyzieKey", "Wyzie Subs key (online subtitles)", "sub.wyzie.io — free key for downloadable subtitles by TMDB match.")
+    SecretField(st, "jamendoId", "Jamendo client id (free music downloads)", "devportal.jamendo.com → sign up → My applications → create one → copy the Client ID. Adds Jamendo's free Creative Commons songs to Discover → Free downloads.")
     SectionHeader("Cloud OAuth keys")
     Muted("Only needed for the clouds you connect with sign-in (pCloud, Dropbox, Google Drive). Create your own free app and paste its keys; the redirect URI to register is ${st.oauthRedirect()}", Modifier.padding(bottom = 8.dp), 12.sp)
     listOf("pcloud" to "pCloud", "dropbox" to "Dropbox", "gdrive" to "Google Drive").forEach { (id, name) ->

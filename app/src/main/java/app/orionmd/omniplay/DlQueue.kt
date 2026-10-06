@@ -15,6 +15,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.net.URL
 
 /**
  * Saving cloud (and folder) files for offline, with live progress, pause / resume and resume-after-restart.
@@ -36,6 +37,8 @@ object DlQueue {
     val entries = mutableStateMapOf<Long, Entry>()
     /** Called after a file finished (so the library can mark it as saved). */
     var onFinished: ((Long, Boolean) -> Unit)? = null
+    /** Called after a free download was saved to the phone's Music folder (so the library can rescan). */
+    var onFreeSaved: (() -> Unit)? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val jobs = HashMap<Long, Job>()
@@ -74,7 +77,7 @@ object DlQueue {
         init(ctx); var n = 0
         for (x in items) {
             if (Downloads.isDownloaded(app, x.i) || entries.containsKey(x.i)) continue
-            if (!(x.isCloud || x.u.startsWith("content://") || x.u.startsWith("file://"))) continue
+            if (!(x.isCloud || x.u.startsWith("content://") || x.u.startsWith("file://") || x.src == "free" && x.u.startsWith("https://"))) continue
             set(Entry(x.i, title(x), x.json().toString(), State.QUEUED, partSize(x.i, x.json().toString()), -1)); n++
         }
         persist(); pump(); return n
@@ -117,8 +120,11 @@ object DlQueue {
                 val dest = File(dir(), "$id.${ext(item)}"); dest.delete()
                 if (!p.renameTo(dest)) { p.copyTo(dest, true); p.delete() }
                 // the phone's own storage when chosen in Settings (else it stays in the app's storage)
-                val loc = if (Downloads.toDevice(app)) try { Downloads.publish(app, item, dest) } catch (_: Exception) { dest.path } else dest.path
+                // free downloads always go to Music → Media Hub → Free, where the library finds them
+                val free = item.src == "free" && Downloads.canPublish(app)
+                val loc = if (free || Downloads.toDevice(app)) try { Downloads.publish(app, item, dest) } catch (_: Exception) { dest.path } else dest.path
                 Downloads.register(app, item, loc)
+                if (free) onFreeSaved?.invoke()
                 entries.remove(id); jobs.remove(id); persist()
                 onFinished?.invoke(id, true)
                 pump(); return
@@ -141,8 +147,19 @@ object DlQueue {
 
     /** Appends to [p] from where it stopped; updates progress about 4× a second. */
     private suspend fun copy(item: Item, p: File, id: Long) {
-        val offset = p.length()
+        var offset = p.length()
         val (input, total) = when {
+            item.u.startsWith("https://") -> {
+                val c = URL(item.u).openConnection() as java.net.HttpURLConnection
+                c.connectTimeout = 15000; c.readTimeout = 30000; c.instanceFollowRedirects = true; c.setRequestProperty("User-Agent", Net.UA)
+                if (offset > 0) c.setRequestProperty("Range", "bytes=$offset-")
+                val code = c.responseCode
+                if (code == 416) { c.disconnect(); return }   // already complete
+                if (code !in 200..299) { c.disconnect(); throw Exception(if (code == 404) "file not found" else "server answered $code") }
+                if (code == 200 && offset > 0) { p.delete(); offset = 0 }   // the server doesn't resume: start over
+                val len = c.contentLengthLong
+                c.inputStream to (if (len > 0) len + offset else -1L)
+            }
             item.isCloud -> { val (acct, fid) = Cloud.resolve(item.u) ?: throw Exception("cloud account missing"); Cloud.open(acct, fid, offset).let { it.input to it.length } }
             else -> {
                 val u = Uri.parse(item.u)
