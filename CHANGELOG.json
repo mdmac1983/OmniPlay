@@ -1,5 +1,10 @@
 [
  {
+  "version": "4.8",
+  "date": "2026-10-06",
+  "notes": "PIN lock for the app and folders, saved-data page, gallery delete fixed"
+ },
+ {
   "version": "4.7",
   "date": "2026-10-06",
   "notes": "TMDB: posters show for automatic matches; names read without episode and quality tags"
