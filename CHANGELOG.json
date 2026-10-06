@@ -1,5 +1,10 @@
 [
  {
+  "version": "5.3",
+  "date": "2026-10-06",
+  "notes": "Gallery: asks for photo access instead of staying empty"
+ },
+ {
   "version": "5.2",
   "date": "2026-10-06",
   "notes": "Published to mdmac1983/releases, so Settings \u2192 App updates can find it"
