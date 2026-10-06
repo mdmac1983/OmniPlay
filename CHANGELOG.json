@@ -1,5 +1,10 @@
 [
  {
+  "version": "4.7",
+  "date": "2026-10-06",
+  "notes": "TMDB: posters show for automatic matches; names read without episode and quality tags"
+ },
+ {
   "version": "4.5",
   "date": "2026-10-06",
   "notes": "Discover: Deezer albums, links to get the full song, free downloads"
