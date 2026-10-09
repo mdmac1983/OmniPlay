@@ -199,9 +199,10 @@ style opens automatically, and the others remember whether you left them open.
 | **Digital gauges** (20) | Digital readouts and meters. |
 | **Digital dashboards** (21) | Full dashboard layouts. |
 | **Hi-fi faceplates** (12) | Two each in the style of McIntosh, Marantz, Onkyo, Sony ES, Kenwood and Pioneer Elite: blue watt meters, VFD displays, peak meters and spectrum analysers, with the OrionMD wordmark on the faceplate. |
-| **Supercar clusters** (18) | Two each in the style of Ferrari, LaFerrari, Lexus LFA, Porsche 911 GT3, Nissan GT-R, Mercedes G-Class, Audi, Acura NSX, Honda Civic Type R and BMW M3 Competition. Rev counters, shift lights, gears and speed all move with the music. |
+| **Supercar clusters** (21) | Two each in the style of Ferrari, LaFerrari, Lexus LFA, Porsche 911 GT3, Nissan GT-R, Mercedes G-Class, Audi, Acura NSX, Honda Civic Type R and BMW M3 Competition, plus the '90s BMW E36 M3 analogue cluster (day, night lighting, US mph). Rev counters, shift lights, gears and speed all move with the music. |
+| **Watches** (45) | Luxury chronographs in several colourways each, in the style of Rolex (Daytona, Submariner), TAG Heuer (Monaco, Carrera), Omega (Seamaster Planet Ocean), Richard Mille, Patek Philippe (5170, 5270 perpetual, Nautilus, Aquanaut), Audemars Piguet (Royal Oak, Offshore) and IWC (Portugieser, Pilot's). The hands keep the real time and date; the chronograph hand races with the music, the counters follow the bass and mids, and a halo of light pulses around the case. |
 
-The hi-fi and car styles are inspired by those designs and carry no brand logos.
+The hi-fi, car and watch styles are inspired by those designs and carry no brand logos.
 
 ---
 

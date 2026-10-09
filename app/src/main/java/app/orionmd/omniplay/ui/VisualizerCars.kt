@@ -527,3 +527,93 @@ internal fun DrawScope.carM3Track(s: VisState) {
     t("${(80 + s.mn(10, 24) * 50).toInt()}°", b.x(.8f), b.y(.83f), b.h * .1f, Color.White, F.semi); t("OIL", b.x(.8f), b.y(.89f), b.h * .04f, Color(0xFFAAB3BD), spacing = .1f)
     t("TRACK", b.x(.08f), b.y(.92f), b.h * .045f, M_RED, F.semi, Paint.Align.LEFT, spacing = .2f)
 }
+
+// ---------------------------------------------------------------- BMW E36 M3 style (the '90s analogue cluster)
+
+private class E36(val ink: Color, val needle: Color, val glow: Color?, val mph: Boolean)
+private val E36_DAY = E36(Color(0xFFF2F2F2), Color(0xFFFF4A1C), null, false)
+private val E36_NIGHT = E36(Color(0xFFFF9A2E), Color(0xFFFF3B1F), Color(0xFFFF7A10), false)
+private val E36_US = E36(Color(0xFFF2F2F2), Color(0xFFFF4A1C), null, true)
+private val M_STRIPES = listOf(Color(0xFF4FA3DD), Color(0xFF1B2F7A), Color(0xFFE2231A))
+private val E36_RED = Color(0xFFE0201B)
+
+/** One of the big round dials: black face, [labels] round a 240° sweep, red zone from [red]. */
+private fun DrawScope.e36Dial(c: Offset, r: Float, labels: List<String>, minor: Int, e: E36, red: Float? = null, px: Float = .14f) {
+    drawCircle(Brush.radialGradient(listOf(Color(0xFF121316), Color(0xFF060607)), c, r), r, c)
+    drawCircle(Color(0xFF26282C), r, c, style = Stroke(r * .025f))
+    val major = labels.size - 1; val n = major * minor
+    red?.let { drawArc(E36_RED, 150f + 240f * it, 240f * (1 - it), false, Offset(c.x - r * .88f, c.y - r * .88f), Size(r * 1.76f, r * 1.76f), style = Stroke(r * .05f)) }
+    for (k in 0..n) {
+        val f = k.toFloat() / n; val a = 150f + 240f * f; val big = k % minor == 0
+        val col = if (red != null && f >= red - .001f) E36_RED else e.ink
+        drawLine(col, pol(c, a, r * (if (big) .76f else .84f)), pol(c, a, r * .93f), if (big) r * .028f else r * .012f)
+        if (big) { val p = pol(c, a, r * .63f); t(labels[k / minor], p.x, p.y + r * px * .36f, r * px, col, glow = e.glow) }
+    }
+}
+/** The long orange-red needle with its big black cap. */
+private fun DrawScope.e36Needle(c: Offset, r: Float, v: Float, e: E36, len: Float = .9f, cap: Float = .14f) {
+    val a = 150f + 240f * v.coerceIn(0f, 1f)
+    val tip = pol(c, a, r * len); val l = pol(c, a - 90f, r * .026f); val rr = pol(c, a + 90f, r * .026f); val tail = pol(c, a + 180f, r * .2f)
+    val p = Path().apply { moveTo(tail.x, tail.y); lineTo(l.x, l.y); lineTo(tip.x, tip.y); lineTo(rr.x, rr.y); close() }
+    e.glow?.let { drawPath(p, it.copy(alpha = .35f), style = Stroke(r * .045f)) }
+    drawPath(p, e.needle)
+    drawCircle(Brush.radialGradient(listOf(Color(0xFF2C2E32), Color(0xFF09090A)), c, r * cap), r * cap, c)
+}
+/** A small gauge (fuel, temperature): a 140° arc over the top. */
+private fun DrawScope.e36Mini(c: Offset, r: Float, v: Float, e: E36, left: String, right: String, lc: Color, rc: Color, label: String) {
+    drawCircle(Color(0xFF0A0B0D), r, c); drawCircle(Color(0xFF26282C), r, c, style = Stroke(r * .05f))
+    for (k in 0..8) { val a = 200f + 140f * k / 8; val col = if (k == 0) lc else if (k == 8) rc else e.ink
+        drawLine(col, pol(c, a, r * (if (k % 4 == 0) .64f else .74f)), pol(c, a, r * .9f), r * (if (k % 4 == 0) .06f else .03f)) }
+    val pl = pol(c, 200f, r * .42f); val pr = pol(c, 340f, r * .42f)
+    t(left, pl.x + r * .08f, pl.y + r * .22f, r * .22f, lc, glow = e.glow); t(right, pr.x - r * .08f, pr.y + r * .22f, r * .22f, rc, glow = e.glow)
+    t(label, c.x, c.y + r * .55f, r * .2f, e.ink.copy(alpha = .8f), spacing = .1f, glow = e.glow)
+    val a = 200f + 140f * v.coerceIn(0f, 1f)
+    drawLine(e.needle, pol(c, a + 180f, r * .1f), pol(c, a, r * .86f), r * .05f, StrokeCap.Round)
+    drawCircle(Color(0xFF111214), r * .14f, c)
+}
+
+internal fun DrawScope.carE36(s: VisState) = e36(s, E36_DAY)
+internal fun DrawScope.carE36Night(s: VisState) = e36(s, E36_NIGHT)
+internal fun DrawScope.carE36Us(s: VisState) = e36(s, E36_US)
+
+/** The E36 M3 cluster: speedometer and rev counter with the econometer, fuel and temperature in the middle, warm-up lights on the tach. */
+private fun DrawScope.e36(s: VisState, e: E36) {
+    val b = box(.46f)
+    housing(b, Color(0xFF17181B), Color(0xFF060607), Color(0xFF2B2D31), .3f)
+    drawRoundRect(Color(0xFF07080A), Offset(b.x(.025f), b.y(.06f)), Size(b.w * .95f, b.h * .88f), CornerRadius(b.h * .3f))
+    val r = b.h * .4f; val sc = Offset(b.x(.235f), b.y(.52f)); val tc = Offset(b.x(.765f), b.y(.52f))
+    // speedometer, odometer and the service-interval lights
+    e36Dial(sc, r, if (e.mph) (0..8).map { "${it * 20}" } else (0..14).map { "${it * 20}" }, if (e.mph) 4 else 2, e, px = if (e.mph) .13f else .1f)
+    t(if (e.mph) "MPH" else "km/h", sc.x, sc.y - r * .26f, r * .09f, e.ink, glow = e.glow)
+    val lit = (s.level * 9f).toInt()
+    for (k in 0 until 7) { val col = when (k) { in 0..4 -> Color(0xFF3CE06A); 5 -> Color(0xFFFFC21C); else -> Color(0xFFFF3B3B) }
+        drawCircle(if (k < lit) col else col.copy(alpha = .12f), r * .026f, Offset(sc.x - r * .27f + k * r * .09f, sc.y + r * .34f)) }
+    val lw = r * .6f; val lh = r * .15f
+    drawRoundRect(Color(0xFF1A0C02), Offset(sc.x - lw / 2, sc.y + r * .46f), Size(lw, lh), CornerRadius(lh * .15f))
+    t("%06d".format(214753 + (s.spin * 3).toInt()), sc.x, sc.y + r * .46f + lh * .8f, lh * 1.0f, Color(0xFFFF9A2E), F.vfd, glow = Color(0xFFFF7A10))
+    e36Needle(sc, r, s.spd(), e)
+    // rev counter: red from 7,250, warm-up lights, the M stripes and the econometer
+    e36Dial(tc, r, (0..8).map { "$it" }, 5, e, red = 7.25f / 8f)
+    t("1/min x1000", tc.x, tc.y - r * .2f, r * .07f, e.ink, glow = e.glow)
+    M_STRIPES.forEachIndexed { i, col -> val x = tc.x - r * .12f + i * r * .08f
+        drawPath(Path().apply { moveTo(x, tc.y - r * .4f); lineTo(x + r * .06f, tc.y - r * .4f); lineTo(x + r * .035f, tc.y - r * .33f); lineTo(x - r * .025f, tc.y - r * .33f); close() }, col) }
+    val warm = (s.hi() * 7f).toInt()
+    for (k in 0 until 6) { val a = 150f + 240f * (4.5f + k * .45f) / 8f; val p = pol(tc, a, r * .46f)
+        drawCircle(if (k < warm) Color(0xFFFF8A1E) else Color(0xFFFF8A1E).copy(alpha = .1f), r * .028f, p) }
+    val ec = Offset(tc.x, tc.y + r * .58f); val er = r * .3f
+    listOf("5", "10", "15", "20", "30").forEachIndexed { i, l -> val a = 215f + 110f * i / 4
+        drawLine(e.ink, pol(ec, a, er * .8f), pol(ec, a, er), r * .012f); val p = pol(ec, a, er * 1.22f); t(l, p.x, p.y + r * .025f, r * .065f, e.ink, glow = e.glow) }
+    t("l/100km", ec.x, ec.y + r * .14f, r * .055f, e.ink.copy(alpha = .8f), glow = e.glow)
+    val ev = (s.mn(8, 24) * 1.3f).coerceIn(0f, 1f); val ea = 215f + 110f * ev
+    drawLine(e.needle, ec, pol(ec, ea, er * .95f), r * .02f, StrokeCap.Round); drawCircle(Color(0xFF111214), r * .04f, ec)
+    e36Needle(tc, r, s.rpm(), e)
+    // the middle: indicators, fuel and temperature
+    val cx = b.x(.5f); val gr = b.h * .12f
+    val beat = s.mn(0, 4) > .55f
+    for (side in intArrayOf(-1, 1)) { val x = cx + side * b.h * .07f; val y = b.y(.14f)
+        drawPath(Path().apply { moveTo(x + side * b.h * .035f, y); lineTo(x - side * b.h * .015f, y - b.h * .03f); lineTo(x - side * b.h * .015f, y + b.h * .03f); close() },
+            if (beat) Color(0xFF3CE06A) else Color(0xFF3CE06A).copy(alpha = .1f)) }
+    drawCircle(if (s.hi() > .5f) Color(0xFF3B7BFF) else Color(0xFF3B7BFF).copy(alpha = .1f), b.h * .02f, Offset(cx, b.y(.14f)))
+    e36Mini(Offset(cx, b.y(.38f)), gr, .3f + s.mn(16, 30) * .9f, e, "0", "1/1", E36_RED, e.ink, "FUEL")
+    e36Mini(Offset(cx, b.y(.72f)), gr, .5f + (s.mn(0, 6) - .4f) * .6f, e, "C", "H", Color(0xFF3B7BFF), E36_RED, "TEMP")
+}

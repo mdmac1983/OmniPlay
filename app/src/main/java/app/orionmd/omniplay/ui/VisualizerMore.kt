@@ -104,7 +104,23 @@ internal val VIS_REG: List<VisDef> = run {
         t("car_audi", "Virtual cockpit (Audi style)", null) { carAudi(it) }, t("car_audi_sport", "Sport view (Audi style)", null) { carAudiSport(it) },
         t("car_nsx_classic", "'90s analogue (Acura NSX style)", null) { carNsxClassic(it) }, t("car_nsx", "Drive-mode ring (Acura NSX style)", null) { carNsx(it) },
         t("car_typer", "Digital rev arc (Honda Civic Type R style)", null) { carTypeR(it) }, t("car_typer_plus", "+R mode (Honda Civic Type R style)", null) { carTypeRPlus(it) },
-        t("car_m3", "Digital cockpit (BMW M3 Competition style)", null) { carM3(it) }, t("car_m3_track", "M Track mode (BMW M3 Competition style)", null) { carM3Track(it) })
+        t("car_m3", "Digital cockpit (BMW M3 Competition style)", null) { carM3(it) }, t("car_m3_track", "M Track mode (BMW M3 Competition style)", null) { carM3Track(it) },
+        t("car_e36", "Classic analogue (BMW E36 M3 style)", null) { carE36(it) }, t("car_e36_night", "Night lighting (BMW E36 M3 style)", null) { carE36Night(it) },
+        t("car_e36_us", "US mph (BMW E36 M3 style)", null) { carE36Us(it) })
+    // luxury chronographs (no logos; the brand only names the style). The hands keep real time, the music runs the chronograph
+    fun <T> w(id: String, model: String, brand: String, list: List<Pair<String, T>>, f: DrawScope.(VisState, T) -> Unit) =
+        list.forEachIndexed { i, (name, d) -> l += VisDef("w_${id}_$i", (if (model.isEmpty()) name else "$model — $name") + " ($brand style)", "Watches", null) { f(it, d) } }
+    w("daytona", "Daytona", "Rolex", DAYTONAS) { s, d -> wDaytona(s, d) }
+    w("sub", "Submariner chrono", "Rolex", SUBS) { s, d -> wSub(s, d) }
+    w("monaco", "Monaco", "TAG Heuer", MONACOS) { s, d -> wMonaco(s, d) }
+    w("carrera", "Carrera", "TAG Heuer", CARRERAS) { s, d -> wCarrera(s, d) }
+    w("planet", "Seamaster Planet Ocean", "Omega", PLANETS) { s, d -> wPlanet(s, d) }
+    w("rm", "RM chronograph", "Richard Mille", RICHARDS) { s, d -> wRichard(s, d) }
+    w("patek", "", "Patek Philippe", PATEKS) { s, d -> wPatek(s, d) }
+    w("naut", "", "Patek Philippe", NAUTILUSES) { s, d -> wNautilus(s, d) }
+    w("ro", "Royal Oak chrono", "Audemars Piguet", ROYALS) { s, d -> wRoyalOak(s, d) }
+    w("port", "Portugieser chrono", "IWC", PORTUGIESERS) { s, d -> wPortugieser(s, d) }
+    w("pilot", "Pilot's chrono", "IWC", PILOTS) { s, d -> wPilot(s, d) }
     l
 }
 

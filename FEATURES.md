@@ -58,12 +58,26 @@ piano black blue). No brand names or logos: each carries the OrionMD name in mat
 dial pointer (it follows the song) and the volume knobs move with the music. Pick them under Visualizer → Hi-fi faceplates.
 
 ### Supercar cluster visualizers
-Sixteen visualizers drawn as car instrument clusters, two looks each, in the style of Ferrari (yellow rev counter ·
+Twenty-one visualizers drawn as car instrument clusters, two looks each, in the style of Ferrari (yellow rev counter ·
 LaFerrari hypercar carbon), Lexus LFA (moving ring · ring slid aside), Porsche 911 GT3 (five dials · track screen),
 Nissan GT-R (red-ring cluster · multi-function display), Mercedes G-Class (chrome twin dials · widescreen cockpit),
 Audi (virtual cockpit · sport view), Acura NSX ('90s analogue · drive-mode ring) and Honda Civic Type R (digital rev
-arc · +R mode). No badges or logos. The beat is the rev counter (needles, rev bars and shift lights), the mids are the
-speed, the spectrum fills the screens, G-meters and power bars.
+arc · +R mode), plus BMW M3 Competition (digital cockpit · M Track mode) and the '90s BMW E36 M3 analogue cluster (day
+lighting · orange night lighting · US mph): speedometer and rev counter with the econometer, fuel and temperature gauges,
+warm-up lights and service-interval lights. No badges or logos. The beat is the rev counter (needles, rev bars and shift
+lights), the mids are the speed, the spectrum fills the screens, G-meters and power bars.
+
+### Watch visualizers
+Forty-five luxury chronographs in their own **Watches** group, several colourways each, in the style of Rolex (Daytona:
+panda, black, green & gold, Paul Newman, platinum ice blue, rose gold chocolate · Submariner with a chronograph hand:
+black, "Hulk", "Kermit", "Smurf", two-tone "Bluesy", vintage gilt), TAG Heuer (square Monaco: blue, black, Gulf ·
+Carrera: black, panda, green), Omega Seamaster Planet Ocean (black & orange, blue, white, titanium grey), Richard Mille
+(tonneau skeleton: carbon & red, white & red, orange, blue & lime), Patek Philippe (5170 chronograph in white gold and
+yellow gold, 5270 perpetual with day, month and moon phase, Nautilus blue and rose gold, Aquanaut orange and khaki),
+Audemars Piguet (Royal Oak blue, panda, rose gold, black ceramic, Offshore) and IWC (Portugieser silver & blue, blue &
+red gold, green · Pilot's black, Top Gun ceramic, Spitfire bronze, Le Petit Prince). No logos: the dials say OrionMD.
+The hands keep the real time and date; the chronograph hand sweeps faster the louder the music, the counters follow the
+bass and mids, the lume glows on the beat and a halo of spectrum light rings the case.
 
 The visualizer picker's groups fold open and closed (tap a group); the group of the style you're using opens by itself.
 The version number shows on the splash screen and in the Settings footer.
