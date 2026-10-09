@@ -1,5 +1,10 @@
 [
  {
+  "version": "5.6",
+  "date": "2026-10-09",
+  "notes": "Visualizers: Watches (45 luxury chronographs) and the BMW E36 M3 cluster"
+ },
+ {
   "version": "5.5",
   "date": "2026-10-06",
   "notes": "Merge branch 'claude/omniplay-hybrid-player-wr31no' of https://github.com/mdmac1983/OmniPlay into claude/omniplay-hybrid-player-wr31no"
