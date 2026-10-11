@@ -284,7 +284,7 @@ A VLC-style player with Media Hub's sound engine and its own subtitle layer.
   - **Long exposure:** blends a video or burst into one shot.
   - **Videos in the gallery** play one after another — tap **Auto-next** in the top bar to turn that off. The full
     player carries on through the following videos too. Camera videos (DCIM and Pictures) stay in the Gallery and are
-    left out of the Video tab, so they don't show twice (Settings → Library → Camera videos in Videos to show them there).
+    left out of the Video tab, so they don't show twice (Settings → Library tools → Camera videos in Videos to show them there).
   - **Movie & Reel:** clips and photos with trims, fades, titles, captions and background music from your library.
     - Clips go into the movie **in the order you pick them** (the numbers on the thumbnails). **Hold a clip and drag** in the
       storyboard to move it; the + button adds or removes media and keeps your edits.
