@@ -1,5 +1,10 @@
 [
  {
+  "version": "5.8",
+  "date": "2026-10-11",
+  "notes": "Movie & Reel: drag text anywhere, song start/stop, split / cut / duplicate clips; gallery auto-next; camera videos stay out of Videos"
+ },
+ {
   "version": "5.7",
   "date": "2026-10-11",
   "notes": "Movie & Reel: pick order kept, drag to reorder, filters & effects, quality / fps / size"
