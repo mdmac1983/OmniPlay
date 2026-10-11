@@ -1,5 +1,10 @@
 [
  {
+  "version": "5.7",
+  "date": "2026-10-11",
+  "notes": "Movie & Reel: pick order kept, drag to reorder, filters & effects, quality / fps / size"
+ },
+ {
   "version": "5.6",
   "date": "2026-10-09",
   "notes": "Visualizers: Watches (45 luxury chronographs) and the BMW E36 M3 cluster"
