@@ -36,12 +36,15 @@ object PCloud : CloudProvider {
 
     override fun list(acct: CloudAccount, folderId: String): List<CloudFile> {
         val fid = folderId.ifEmpty { "0" }
-        val r = Http.getJson("https://${host(acct)}/listfolder?folderid=$fid&access_token=${Http.enc(token(acct))}")
+        val r = Http.getJson("https://${host(acct)}/listfolder?folderid=$fid&timeformat=timestamp&access_token=${Http.enc(token(acct))}")
         if (r.optInt("result") != 0) throw Exception(r.optString("error", "pCloud error"))
         val contents = r.optJSONObject("metadata")?.optJSONArray("contents") ?: return emptyList()
         return contents.objs().map { o ->
             val dir = o.optBoolean("isfolder")
-            CloudFile(if (dir) o.optLong("folderid").toString() else "f" + o.optLong("fileid"), o.optString("name"), dir, o.optLong("size"), o.optLong("modified") * 1000)
+            CloudFile(if (dir) o.optLong("folderid").toString() else "f" + o.optLong("fileid"), o.optString("name"), dir, o.optLong("size"),
+                // when it was added to pCloud (Unix seconds — without timeformat=timestamp pCloud sends text dates, which
+                // read as 0 and made "Recently added" / "Date added" meaningless)
+                (o.optLong("created").takeIf { it > 0 } ?: o.optLong("modified")) * 1000)
         }
     }
 

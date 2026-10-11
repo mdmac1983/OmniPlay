@@ -6,6 +6,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,6 +52,19 @@ import app.orionmd.omniplay.Player
 import app.orionmd.omniplay.fmt
 import app.orionmd.omniplay.mmss
 
+/** Swipe left for the next song, right for the previous one; the content follows the finger a little. */
+@Composable
+private fun Modifier.songSwipe(follow: Float = .5f): Modifier {
+    var dx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    return pointerInput(Unit) {
+        val limit = 80.dp.toPx()
+        detectHorizontalDragGestures(
+            onDragEnd = { if (dx < -limit) Player.next() else if (dx > limit) Player.back(); dx = 0f },
+            onDragCancel = { dx = 0f },
+        ) { change, d -> change.consume(); dx += d }
+    }.graphicsLayer { translationX = dx * follow; alpha = 1f - (kotlin.math.abs(dx) / 1000f).coerceAtMost(.4f) }
+}
+
 private fun label(t: org.json.JSONObject) = t.optString("t").ifEmpty { t.optString("n") }
 
 @Composable
@@ -57,7 +72,7 @@ fun MiniPlayer(st: AppState) {
     val p = st.player; val t = p.track ?: return
     Box(Modifier.padding(horizontal = 8.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(C.s2).border(1.dp, C.line, RoundedCornerShape(14.dp))) {
         Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).clickable { st.sheetOpen = true }, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f).songSwipe(.25f).clickable { st.sheetOpen = true }, verticalAlignment = Alignment.CenterVertically) {
                 Thumb(st.playerArt(t), label(t), Modifier.size(44.dp), fallback = st.playerAlt(t))
                 Column(Modifier.padding(start = 10.dp).weight(1f)) {
                     Text(label(t), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -81,6 +96,7 @@ fun NowPlaying(st: AppState) {
     val p = st.player; val t = p.track
     if (t == null) { androidx.compose.runtime.LaunchedEffect(Unit) { st.sheetOpen = false }; return }
     var seek by remember { mutableStateOf<Float?>(null) }
+    var optionsOpen by remember { mutableStateOf(false) }
     val queue = remember(p.index, p.size, t.optLong("i")) { Player.queue.let { q -> (maxOf(0, p.index) until minOf(q.length(), p.index + 30)).map { it to q.getJSONObject(it) } } }
     st.prefGen
     val sk = skinOf(st.pref("playerSkin", "midnight"))
@@ -123,14 +139,17 @@ fun NowPlaying(st: AppState) {
                 }
             }
             item {
-                if (st.showLyrics) LyricsBox(st, t, p.pos, p.dur, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth().aspectRatio(.9f))
-                else if (st.showVis) NowPlayingVisual(st, t, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f))
-                else SkinArt(st, t, sk, p.playing, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth()) { st.toggleLyrics() }
+                Box(Modifier.songSwipe()) {
+                    if (st.showLyrics) LyricsBox(st, t, p.pos, p.dur, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth().aspectRatio(.9f))
+                    else if (st.showVis) NowPlayingVisual(st, t, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f))
+                    else SkinArt(st, t, sk, p.playing, Modifier.padding(top = 10.dp).widthIn(max = 420.dp).fillMaxWidth()) { st.toggleLyrics() }
+                }
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.size(40.dp))
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        SkinLogo(sk.id, Modifier.padding(bottom = 6.dp).height(40.dp).widthIn(max = 160.dp))
                         Text(label(t), fontSize = 22.sp, fontWeight = if (sk.heavy) FontWeight.Black else FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = sk.font,
                             fontStyle = if (sk.italic) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
                             color = if (sk.boxTitle) Color.White else sk.text,
@@ -169,6 +188,7 @@ fun NowPlaying(st: AppState) {
                     IconBtn(Ic.tune, { st.soundOpen = true }, tint = if (app.orionmd.omniplay.Dsp.cfg.on || (st.pref("boost", "0").toIntOrNull() ?: 0) > 0) sk.accent else sk.text)
                     IconBtn(Ic.playlistAdd, { st.dialog = app.orionmd.omniplay.Dlg.AddToPlaylist(Player.queue.let { q -> (0 until q.length()).map { q.getJSONObject(it).optLong("i") } }, queue = true) }, tint = sk.text)
                     IconBtn(Ic.expand, { st.visFull = true }, tint = sk.text)
+                    IconBtn(Ic.more, { optionsOpen = true }, tint = sk.text)
                 }
                 val msg = p.error.ifEmpty { if (p.preparing) "Loading…" else "" }
                 if (msg.isNotEmpty()) Text(msg, color = C.warn, fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
@@ -185,6 +205,7 @@ fun NowPlaying(st: AppState) {
         }
         }
     }
+    if (optionsOpen) MusicOptions(st) { optionsOpen = false }
 }
 
 /** Lyrics for the playing song: time-synced ones follow the music (tap a line to jump there), plain ones scroll. */
