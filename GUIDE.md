@@ -283,6 +283,13 @@ A VLC-style player with Media Hub's sound engine and its own subtitle layer.
   - **Animated GIF:** made from photos or from part of a video.
   - **Long exposure:** blends a video or burst into one shot.
   - **Movie & Reel:** clips and photos with trims, fades, titles, captions and background music from your library.
+    - Clips go into the movie **in the order you pick them** (the numbers on the thumbnails). **Hold a clip and drag** in the
+      storyboard to move it; the + button adds or removes media and keeps your edits.
+    - **Filters & effects:** 12 filters (Vivid, Warm, Cool, Golden hour, Faded, Vintage, Sepia, Black & white, Noir, Teal &
+      orange, Negative), brightness, contrast and saturation, vignette, soft focus and mirror. Each clip can use the
+      movie's filter or its own. The preview shows the look.
+    - **Quality & size:** 480p, 720p, 1080p or 4K; 24, 30 or 60 fps; Low, Medium or High quality. The estimate shows about
+      how big the file will be — lower settings make a smaller file.
     Formats are 9:16, 16:9, square and 4:5, and the result is saved to Movies/Media Hub.
 - **Folders:** choose which phone folders appear (for example, hide Screenshots). Nothing is moved or deleted.
 - **Trash:** deleted items wait 30 days (Android 11+), so you can restore them or delete them for good.

@@ -165,7 +165,7 @@ private fun SelectionBar(st: AppState) {
             val photos = chosen.filter { !it.video }
             Btn("Collage", { st.open(Page.GCreate("collage", photos.take(9))) }, small = true, kind = BtnKind.Pill, modifier = Modifier.padding(end = 6.dp))
             Btn("GIF", { st.open(Page.GCreate("gif", chosen.take(60))) }, small = true, kind = BtnKind.Pill, modifier = Modifier.padding(end = 6.dp))
-            Btn("Movie", { st.open(Page.GCreate("movie", chosen.take(60))) }, small = true, kind = BtnKind.Pill, modifier = Modifier.padding(end = 6.dp))
+            Btn("Movie", { val byKey = chosen.associateBy { it.key }; st.open(Page.GCreate("movie", g.sel.mapNotNull { byKey[it] }.take(60))) }, small = true, kind = BtnKind.Pill, modifier = Modifier.padding(end = 6.dp))
             Btn("Long exposure", { st.open(Page.GCreate("exposure", chosen.take(60))) }, small = true, kind = BtnKind.Pill, modifier = Modifier.padding(end = 6.dp))
         }
     }
@@ -823,29 +823,32 @@ private fun CropOverlay(r: RectF, aspect: Float, onChange: (RectF) -> Unit) {
 fun GCreateScreen(st: AppState, p: Page.GCreate, pad: PaddingValues) {
     var picked by remember { mutableStateOf(p.items) }
     var picking by remember { mutableStateOf(p.items.isEmpty()) }
+    // the movie being made survives going back to add or remove media
+    val reelState = remember { mutableStateOf<Reel?>(null) }
     val title = when (p.kind) { "collage" -> "Collage"; "gif" -> "Animated GIF"; "movie" -> "Movie & Reel"; else -> "Long exposure" }
     if (picking) {
-        MultiPick(st, title, when (p.kind) { "collage" -> "Choose 2–9 photos"; "movie" -> "Choose photos and videos, in order"; else -> "Choose one video, or several photos" }, videos = p.kind != "collage", onCancel = { if (picked.isEmpty()) st.back() else picking = false }) { picked = it; picking = false }
+        MultiPick(st, title, when (p.kind) { "collage" -> "Choose 2–9 photos"; "movie" -> "Choose photos and videos, in order"; else -> "Choose one video, or several photos" }, videos = p.kind != "collage", initial = picked.map { it.key }, onCancel = { if (picked.isEmpty()) st.back() else picking = false }) { picked = it; picking = false }
         return
     }
     when (p.kind) {
         "collage" -> CollageTool(st, picked.filter { !it.video }) { picking = true }
         "gif" -> FramesTool(st, picked, gif = true) { picking = true }
-        "movie" -> ReelTool(st, picked) { picking = true }
+        "movie" -> ReelTool(st, picked, reelState) { picking = true }
         else -> FramesTool(st, picked, gif = false) { picking = true }
     }
 }
 
 @Composable
-private fun MultiPick(st: AppState, title: String, hint: String, videos: Boolean, onCancel: () -> Unit, onDone: (List<GItem>) -> Unit) {
+private fun MultiPick(st: AppState, title: String, hint: String, videos: Boolean, initial: List<String> = emptyList(), onCancel: () -> Unit, onDone: (List<GItem>) -> Unit) {
     LaunchedEffect(Unit) { if (st.gallery.items == null) st.loadGallery() }
     val all = st.gallery.items.orEmpty().filter { videos || !it.video }
-    val chosen = remember { mutableStateListOf<String>() }
+    val chosen = remember { mutableStateListOf<String>().apply { addAll(initial) } }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.statusBarsPadding().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBtn(Ic.close, onCancel)
             Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp); Muted("$hint · ${chosen.size} chosen", size = 12.sp) }
-            Btn("Next", { onDone(all.filter { it.key in chosen }) }, small = true)
+            // in the order they were picked (the numbers on the thumbnails)
+        Btn("Next", { val byKey = all.associateBy { it.key }; onDone(chosen.mapNotNull { byKey[it] }) }, small = true)
         }
         LazyVerticalGrid(GridCells.Fixed(4), contentPadding = PaddingValues(4.dp)) {
             items(all, key = { it.key }) { x ->

@@ -22,6 +22,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,17 +33,22 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.orionmd.omniplay.*
 import kotlinx.coroutines.Job
+import sh.calvin.reorderable.ReorderableItem
 import kotlinx.coroutines.launch
 
 private val sliderColors @Composable get() = SliderDefaults.colors(thumbColor = C.ac, activeTrackColor = C.ac)
 
 /** Movies & Reels: a storyboard of clips (trim, reorder, caption), format, transitions, title and music → MP4. */
 @Composable
-internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
+internal fun ReelTool(st: AppState, picked: List<GItem>, saved: MutableState<Reel?>, onRepick: () -> Unit) {
+    fun newClip(it: GItem) = if (it.video) Clip(it, 0, minOf(it.dur, 15_000).coerceAtLeast(500)) else Clip(it)
     var reel by remember(picked) {
-        mutableStateOf(Reel(clips = picked.take(60).map { if (it.video) Clip(it, 0, minOf(it.dur, 15_000).coerceAtLeast(500)) else Clip(it) },
-            format = if (picked.count { it.w > it.h } > picked.size / 2) "16:9" else "9:16"))
+        val prev = saved.value
+        mutableStateOf(if (prev == null) Reel(clips = picked.take(60).map(::newClip), format = if (picked.count { it.w > it.h } > picked.size / 2) "16:9" else "9:16")
+            // back from adding media: keep the edits and the order, drop what was unticked, add the new picks at the end
+            else prev.copy(clips = prev.clips.filter { c -> picked.any { it.key == c.item.key } } + picked.filter { p -> prev.clips.none { it.item.key == p.key } }.map(::newClip)))
     }
+    LaunchedEffect(reel) { saved.value = reel }
     var sel by remember(picked) { mutableIntStateOf(0) }
     var pickMusic by remember { mutableStateOf(false) }
     val preview = rememberMusicPreview()
@@ -80,7 +87,14 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
         Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
             val (w, h) = reel.size()
             Box(Modifier.fillMaxHeight().aspectRatio(w.toFloat() / h, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(10.dp)).background(Color.Black)) {
-                if (cur != null) Thumb(Img.Thumb(cur.item.uri, cur.item.video), "", Modifier.fillMaxSize(), px = 720, corner = 0.dp)
+                if (cur != null) {
+                    val look = reel.look(cur)
+                    Thumb(Img.Thumb(cur.item.uri, cur.item.video), "", Modifier.fillMaxSize()
+                        .graphicsLayer { if (reel.mirror) scaleX = -1f }.let { if (reel.soft && android.os.Build.VERSION.SDK_INT >= 31) it.blur(2.dp) else it }, px = 720, corner = 0.dp,
+                        contentScale = if (reel.fill) androidx.compose.ui.layout.ContentScale.Crop else androidx.compose.ui.layout.ContentScale.Fit,
+                        colorFilter = if (MovieFx.isIdentity(look)) null else androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix(MovieFx.compose(look))))
+                    if (reel.vignette) Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color.Transparent, Color.Transparent, Color(0xA0000000)))))
+                }
                 if (sel == 0 && reel.title.isNotBlank()) Text(reel.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.align(Alignment.Center).background(Color(0x88000000)).padding(horizontal = 8.dp))
                 if (cur != null && cur.caption.isNotBlank()) Text(cur.caption, color = Color.White, fontSize = 14.sp,
@@ -90,11 +104,23 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
         }
 
         // storyboard
-        LazyRow(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            itemsIndexed(reel.clips) { i, c ->
-                Box(Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, if (i == sel) C.ac else Color.Transparent, RoundedCornerShape(8.dp)).clickable { sel = i }) {
-                    Thumb(Img.Thumb(c.item.uri, c.item.video), "", Modifier.fillMaxSize(), px = 160, corner = 8.dp)
-                    Text(mmss(c.lenMs), color = Color.White, fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomEnd).background(Color(0x99000000)).padding(horizontal = 3.dp))
+        // storyboard: tap a clip to edit it, hold and drag to move it
+        val rowState = androidx.compose.foundation.lazy.rememberLazyListState()
+        val dragState = sh.calvin.reorderable.rememberReorderableLazyListState(rowState) { from, to ->
+            val a = reel.clips.indexOfFirst { it.id == from.key }; val b = reel.clips.indexOfFirst { it.id == to.key }
+            if (a >= 0 && b >= 0) { val selId = reel.clips.getOrNull(sel)?.id
+                reel = reel.copy(clips = reel.clips.toMutableList().apply { add(b, removeAt(a)) }); sel = reel.clips.indexOfFirst { it.id == selId }.coerceAtLeast(0) }
+        }
+        Muted("Hold a clip and drag to change the order", Modifier.padding(start = 14.dp, top = 6.dp), 11.sp)
+        LazyRow(Modifier.fillMaxWidth().padding(vertical = 6.dp), state = rowState, contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            itemsIndexed(reel.clips, key = { _, c -> c.id }) { i, c ->
+                ReorderableItem(dragState, key = c.id) { dragging ->
+                    Box(Modifier.size(if (dragging) 72.dp else 64.dp).longPressDraggableHandle().clip(RoundedCornerShape(8.dp))
+                        .border(2.dp, if (i == sel || dragging) C.ac else Color.Transparent, RoundedCornerShape(8.dp)).clickable { sel = i }) {
+                        Thumb(Img.Thumb(c.item.uri, c.item.video), "", Modifier.fillMaxSize(), px = 160, corner = 8.dp)
+                        Text("${i + 1}", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopStart).background(Color(0x99000000)).padding(horizontal = 3.dp))
+                        Text(mmss(c.lenMs), color = Color.White, fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomEnd).background(Color(0x99000000)).padding(horizontal = 3.dp))
+                    }
                 }
             }
             item {
@@ -102,7 +128,7 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
             }
         }
 
-        Column(Modifier.fillMaxWidth().heightIn(max = 300.dp).background(C.s1).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.fillMaxWidth().heightIn(max = 360.dp).background(C.s1).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             // ---- selected clip
             if (cur != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -124,6 +150,11 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
                         Slider(cur.photoMs / 1000f, { setClip(sel, cur.copy(photoMs = (it * 10).toLong() * 100)) }, valueRange = 1f..10f, modifier = Modifier.weight(1f), colors = sliderColors)
                     }
                 }
+                Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                    Muted("Filter", Modifier.width(56.dp), 12.sp)
+                    Btn("Same as movie", { setClip(sel, cur.copy(filter = null)) }, small = true, kind = if (cur.filter == null) BtnKind.Primary else BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp))
+                    MovieFx.FILTERS.forEach { (k, l) -> Btn(l, { setClip(sel, cur.copy(filter = k)) }, small = true, kind = if (cur.filter == k) BtnKind.Primary else BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp)) }
+                }
                 Btn(if (cur.caption.isBlank()) "Add caption" else "Caption: ${cur.caption}", { captionEdit = true }, small = true, kind = BtnKind.Ghost)
             }
 
@@ -144,6 +175,55 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, onRepick: () -> Unit) {
                 Btn("Zoom on photos", { reel = reel.copy(kenBurns = !reel.kenBurns) }, small = true, kind = if (reel.kenBurns) BtnKind.Primary else BtnKind.Ghost)
             }
             Btn(if (reel.title.isBlank()) "Add title" else "Title: ${reel.title}", { titleEdit = true }, small = true, kind = BtnKind.Ghost)
+
+            SectionHeader("Filters & effects")
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                MovieFx.FILTERS.forEach { (k, l) ->
+                    // each filter shown on the current clip
+                    val m = MovieFx.matrix(k, 0f, 0f, 0f)
+                    Column(Modifier.padding(end = 8.dp).width(64.dp).clickable { reel = reel.copy(filter = k) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, if (reel.filter == k) C.ac else Color.Transparent, RoundedCornerShape(8.dp))) {
+                            cur?.let { Thumb(Img.Thumb(it.item.uri, it.item.video), "", Modifier.fillMaxSize(), px = 160, corner = 8.dp,
+                                colorFilter = if (MovieFx.isIdentity(m)) null else androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix(MovieFx.compose(m)))) }
+                        }
+                        Text(l, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (reel.filter == k) C.ac else C.tx)
+                    }
+                }
+            }
+            listOf(Triple("Brightness", reel.brightness) { v: Float -> reel = reel.copy(brightness = v) },
+                Triple("Contrast", reel.contrast) { v: Float -> reel = reel.copy(contrast = v) },
+                Triple("Saturation", reel.saturation) { v: Float -> reel = reel.copy(saturation = v) }).forEach { (l, v, set) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Muted("$l ${if (v >= 0) "+" else ""}${(v * 100).toInt()}", Modifier.width(110.dp), 12.sp)
+                    Slider(v, set, valueRange = -1f..1f, modifier = Modifier.weight(1f), colors = sliderColors)
+                }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                Btn("Vignette", { reel = reel.copy(vignette = !reel.vignette) }, small = true, kind = if (reel.vignette) BtnKind.Primary else BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp))
+                Btn("Soft focus", { reel = reel.copy(soft = !reel.soft) }, small = true, kind = if (reel.soft) BtnKind.Primary else BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp))
+                Btn("Mirror", { reel = reel.copy(mirror = !reel.mirror) }, small = true, kind = if (reel.mirror) BtnKind.Primary else BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp))
+                Btn("Reset look", { reel = reel.copy(filter = "none", brightness = 0f, contrast = 0f, saturation = 0f, vignette = false, soft = false, mirror = false) }, small = true, kind = BtnKind.Ghost)
+            }
+
+            SectionHeader("Quality & size")
+            Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                Muted("Size", Modifier.width(56.dp), 12.sp)
+                listOf(480 to "480p", 720 to "720p", 1080 to "1080p HD", 2160 to "4K").forEach { (k, l) ->
+                    Btn(l, { reel = reel.copy(res = k) }, small = true, kind = if (reel.res == k) BtnKind.Primary else BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp)) }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                Muted("Frames", Modifier.width(56.dp), 12.sp)
+                listOf(24 to "24 fps (film)", 30 to "30 fps", 60 to "60 fps (smooth)").forEach { (k, l) ->
+                    Btn(l, { reel = reel.copy(fps = k) }, small = true, kind = if (reel.fps == k) BtnKind.Primary else BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp)) }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                Muted("Quality", Modifier.width(56.dp), 12.sp)
+                listOf("low" to "Low (smallest)", "medium" to "Medium", "high" to "High (biggest)").forEach { (k, l) ->
+                    Btn(l, { reel = reel.copy(quality = k) }, small = true, kind = if (reel.quality == k) BtnKind.Primary else BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp)) }
+            }
+            val (ow, oh) = reel.size()
+            Muted("${ow}×$oh · ${reel.fps} fps · ${"%.1f".format(reel.bitrate() / 1e6)} Mbit/s → about ${bytes(reel.estimateBytes())}" +
+                (if (reel.fps == 60) " · 60 fps only where the clips themselves are 60 fps" else ""), size = 12.sp)
 
             SectionHeader("Sound")
             Row(verticalAlignment = Alignment.CenterVertically) {
