@@ -282,9 +282,16 @@ A VLC-style player with Media Hub's sound engine and its own subtitle layer.
   - **Collage:** 2–9 photos, with layouts, shapes and spacing.
   - **Animated GIF:** made from photos or from part of a video.
   - **Long exposure:** blends a video or burst into one shot.
+  - **Videos in the gallery** play one after another — tap **Auto-next** in the top bar to turn that off. The full
+    player carries on through the following videos too. Camera videos (DCIM and Pictures) stay in the Gallery and are
+    left out of the Video tab, so they don't show twice (Settings → Library → Camera videos in Videos to show them there).
   - **Movie & Reel:** clips and photos with trims, fades, titles, captions and background music from your library.
     - Clips go into the movie **in the order you pick them** (the numbers on the thumbnails). **Hold a clip and drag** in the
       storyboard to move it; the + button adds or removes media and keeps your edits.
+    - **Text:** drag the title or a caption anywhere on the picture; the movie puts it in the same place.
+    - **Video clips:** trim the ends, **split** a clip in two, **cut out** a piece from the middle, or **duplicate** it.
+    - **Music:** pick where the song starts and stops (it plays a few seconds so you can hear the spot); the chosen part
+      repeats if the movie is longer.
     - **Filters & effects:** 12 filters (Vivid, Warm, Cool, Golden hour, Faded, Vintage, Sepia, Black & white, Noir, Teal &
       orange, Negative), brightness, contrast and saturation, vignette, soft focus and mirror. Each clip can use the
       movie's filter or its own. The preview shows the look.

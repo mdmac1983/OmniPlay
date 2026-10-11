@@ -50,11 +50,13 @@ import kotlin.math.abs
  * [filter] overrides the movie's filter for this clip (null = same as the movie).
  */
 data class Clip(val item: GItem, val startMs: Long = 0, val endMs: Long = 0, val photoMs: Long = 3000, val caption: String = "",
-                val filter: String? = null, val id: Long = nextClipId()) {
+                val filter: String? = null, val id: Long = nextClipId(),
+                /** where the caption sits: -1..1 across and down the frame (0, 0 = middle) */
+                val capX: Float = 0f, val capY: Float = .78f) {
     val lenMs get() = if (item.video) (endMs - startMs).coerceAtLeast(300) else photoMs
 }
 private var clipIds = 0L
-private fun nextClipId() = ++clipIds
+fun nextClipId() = ++clipIds
 
 /** Colour filters: a 3×4 colour matrix (rows r, g, b: three weights then an offset, 0..1 scale). */
 object MovieFx {
@@ -111,6 +113,10 @@ data class Reel(
     val title: String = "",
     val music: Item? = null,
     val musicStartMs: Long = 0,
+    /** where the song stops (0 = the end of the song); the chosen part repeats if the movie is longer */
+    val musicEndMs: Long = 0,
+    /** where the title sits: -1..1 across and down the frame */
+    val titleX: Float = 0f, val titleY: Float = 0f,
     val musicVol: Float = 0.8f,
     val clipVol: Float = 1f,
     /** picture size: the short side in pixels (480, 720, 1080, 2160) */
@@ -184,8 +190,8 @@ object MovieMaker {
             if (reel.transition == "fade") video += Fade(lenUs, fadeUs, fadeIn = true, fadeOut = true)
             else if (i == 0 || i == reel.clips.lastIndex) video += Fade(lenUs, fadeUs, fadeIn = i == 0, fadeOut = i == reel.clips.lastIndex)
             val texts = mutableListOf<androidx.media3.effect.TextureOverlay>()
-            if (i == 0 && reel.title.isNotBlank()) texts += text(reel.title, 0f, 0f, 2.2f, w)
-            if (c.caption.isNotBlank()) texts += text(c.caption, 0f, -0.78f, 1.3f, w)
+            if (i == 0 && reel.title.isNotBlank()) texts += text(reel.title, reel.titleX, -reel.titleY, 2.2f, w)
+            if (c.caption.isNotBlank()) texts += text(c.caption, c.capX, -c.capY, 1.3f, w)
             if (texts.isNotEmpty()) video += OverlayEffect(ImmutableList.copyOf(texts))
             val audio = mutableListOf<AudioProcessor>()
             if (c.item.video && reel.clipVol < 0.99f) audio += Volume(reel.clipVol)
@@ -201,7 +207,8 @@ object MovieMaker {
         val sequences = mutableListOf(EditedMediaItemSequence(items))
         reel.music?.let { m ->
             val mi = MediaItem.Builder().setUri(m.u)
-                .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionMs(reel.musicStartMs).build()).build()
+                .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionMs(reel.musicStartMs)
+                    .apply { if (reel.musicEndMs > reel.musicStartMs + 1000) setEndPositionMs(reel.musicEndMs) }.build()).build()
             val em = EditedMediaItem.Builder(mi).setRemoveVideo(true)
                 .setEffects(Effects(if (reel.musicVol < 0.99f) listOf<AudioProcessor>(Volume(reel.musicVol)) else emptyList(), emptyList())).build()
             sequences += EditedMediaItemSequence(listOf(em), /* isLooping = */ true)
@@ -263,7 +270,8 @@ object MovieMaker {
         val sp = SpannableString(" ${s.trim()} ")
         sp.setSpan(ForegroundColorSpan(Color.WHITE), 0, sp.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         sp.setSpan(BackgroundColorSpan(0x88000000.toInt()), 0, sp.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        return TextOverlay.createStaticTextOverlay(sp, OverlaySettings.Builder().setBackgroundFrameAnchor(x, y).setScale(scale, scale).build())
+        // the text's own edge lines up with the frame's edge at -1 / 1, as in the preview
+        return TextOverlay.createStaticTextOverlay(sp, OverlaySettings.Builder().setBackgroundFrameAnchor(x, y).setOverlayFrameAnchor(x, y).setScale(scale, scale).build())
     }
 
     /** A colour look (filter + brightness / contrast / saturation) as one colour matrix. */

@@ -184,6 +184,11 @@ class AppState(val ctx: Context, val host: Host) {
                 // locked sources / folders stay out until shown with the PIN
                 val locked = if (Lock.privateOpen) emptySet() else Lock.folders(store)
                 if (locked.isNotEmpty()) items.removeAll { Lock.hides(locked, it) }
+                // camera videos (DCIM, Pictures) stay in the gallery, not in Videos (Settings → Library to show them there too)
+                if (store.getPref("camVideos", "0") != "1") {
+                    val devices = sources.filter { it.kind == "device" }.map { it.id }.toSet()
+                    items.removeAll { it.c == 2 && it.src in devices && it.f.let { f -> f.startsWith("DCIM", true) || f.startsWith("Pictures", true) } }
+                }
                 val m = parseMeta(store.musicMeta())
                 val t = HashMap<String, JSONObject>(); val tc = store.tmdbCache(); tc.keys().forEach { k -> tc.optJSONObject(k)?.let { t[k] = it } }
                 Triple(items, m, t)

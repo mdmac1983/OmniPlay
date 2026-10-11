@@ -420,7 +420,13 @@ fun GViewerScreen(st: AppState, p: Page.GViewer) {
                 }
             })
             // videos play right here once their page is on screen (one player at a time)
-            if (x.video && i == pager.settledPage) GalleryVideo(x, onChrome = { chrome = it })
+            if (x.video && i == pager.settledPage) GalleryVideo(x, onChrome = { chrome = it }) {
+                // when a video ends, the next video plays (the toggle in the top bar)
+                if (st.pref("galNext", "1") == "1") {
+                    val j = (i + 1 until list.size).firstOrNull { list[it].video }
+                    if (j != null) scope.launch { pager.animateScrollToPage(j) }
+                }
+            }
             else if (x.video) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(72.dp).clip(CircleShape).background(Color(0xAA000000)), contentAlignment = Alignment.Center) { Icon(Ic.play, "Play", tint = Color.White, modifier = Modifier.size(44.dp)) }
             }
@@ -433,10 +439,14 @@ fun GViewerScreen(st: AppState, p: Page.GViewer) {
                     Text(SimpleDateFormat("d MMM yyyy · HH:mm", Locale.getDefault()).format(Date(cur.date)), color = Color.White, fontSize = 14.sp)
                     Text(cur.bucket, color = Color.White.copy(alpha = .7f), fontSize = 11.sp)
                 }
+                if (cur.video) { st.prefGen; val on = st.pref("galNext", "1") == "1"
+                    Text(if (on) "Auto-next ✓" else "Auto-next", color = if (on) Color.White else Color.White.copy(alpha = .6f), fontSize = 12.sp,
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(if (on) C.ac.copy(alpha = .7f) else Color(0x44FFFFFF))
+                            .clickable { st.setPref("galNext", if (on) "0" else "1"); st.say(if (on) "Videos stop at the end" else "The next video plays when one ends") }.padding(horizontal = 10.dp, vertical = 5.dp)) }
                 IconBtn(Ic.info, { info = true }, tint = Color.White)
             }
             Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().background(Color(0x88000000)).padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                if (cur.video) Act(Ic.expand, "Full player") { st.playGalleryVideo(cur) }
+                if (cur.video) Act(Ic.expand, "Full player") { st.playGalleryVideo(cur, if (st.pref("galNext", "1") == "1") list else emptyList()) }
                 if (!cur.video) Act(Ic.tune, "Edit") { st.open(Page.GEditor(cur)) }
                 if (!cur.video) Act(Ic.rotate, "Rotate") { Gallery.rotate(st, cur.uri, 90) }
                 Act(Ic.send, "Share") { st.shareItems(listOf(cur)) }
@@ -470,7 +480,7 @@ fun GViewerScreen(st: AppState, p: Page.GViewer) {
 /** Full-size photo with pinch-zoom / pan / double-tap zoom. */
 /** Plays a gallery video inline (media3 player with its own seek bar / play / pause controls). */
 @Composable
-private fun GalleryVideo(x: GItem, onChrome: (Boolean) -> Unit) {
+private fun GalleryVideo(x: GItem, onChrome: (Boolean) -> Unit, onEnded: () -> Unit = {}) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val player = remember(x.uri) {
         androidx.media3.exoplayer.ExoPlayer.Builder(ctx, OmniRenderers(ctx, video = true))
@@ -479,6 +489,13 @@ private fun GalleryVideo(x: GItem, onChrome: (Boolean) -> Unit) {
             .setHandleAudioBecomingNoisy(true).build().apply {
                 setMediaItem(androidx.media3.common.MediaItem.fromUri(x.uri)); prepare(); playWhenReady = true
             }
+    }
+    val ended by rememberUpdatedState(onEnded)
+    DisposableEffect(player) {
+        val l = object : androidx.media3.common.Player.Listener {
+            override fun onPlaybackStateChanged(s: Int) { if (s == androidx.media3.common.Player.STATE_ENDED) ended() }
+        }
+        player.addListener(l); onDispose { player.removeListener(l) }
     }
     DisposableEffect(player) { onDispose { player.release() } }
     // pause when the app goes to the background

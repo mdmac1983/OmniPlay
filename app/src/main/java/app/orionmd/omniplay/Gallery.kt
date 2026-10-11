@@ -239,7 +239,10 @@ fun AppState.shareItems(items: List<GItem>) {
         else android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).setType("*/*").putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
     try { host.launch(android.content.Intent.createChooser(i.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION), "Share").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) { say("No app to share with") }
 }
-fun AppState.playGalleryVideo(g: GItem) {
-    val q = org.json.JSONArray().put(JSONObject().put("i", idFor(g.uri)).put("t", g.name).put("u", g.uri))
+/** Opens the full video player; with [next], the videos after this one play on when it ends. */
+fun AppState.playGalleryVideo(g: GItem, next: List<GItem> = emptyList()) {
+    val from = next.indexOfFirst { it.key == g.key }
+    val vids = if (from >= 0) next.drop(from).filter { it.video }.take(200) else listOf(g)
+    val q = org.json.JSONArray(); vids.forEach { v -> q.put(JSONObject().put("i", idFor(v.uri)).put("t", v.name).put("u", v.uri)) }
     try { host.launch(android.content.Intent(ctx, VideoActivity::class.java).putExtra("queue", q.toString()).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
 }

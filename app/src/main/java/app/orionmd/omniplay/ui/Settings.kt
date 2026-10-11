@@ -65,11 +65,11 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     }
 }
 
-@Composable private fun Toggle(st: AppState, k: String, title: String, sub: String = "", default: String = "0") {
+@Composable private fun Toggle(st: AppState, k: String, title: String, sub: String = "", default: String = "0", onChange: () -> Unit = {}) {
     val on = st.pref(k, default) == "1"
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text(title); if (sub.isNotEmpty()) Muted(sub, size = 12.sp) }
-        Switch(on, { st.setPref(k, if (it) "1" else "0") }, colors = SwitchDefaults.colors(checkedThumbColor = C.ac, checkedTrackColor = C.ac.copy(alpha = .5f)))
+        Switch(on, { st.setPref(k, if (it) "1" else "0"); onChange() }, colors = SwitchDefaults.colors(checkedThumbColor = C.ac, checkedTrackColor = C.ac.copy(alpha = .5f)))
     }
 }
 @Composable internal fun Pick(st: AppState, k: String, title: String, options: List<Pair<String, String>>, default: String) {
@@ -178,6 +178,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         Column(Modifier.weight(1f)) { Text("Videos — sync all for offline"); Muted(st.sync.video?.let { "${it.step} · ${it.done} / ${it.total}" } ?: "TMDB details, posters, cast, episodes, subtitles · last ${ago(st.sync.videoAt)}", size = 12.sp) }
         Btn("Sync", { st.syncVideos() }, small = true)
     }
+    Toggle(st, "camVideos", "Camera videos in Videos", "Videos in DCIM and Pictures (phone camera, screen recordings saved as pictures) also show in the Video tab. Off: they stay in the Gallery only", "0") { st.loadLibrary() }
     Toggle(st, "autoEnrich", "Look up info automatically", "New songs get info & album art, and videos get TMDB matches, as soon as they're added or a key is saved", "1")
     Pick(st, "subLang", "Subtitle language to download", listOf("en" to "English", "es" to "Spanish", "fr" to "French", "de" to "German", "it" to "Italian", "pt" to "Portuguese", "tl" to "Filipino", "ja" to "Japanese", "ko" to "Korean", "zh" to "Chinese", "ar" to "Arabic", "hi" to "Hindi", "ru" to "Russian"), "en")
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {

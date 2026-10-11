@@ -33,6 +33,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.orionmd.omniplay.*
 import kotlinx.coroutines.Job
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import sh.calvin.reorderable.ReorderableItem
 import kotlinx.coroutines.launch
 
@@ -86,7 +88,7 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, saved: MutableState<Ree
         val cur = reel.clips.getOrNull(sel)
         Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
             val (w, h) = reel.size()
-            Box(Modifier.fillMaxHeight().aspectRatio(w.toFloat() / h, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(10.dp)).background(Color.Black)) {
+            BoxWithConstraints(Modifier.fillMaxHeight().aspectRatio(w.toFloat() / h, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(10.dp)).background(Color.Black)) {
                 if (cur != null) {
                     val look = reel.look(cur)
                     Thumb(Img.Thumb(cur.item.uri, cur.item.video), "", Modifier.fillMaxSize()
@@ -95,10 +97,16 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, saved: MutableState<Ree
                         colorFilter = if (MovieFx.isIdentity(look)) null else androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix(MovieFx.compose(look))))
                     if (reel.vignette) Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color.Transparent, Color.Transparent, Color(0xA0000000)))))
                 }
+                // title and caption: drag them anywhere on the picture
+                val boxW = constraints.maxWidth.toFloat(); val boxH = constraints.maxHeight.toFloat()
                 if (sel == 0 && reel.title.isNotBlank()) Text(reel.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.Center).background(Color(0x88000000)).padding(horizontal = 8.dp))
+                    modifier = Modifier.align(androidx.compose.ui.BiasAlignment(reel.titleX, reel.titleY)).background(Color(0x88000000)).padding(horizontal = 8.dp)
+                        .pointerInput(Unit) { detectDragGestures { ch, d -> ch.consume(); val r = reel
+                            reel = r.copy(titleX = (r.titleX + d.x * 2 / boxW).coerceIn(-1f, 1f), titleY = (r.titleY + d.y * 2 / boxH).coerceIn(-1f, 1f)) } })
                 if (cur != null && cur.caption.isNotBlank()) Text(cur.caption, color = Color.White, fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).background(Color(0x88000000)).padding(horizontal = 6.dp))
+                    modifier = Modifier.align(androidx.compose.ui.BiasAlignment(cur.capX, cur.capY)).background(Color(0x88000000)).padding(horizontal = 6.dp)
+                        .pointerInput(sel) { detectDragGestures { ch, d -> ch.consume(); val c = reel.clips.getOrNull(sel) ?: return@detectDragGestures
+                            setClip(sel, c.copy(capX = (c.capX + d.x * 2 / boxW).coerceIn(-1f, 1f), capY = (c.capY + d.y * 2 / boxH).coerceIn(-1f, 1f))) } })
                 if (cur?.item?.video == true) Icon(Ic.play, null, Modifier.align(Alignment.Center).size(44.dp).clickable { st.playGalleryVideo(cur.item) }, tint = Color.White)
             }
         }
@@ -144,6 +152,30 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, saved: MutableState<Ree
                         val s = (r.start * d).toLong(); val e = (r.endInclusive * d).toLong()
                         if (e - s >= 300) setClip(sel, cur.copy(startMs = s, endMs = e))
                     }, colors = sliderColors)
+                    // split in two, or cut a piece out of the middle
+                    var cut by remember(cur.id, cur.startMs, cur.endMs) { val l = cur.endMs - cur.startMs; mutableStateOf(cur.startMs + l / 3 to cur.startMs + l * 2 / 3) }
+                    val span = (cur.endMs - cur.startMs).toFloat().coerceAtLeast(1f)
+                    Muted("Split at ${mmss(cut.first)} · or cut out ${mmss(cut.first)} – ${mmss(cut.second)}", size = 12.sp)
+                    RangeSlider((cut.first - cur.startMs) / span..(cut.second - cur.startMs) / span, { r ->
+                        cut = (cur.startMs + (r.start * span).toLong()) to (cur.startMs + (r.endInclusive * span).toLong()) }, colors = sliderColors)
+                    Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        Btn("Split at ${mmss(cut.first)}", {
+                            if (cut.first - cur.startMs < 300 || cur.endMs - cut.first < 300) { st.say("Too close to the end of the clip"); return@Btn }
+                            reel = reel.copy(clips = reel.clips.toMutableList().apply { set(sel, cur.copy(endMs = cut.first)); add(sel + 1, cur.copy(startMs = cut.first, id = nextClipId())) })
+                            st.say("Split into two clips")
+                        }, small = true, kind = BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp))
+                        Btn("Cut out middle", {
+                            val keepA = cut.first - cur.startMs >= 300; val keepB = cur.endMs - cut.second >= 300
+                            reel = reel.copy(clips = reel.clips.toMutableList().apply {
+                                removeAt(sel); var k = sel
+                                if (keepA) add(k++, cur.copy(endMs = cut.first))
+                                if (keepB) add(k, cur.copy(startMs = cut.second, id = nextClipId()))
+                            })
+                            sel = sel.coerceAtMost(reel.clips.lastIndex).coerceAtLeast(0); st.say("Cut out ${mmss(cut.second - cut.first)}")
+                        }, small = true, kind = BtnKind.Ghost, modifier = Modifier.padding(end = 6.dp))
+                        Btn("Duplicate", { reel = reel.copy(clips = reel.clips.toMutableList().apply { add(sel + 1, cur.copy(id = nextClipId())) }); sel += 1 },
+                            small = true, kind = BtnKind.Ghost)
+                    }
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Muted("Show for ${"%.1f".format(cur.photoMs / 1000f)} s", Modifier.width(110.dp), 12.sp)
@@ -237,11 +269,17 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, saved: MutableState<Ree
                 Btn(if (reel.music == null) "Add music" else "Change", { pickMusic = true }, small = true, kind = BtnKind.Ghost)
             }
             reel.music?.let { m ->
-                if (m.d > 10_000) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Muted("Start at ${mmss(reel.musicStartMs)}", Modifier.width(110.dp), 12.sp)
-                    Slider(reel.musicStartMs.toFloat(), { reel = reel.copy(musicStartMs = it.toLong()) }, valueRange = 0f..(m.d - 5_000).toFloat(), modifier = Modifier.weight(1f), colors = sliderColors,
-                        // hear the new starting point straight away
-                        onValueChangeFinished = { preview.play(m.u, reel.musicStartMs, reel.musicVol) })
+                if (m.d > 3_000) {
+                    val end = if (reel.musicEndMs > 0) reel.musicEndMs else m.d
+                    Muted("Song from ${mmss(reel.musicStartMs)} to ${mmss(end)} (${mmss(end - reel.musicStartMs)})" +
+                        if (end - reel.musicStartMs < reel.totalMs) " · repeats to fill the movie" else "", size = 12.sp)
+                    var moved by remember { mutableIntStateOf(0) }
+                    RangeSlider(reel.musicStartMs.toFloat()..end.toFloat(), { r ->
+                        val a = r.start.toLong(); val b = r.endInclusive.toLong()
+                        if (b - a >= 2000) { moved = if (a != reel.musicStartMs) 0 else 1; reel = reel.copy(musicStartMs = a, musicEndMs = if (b >= m.d - 500) 0 else b) }
+                    }, valueRange = 0f..m.d.toFloat(), colors = sliderColors,
+                        // hear the new start, or the last few seconds before the new stop
+                        onValueChangeFinished = { preview.play(m.u, if (moved == 0) reel.musicStartMs else maxOf(reel.musicStartMs, (if (reel.musicEndMs > 0) reel.musicEndMs else m.d) - 4000), reel.musicVol) })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Muted("Music ${(reel.musicVol * 100).toInt()}%", Modifier.width(110.dp), 12.sp)
@@ -255,9 +293,9 @@ internal fun ReelTool(st: AppState, picked: List<GItem>, saved: MutableState<Ree
         }
     }
 
-    if (titleEdit) ReelTextDialog("Title", "Shown over the first clip", reel.title, { titleEdit = false }) { reel = reel.copy(title = it) }
-    if (captionEdit) reel.clips.getOrNull(sel)?.let { c -> ReelTextDialog("Caption", "Shown along the bottom of this clip", c.caption, { captionEdit = false }) { setClip(sel, c.copy(caption = it)) } }
-    if (pickMusic) MusicPickDialog(st, preview, { preview.stop(); pickMusic = false }) { preview.stop(); reel = reel.copy(music = it, musicStartMs = 0); pickMusic = false }
+    if (titleEdit) ReelTextDialog("Title", "Shown over the first clip — drag it on the picture to move it", reel.title, { titleEdit = false }) { reel = reel.copy(title = it) }
+    if (captionEdit) reel.clips.getOrNull(sel)?.let { c -> ReelTextDialog("Caption", "Shown on this clip — drag it on the picture to move it", c.caption, { captionEdit = false }) { setClip(sel, c.copy(caption = it)) } }
+    if (pickMusic) MusicPickDialog(st, preview, { preview.stop(); pickMusic = false }) { preview.stop(); reel = reel.copy(music = it, musicStartMs = 0, musicEndMs = 0); pickMusic = false }
 
     prog?.let { p ->
         Dialog({}, DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
