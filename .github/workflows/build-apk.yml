@@ -73,9 +73,12 @@ jobs:
           ./gradlew assembleRelease --no-daemon -PappVersionCode=${{ steps.ver.outputs.code }} -PappVersionName=${{ steps.ver.outputs.version }}
           mkdir -p out && cp app/build/outputs/apk/release/app-release.apk "out/MediaHub-v${{ steps.ver.outputs.version }}.apk"
 
+      # the APK also goes to the release; a full Actions storage quota mustn't block that
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         if: steps.sign.outputs.ok == 'true'
         with:
+          retention-days: 3
           name: MediaHub-v${{ steps.ver.outputs.version }}
           path: out/MediaHub-v${{ steps.ver.outputs.version }}.apk
 
