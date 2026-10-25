@@ -245,6 +245,7 @@ A VLC-style player with Media Hub's sound engine and its own subtitle layer.
   - **Playback:** speed from 0.25× to 4×, A-B repeat, repeat one / all, sleep timer, skip intro.
   - **Picture:** picture size (best fit, fill, fit width, stretch, 16:9, 4:3, 21:9, 1.85:1, 16:10, 5:4, 1:1),
     rotation lock, picture-in-picture, screenshot.
+  - **Ambient light**: the picture's colours glow softly into the black bars around the video, like a TV backlight (Off / Subtle / Normal / Strong in ⚙ Options or Settings).
   - **Navigation:** jump to time, per-video **bookmarks**, playlist, frame by frame.
   - **Info and options:** **media information** (codecs, resolution, HDR, bitrate, decoder), decoder choice
     (automatic, hardware first, software first), background sound and **lock**.

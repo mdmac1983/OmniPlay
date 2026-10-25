@@ -25,7 +25,7 @@ A standalone, offline-first hybrid **music + video player** by OrionMD.
 
 ## Video player
 - Media3/ExoPlayer: plays MKV, MP4 and more; streams from cloud with seeking.
-- Gestures (brightness/volume swipe, double-tap skip, scrub), speed, picture size, rotation lock, **picture-in-picture**, screen lock, A-B repeat, volume boost, screenshot, resume position, autoplay-next, sleep timer.
+- Gestures (brightness/volume swipe, double-tap skip, scrub), speed, picture size, rotation lock, **picture-in-picture**, screen lock, A-B repeat, volume boost, screenshot, resume position, autoplay-next, sleep timer, **ambient light**: the picture's colours glow softly into the black bars around the video, like a TV backlight (Off / Subtle / Normal / Strong in ⚙ Options or Settings).
 - **Subtitles**: sidecar files (.srt/.vtt/.ass/.ssa) and online subtitles; size/colour/background/position options.
 - **Video sync all**: TMDB details, posters, backdrops, cast photos, TV episode info and subtitles (Wyzie Subs, choose the language) for every video, saved for offline.
 - **TMDB**: posters, backdrops, cast with photos, trailers, ratings and descriptions for movies & TV; "Fix match".

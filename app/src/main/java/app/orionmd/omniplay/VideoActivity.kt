@@ -111,6 +111,7 @@ class VideoActivity : Activity() {
     private var skin = app.orionmd.omniplay.ui.SKINS[0]
     private val allPills = mutableListOf<TextView>()
     private lateinit var skinBg: SkinBgView
+    private lateinit var ambient: AmbientLight
     private lateinit var logoView: android.widget.ImageView
     private var accent = 0xFF9E86FF.toInt()
 
@@ -140,12 +141,17 @@ class VideoActivity : Activity() {
         skin = app.orionmd.omniplay.ui.skinOf(store.getPref("playerSkin", "midnight"))
         skinBg = SkinBgView(this)
         root.addView(skinBg, FrameLayout.LayoutParams(-1, -1))
+        // ambient light: the picture's colours glow into the black bars around the video (Options → Ambient light)
+        ambient = AmbientLight(this)
+        root.addView(ambient, FrameLayout.LayoutParams(-1, -1))
         view = PlayerView(this).apply {
             setShowSubtitleButton(false); setShowNextButton(true); setShowPreviousButton(true)
             setShowFastForwardButton(true); setShowRewindButton(true); keepScreenOn = true
             controllerShowTimeoutMs = (store.getPref("vhide", "3").toIntOrNull() ?: 3) * 1000
         }
         root.addView(view, FrameLayout.LayoutParams(-1, -1))
+        ambient.source = { view.videoSurfaceView as? android.view.SurfaceView }
+        ambient.level = store.getPref("vambient", "0.75").toFloatOrNull() ?: 0f
         view.subtitleView?.visibility = View.GONE
         subs = SubtitleView(this)
         root.addView(subs, FrameLayout.LayoutParams(-1, -1))
@@ -748,7 +754,13 @@ class VideoActivity : Activity() {
         col.action("Speed…") { done(); speedSheet() }
         col.action("Picture size…") { done(); sizeSheet() }
         col.action("Skin: ${skin.name}") { done(); skinSheet() }
+        col.action("Ambient light: ${AmbientLight.LEVELS.firstOrNull { it.first == store.getPref("vambient", "0.75") }?.second ?: "Normal"}") { done(); ambientSheet() }
         col.action("More: jump, bookmarks, playlist, info, decoder…") { done(); moreSheet() }
+    }
+    private fun ambientSheet() = sheet("Ambient light") { col, done ->
+        col.note("The colours of the picture glow softly into the black bars around the video, like a TV backlight. Shows when the video doesn't fill the screen.")
+        val cur = store.getPref("vambient", "0.75")
+        AmbientLight.LEVELS.forEach { (k, n) -> col.option(n, k == cur) { store.setPref("vambient", k); ambient.level = k.toFloatOrNull() ?: 0f; toast("Ambient light: $n"); done() } }
     }
     private fun presetMenu(p: SoundPresets.Preset) = sheet(p.name) { col, done ->
         col.action("Use this preset") { SoundPresets.apply(store, p); toast("Sound: ${p.name}"); done() }
@@ -1078,9 +1090,9 @@ class VideoActivity : Activity() {
         else @Suppress("DEPRECATION") run { window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION) }
     }
     override fun onSaveInstanceState(out: Bundle) { super.onSaveInstanceState(out); player?.let { out.putLong("pos", it.currentPosition) } }
-    override fun onPause() { super.onPause(); if (resume) savePos(); if (!isInPictureInPictureMode && !bgAudio) player?.let { startAt = it.currentPosition; it.pause() } }
+    override fun onPause() { super.onPause(); if (!isInPictureInPictureMode) ambient.stop(); if (resume) savePos(); if (!isInPictureInPictureMode && !bgAudio) player?.let { startAt = it.currentPosition; it.pause() } }
     override fun onStop() { super.onStop(); if (resume) savePos(); if (!bgAudio || isFinishing) player?.pause(); if (wasInPip && !isFinishing) close() }
-    override fun onResume() { super.onResume(); wasInPip = false; hideBars() }
+    override fun onResume() { super.onResume(); ambient.start(); wasInPip = false; hideBars() }
     override fun onDestroy() { super.onDestroy(); ui.removeCallbacksAndMessages(null); if (resume) savePos(); try { boost?.release() } catch (_: Throwable) {}; player?.release(); player = null }
 }
 

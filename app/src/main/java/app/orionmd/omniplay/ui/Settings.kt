@@ -231,6 +231,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     }
     Toggle(st, "vshot", "Screenshot", "", "1")
     Toggle(st, "vintro", "Skip intro", "", "1")
+    Pick(st, "vambient", "Ambient light (the picture's colours glow around the video)", app.orionmd.omniplay.AmbientLight.LEVELS, "0.75")
     SectionHeader("Subtitles")
     Toggle(st, "subauto", "Turn on subtitles automatically", "", "1")
     Pick(st, "subenc", "Subtitle text encoding", app.orionmd.omniplay.SubParser.ENCODINGS, "auto")
