@@ -1,5 +1,10 @@
 [
  {
+  "version": "6.0",
+  "date": "2026-10-25",
+  "notes": "CI: don't let a full artifact storage quota block the release"
+ },
+ {
   "version": "5.9",
   "date": "2026-10-25",
   "notes": "Video player: ambient light (picture colours glow around the video)"
