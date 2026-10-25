@@ -35,9 +35,11 @@ class PlaybackService : Service() {
             if (nm.getNotificationChannel(CH) == null)
                 nm.createNotificationChannel(NotificationChannel(CH, "Playback", NotificationManager.IMPORTANCE_LOW))
             val t = Player.current()
-            val title = t?.optString("t")?.ifEmpty { null } ?: t?.optString("n") ?: "OmniPlay"
+            val title = t?.optString("t")?.ifEmpty { null } ?: t?.optString("n") ?: "Media Hub"
             val artist = t?.optString("a") ?: ""
-            val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java),
+            // tapping the notification opens the app on the player (not just wherever it was left)
+            val open = PendingIntent.getActivity(ctx, 7, Intent(ctx, MainActivity::class.java).putExtra("open", "player")
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             val b = Notification.Builder(ctx, CH)
                 .setSmallIcon(R.drawable.ic_note)

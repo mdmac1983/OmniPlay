@@ -34,8 +34,20 @@ fun SettingsScreen(st: AppState, pad: PaddingValues) {
             item { Cat(st, "sync", "Sync", Ic.sync) { SyncSettings(st) } }
             item { Cat(st, "playback", "Playback & subtitles", Ic.movie) { Playback(st) } }
             item { Cat(st, "appearance", "Appearance", Ic.skin) { Appearance(st) } }
+            item { Cat(st, "lock", "Lock & privacy", Ic.lock) { LockSettings(st) } }
+            item { Cat(st, "storage", "Saved on this device", Ic.offline) { StorageSummary(st) } }
             item { Cat(st, "security", "Activation & security", Ic.shield) { Security(st) } }
-            item { Muted("OmniPlay · OrionMD · built for offline-first music & video", Modifier.padding(vertical = 20.dp), 11.sp) }
+            item { Cat(st, "updates", "App updates" + if (Updater.result?.available == true) " · new version" else "", Ic.download) { UpdateSettings(st) } }
+            item {
+                // footer: the user guide and the feature list, as shipped with this version
+                Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        FooterLink(Ic.guide, "Guide") { st.open(Page.Doc("GUIDE.md", "User guide")) }
+                        FooterLink(Ic.features, "Features") { st.open(Page.Doc("FEATURES.md", "Features")) }
+                    }
+                    Muted("Media Hub v${app.orionmd.omniplay.BuildConfig.VERSION_NAME} · OrionMD · built for offline-first music & video", Modifier.padding(top = 12.dp), 11.sp)
+                }
+            }
         }
     }
 }
@@ -53,14 +65,14 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     }
 }
 
-@Composable private fun Toggle(st: AppState, k: String, title: String, sub: String = "", default: String = "0") {
+@Composable private fun Toggle(st: AppState, k: String, title: String, sub: String = "", default: String = "0", onChange: () -> Unit = {}) {
     val on = st.pref(k, default) == "1"
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text(title); if (sub.isNotEmpty()) Muted(sub, size = 12.sp) }
-        Switch(on, { st.setPref(k, if (it) "1" else "0") }, colors = SwitchDefaults.colors(checkedThumbColor = C.ac, checkedTrackColor = C.ac.copy(alpha = .5f)))
+        Switch(on, { st.setPref(k, if (it) "1" else "0"); onChange() }, colors = SwitchDefaults.colors(checkedThumbColor = C.ac, checkedTrackColor = C.ac.copy(alpha = .5f)))
     }
 }
-@Composable private fun Pick(st: AppState, k: String, title: String, options: List<Pair<String, String>>, default: String) {
+@Composable internal fun Pick(st: AppState, k: String, title: String, options: List<Pair<String, String>>, default: String) {
     Column(Modifier.padding(vertical = 6.dp)) { Text(title, fontSize = 13.sp); Select(st.pref(k, default), options, { st.setPref(k, it) }, Modifier.fillMaxWidth().padding(top = 4.dp)) }
 }
 
@@ -71,7 +83,9 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
             Icon(when (s.kind) { "device" -> Ic.device; "folder" -> Ic.folder; else -> Ic.cloud }, null, tint = C.ac)
             Column(Modifier.padding(start = 12.dp).weight(1f)) { Text(s.name, fontWeight = FontWeight.SemiBold); Muted("${fmt(s.count)} items · ${if (s.lastScan > 0) "scanned ${ago(s.lastScan)}" else "not scanned"}" + if (s.sync) " · sync on" else "", size = 12.sp) }
             IconBtn(Ic.sync, { st.sync(s.id) }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
-            IconBtn(Ic.trash, { st.dialog = Dlg.Confirm("Remove \"${s.name}\"?", "Its library index is removed from OmniPlay. Your actual files aren't touched.", true) { st.removeSource(s.id) } }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
+            Lock.gen
+            IconBtn(Ic.lock, { st.toggleLock("src:${s.id}", s.name) }, tint = if (Lock.isLocked(st.store, "src:${s.id}")) C.ac else C.mu, size = 34.dp, iconSize = 20.dp)
+            IconBtn(Ic.trash, { st.dialog = Dlg.Confirm("Remove \"${s.name}\"?", "Its library index is removed from Media Hub. Your actual files aren't touched.", true) { st.removeSource(s.id) } }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
         }
     }
     Spacer(Modifier.height(6.dp))
@@ -95,7 +109,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         }
     } }
     SectionHeader("Connect a cloud")
-    Muted("OmniPlay streams from the cloud and keeps playing offline anything you download. Your OAuth keys and sign-ins are stored encrypted on the device.", Modifier.padding(bottom = 6.dp), 12.sp)
+    Muted("Media Hub streams from the cloud and keeps playing offline anything you download. Your OAuth keys and sign-ins are stored encrypted on the device.", Modifier.padding(bottom = 6.dp), 12.sp)
     Cloud.PROVIDERS.forEach { p ->
         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -123,6 +137,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     SecretField(st, "podKey", "Podcast Index API key", "podcastindex.org → sign up → API Keys. For the Podcasts tab.")
     SecretField(st, "podSecret", "Podcast Index API secret", "The secret shown next to the key above.")
     SecretField(st, "wyzieKey", "Wyzie Subs key (online subtitles)", "sub.wyzie.io — free key for downloadable subtitles by TMDB match.")
+    SecretField(st, "jamendoId", "Jamendo client id (free music downloads)", "devportal.jamendo.com → sign up → My applications → create one → copy the Client ID. Adds Jamendo's free Creative Commons songs to Discover → Free downloads.")
     SectionHeader("Cloud OAuth keys")
     Muted("Only needed for the clouds you connect with sign-in (pCloud, Dropbox, Google Drive). Create your own free app and paste its keys; the redirect URI to register is ${st.oauthRedirect()}", Modifier.padding(bottom = 8.dp), 12.sp)
     listOf("pcloud" to "pCloud", "dropbox" to "Dropbox", "gdrive" to "Google Drive").forEach { (id, name) ->
@@ -137,7 +152,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         if (help.isNotEmpty()) Muted(help, size = 11.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Field(v, { v = it }, "paste here", Modifier.weight(1f).padding(top = 4.dp), password = true)
-            Btn("Save", { st.store.setSecret(k, v.trim()); st.prefGen++; st.say("Saved") }, small = true, modifier = Modifier.padding(start = 8.dp))
+            Btn("Save", { st.store.setSecret(k, v.trim()); st.prefGen++; st.say("Saved"); st.onKeySaved(k) }, small = true, modifier = Modifier.padding(start = 8.dp))
         }
     }
 }
@@ -154,7 +169,18 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
 
 // ---------------- library tools ----------------
 @Composable private fun LibraryTools(st: AppState) {
-    Muted("Enrich your library using free online sources.", Modifier.padding(bottom = 6.dp), 12.sp)
+    Muted("Enrich your library using free online sources. “Sync all” saves everything on the device so it shows offline.", Modifier.padding(bottom = 6.dp), 12.sp)
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) { Text("Music — sync all for offline"); Muted(st.sync.music?.let { "${it.step} · ${it.done} / ${it.total}" } ?: "Album art, info, album details, lyrics · last ${ago(st.sync.musicAt)}", size = 12.sp) }
+        Btn("Sync", { st.syncMusic() }, small = true)
+    }
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) { Text("Videos — sync all for offline"); Muted(st.sync.video?.let { "${it.step} · ${it.done} / ${it.total}" } ?: "TMDB details, posters, cast, episodes, subtitles · last ${ago(st.sync.videoAt)}", size = 12.sp) }
+        Btn("Sync", { st.syncVideos() }, small = true)
+    }
+    Toggle(st, "camVideos", "Camera videos in Videos", "Videos in DCIM and Pictures (phone camera, screen recordings saved as pictures) also show in the Video tab. Off: they stay in the Gallery only", "0") { st.loadLibrary() }
+    Toggle(st, "autoEnrich", "Look up info automatically", "New songs get info & album art, and videos get TMDB matches, as soon as they're added or a key is saved", "1")
+    Pick(st, "subLang", "Subtitle language to download", listOf("en" to "English", "es" to "Spanish", "fr" to "French", "de" to "German", "it" to "Italian", "pt" to "Portuguese", "tl" to "Filipino", "ja" to "Japanese", "ko" to "Korean", "zh" to "Chinese", "ar" to "Arabic", "hi" to "Hindi", "ru" to "Russian"), "en")
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text("Look up song info (covers, genre, year)"); st.metaProg?.let { (d, t, m) -> Muted("$d / $t · $m matched", size = 12.sp) } ?: Muted("Deezer + iTunes", size = 12.sp) }
         Btn("Run", { st.lookupMeta() }, small = true)
@@ -167,6 +193,8 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         Column(Modifier.weight(1f)) { Text("Download lyrics for all songs"); st.lyricsProg?.let { (d, t) -> Muted("$d / $t", size = 12.sp) } ?: Muted("${if (st.lyricsSaved >= 0) st.lyricsSaved else 0} saved · LRCLIB", size = 12.sp) }
         Btn("Run", { st.fetchAllLyrics() }, small = true)
     }
+    Pick(st, "dlTarget", "Save downloads to", listOf("app" to "App storage (private)", "device" to "Phone storage (Music / Movies / Pictures)"), "app")
+    Muted("App storage: only Media Hub sees them and they're removed if you uninstall. Phone storage: saved in Music, Movies and Pictures → Media Hub, so your gallery, file manager and other players see them too, and they stay after uninstalling. Applies to new downloads.", size = 12.sp)
     Btn("Offline downloads", { st.open(Page.Downloads) }, icon = Ic.offline, small = true, kind = BtnKind.Ghost, modifier = Modifier.padding(top = 8.dp))
 }
 
@@ -191,8 +219,22 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     Toggle(st, "vgest", "Gestures (swipe brightness/volume, double-tap skip)", "", "1")
     Toggle(st, "vpip", "Picture-in-picture when you leave", "", "1")
     Pick(st, "vseek", "Skip amount", listOf("5" to "5 s", "10" to "10 s", "15" to "15 s", "30" to "30 s"), "10")
+    Pick(st, "vdecoder", "Decoder (hardware acceleration)", listOf("auto" to "Automatic", "hw" to "Hardware first", "sw" to "Software first"), "auto")
+    Pick(st, "vresize", "Picture size", listOf("fit" to "Best fit", "zoom" to "Fill screen", "fill" to "Fit width", "stretch" to "Stretch", "r16x9" to "16:9", "r4x3" to "4:3", "r21x9" to "21:9"), "fit")
+    Toggle(st, "vbgaudio", "Keep sound playing when you leave the player", "Like VLC's audio-only background play", "0")
+    Toggle(st, "vskinbg", "Skin pattern around the picture", "The video player uses your player skin (colours, buttons, seek bar); this also shows its pattern in the space around the video", "1")
+    SectionHeader("Player buttons")
+    Muted("Choose which buttons appear along the top of the video player. Close, More and Lock are always there.", size = 12.sp)
+    listOf("subs" to "Subtitles", "audio" to "Audio (tracks, delay, sound)", "speed" to "Speed", "size" to "Picture size", "rotate" to "Rotation",
+        "sleep" to "Sleep timer", "ab" to "A-B repeat", "repeat" to "Repeat", "boost" to "Volume boost", "pip" to "Picture-in-picture").forEach { (k, n) ->
+        Toggle(st, "vbtn_$k", n, "", "1")
+    }
+    Toggle(st, "vshot", "Screenshot", "", "1")
+    Toggle(st, "vintro", "Skip intro", "", "1")
+    Pick(st, "vambient", "Ambient light (the picture's colours glow around the video)", app.orionmd.omniplay.AmbientLight.LEVELS, "0.75")
     SectionHeader("Subtitles")
     Toggle(st, "subauto", "Turn on subtitles automatically", "", "1")
+    Pick(st, "subenc", "Subtitle text encoding", app.orionmd.omniplay.SubParser.ENCODINGS, "auto")
     Pick(st, "subsize", "Subtitle size", listOf("tiny" to "Tiny", "small" to "Small", "normal" to "Normal", "large" to "Large", "xlarge" to "Extra large", "huge" to "Huge"), "normal")
     Pick(st, "subcolor", "Subtitle colour", listOf("white" to "White", "yellow" to "Yellow", "cyan" to "Cyan", "green" to "Green", "orange" to "Orange"), "white")
     Pick(st, "subbg", "Subtitle background", listOf("shadow" to "Shadow", "outline" to "Outline", "box" to "Box", "window" to "Window"), "shadow")
@@ -202,6 +244,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
 
 // ---------------- appearance ----------------
 @Composable private fun Appearance(st: AppState) {
+    Toggle(st, "splash", "Splash screen when the app opens", "The OrionMD Media Hub artwork, tap to skip", "1")
     Pick(st, "watermark", "Background watermark", listOf("off" to "Off", "light" to "Light", "medium" to "Medium", "strong" to "Strong"), "medium")
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text("Player skin"); Muted(skinOf(st.pref("playerSkin", "midnight")).name, size = 12.sp) }
@@ -215,10 +258,25 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
 
 // ---------------- security ----------------
 @Composable private fun Security(st: AppState) {
-    val holder = remember(st.prefGen) { Activation.holder(st.store) }
-    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Ic.shield, null, tint = C.ac2); Spacer(Modifier.width(10.dp)); Column { Text("Activated", fontWeight = FontWeight.SemiBold); Muted(if (holder.isNotEmpty()) "for $holder" else "yes", size = 12.sp) } }
+    val (title, sub) = st.licenceStatus()
+    val activated = Activation.state(st.store) == Activation.State.ACTIVATED
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Ic.shield, null, tint = if (activated) C.ac2 else C.warn); Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold); Muted(sub, size = 12.sp) }
+        if (!activated) Btn("Purchase Key", { st.openUrl(Activation.BUY_URL) }, small = true, icon = Ic.key)
+    }
     val tampered = remember { Guard.tampered(st.ctx) }
     if (tampered) Muted("⚠ This copy isn't signed with the OrionMD key.", Modifier.padding(vertical = 6.dp), 12.sp)
-    Muted("OmniPlay is proprietary. It only runs when activated, and it verifies it hasn't been re-signed or modified; a tampered copy is locked behind the owner password and erases its own data after 3 wrong tries.", Modifier.padding(vertical = 8.dp), 12.sp)
-    Btn("Enter a different activation key", { st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> val (ok, m) = Activation.activate(st.store, k); st.say(m); st.prefGen++ } }, small = true, kind = BtnKind.Ghost)
+    Muted("Open-source parts: FFmpeg ${app.orionmd.ffmpeg.FfLib.version.ifEmpty { "7.0" }} (software decoding of 10-bit and other video / audio) — LGPL v2.1+, © the FFmpeg developers, ffmpeg.org; " +
+        "AndroidX Media3 — Apache 2.0; ONNX Runtime — MIT; MI-GAN (AI Eraser model) — MIT; OkHttp — Apache 2.0; faceplate lettering: Michroma, Archivo Black, Zilla Slab, Great Vibes, VT323, Saira — SIL Open Font License 1.1. The FFmpeg libraries are loaded separately and can be replaced.", Modifier.padding(vertical = 8.dp), 11.sp)
+    Muted("Media Hub is proprietary. After the 14-day trial it needs an activation key (one key = one app on one device). It also verifies it hasn't been re-signed or modified; a tampered copy is locked behind the owner password and erases its own data after 3 wrong tries.", Modifier.padding(vertical = 8.dp), 12.sp)
+    if (!activated) Btn("Enter activation key", { st.dialog = Dlg.TextInput("Activation key", "Key", "") { k -> st.enterActivationKey(k) } }, small = true, kind = BtnKind.Ghost)
+}
+
+@Composable
+private fun FooterLink(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Column(Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.compose.material3.Icon(icon, label, tint = C.ac, modifier = Modifier.size(28.dp))
+        Text(label, fontSize = 12.sp, color = C.mu, modifier = Modifier.padding(top = 2.dp))
+    }
 }

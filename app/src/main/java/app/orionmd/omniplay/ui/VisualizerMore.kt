@@ -20,7 +20,7 @@ import kotlin.math.sin
 
 /*
  * The extra visualizer styles (the originals are in Visualizer.kt). Every style draws with the current palette PAL, so one
- * shape can come in several colour schemes. VIS_REG lists all 56 in their groups; VIS_STYLES (tap-to-cycle order) comes from it.
+ * shape can come in several colour schemes. VIS_REG lists them all in their groups; VIS_STYLES (tap-to-cycle order) comes from it.
  */
 
 internal val PAL_FIRE = listOf(Color(0xFF8B0000), Color(0xFFFF3D00), Color(0xFFFF8A00), Color(0xFFFFC400), Color(0xFFFFF59D))
@@ -86,6 +86,41 @@ internal val VIS_REG: List<VisDef> = run {
         t("db_hexcar", "Supercar hexagon", null) { dbHexcar(it) }, t("db_drift", "Drift", null) { dbDrift(it) }, t("db_lemans", "Le Mans endurance", null) { dbLeMans(it) },
         t("db_drag", "Drag strip", null) { dbDrag(it) }, t("db_synth", "Synthwave racer", null) { dbSynth(it) }, t("db_bike", "Superbike TFT", null) { dbBike(it) },
         t("db_raid", "Rally raid", null) { dbRaid(it) }, t("db_fe", "Formula E", null) { dbFormulaE(it) })
+    // inspired by classic amps and receivers (no brand names or logos; OrionMD lettering in a matching style)
+    g("Hi-fi faceplates",
+        t("hf_mac_twin", "Blue watt meters (McIntosh style)", null) { hfMacTwin(it) }, t("hf_mac_mono", "Blue monoblock (McIntosh style)", null) { hfMacMono(it) },
+        t("hf_mz_dial", "Champagne dial (Marantz style)", null) { hfMarantzDial(it) }, t("hf_mz_port", "Black porthole (Marantz style)", null) { hfMarantzPorthole(it) },
+        t("hf_ok_teal", "Teal VFD (Onkyo style)", null) { hfOnkyoTeal(it) }, t("hf_ok_white", "Ice VFD (Onkyo style)", null) { hfOnkyoWhite(it) },
+        t("hf_es_amber", "Amber peak meters (Sony ES style)", null) { hfSonyAmber(it) }, t("hf_es_champ", "Champagne spectrum (Sony ES style)", null) { hfSonyChampagne(it) },
+        t("hf_kw_spec", "Silver spectrum (Kenwood style)", null) { hfKenwoodSpectrum(it) }, t("hf_kw_meters", "Amber power meters (Kenwood style)", null) { hfKenwoodMeters(it) },
+        t("hf_pe_amber", "Piano black amber (Pioneer Elite style)", null) { hfEliteAmber(it) }, t("hf_pe_blue", "Piano black blue (Pioneer Elite style)", null) { hfEliteBlue(it) })
+    // supercar clusters (no badges; the brand only names the style)
+    g("Supercar clusters",
+        t("car_ferrari", "Yellow rev counter (Ferrari style)", null) { carFerrari(it) }, t("car_laferrari", "Hypercar carbon (LaFerrari style)", null) { carLaFerrari(it) },
+        t("car_lfa", "Moving ring (Lexus LFA style)", null) { carLfa(it) }, t("car_lfa_slide", "Ring slid aside (Lexus LFA style)", null) { carLfaSlide(it) },
+        t("car_gt3", "Five dials (Porsche 911 GT3 style)", null) { carGt3(it) }, t("car_gt3_track", "Track screen (Porsche 911 GT3 style)", null) { carGt3Track(it) },
+        t("car_gtr", "Red-ring cluster (Nissan GT-R style)", null) { carGtr(it) }, t("car_gtr_mfd", "Multi-function display (Nissan GT-R style)", null) { carGtrMfd(it) },
+        t("car_g_classic", "Chrome twin dials (Mercedes G-Class style)", null) { carGClassic(it) }, t("car_g_wide", "Widescreen cockpit (Mercedes G-Class style)", null) { carGWide(it) },
+        t("car_audi", "Virtual cockpit (Audi style)", null) { carAudi(it) }, t("car_audi_sport", "Sport view (Audi style)", null) { carAudiSport(it) },
+        t("car_nsx_classic", "'90s analogue (Acura NSX style)", null) { carNsxClassic(it) }, t("car_nsx", "Drive-mode ring (Acura NSX style)", null) { carNsx(it) },
+        t("car_typer", "Digital rev arc (Honda Civic Type R style)", null) { carTypeR(it) }, t("car_typer_plus", "+R mode (Honda Civic Type R style)", null) { carTypeRPlus(it) },
+        t("car_m3", "Digital cockpit (BMW M3 Competition style)", null) { carM3(it) }, t("car_m3_track", "M Track mode (BMW M3 Competition style)", null) { carM3Track(it) },
+        t("car_e36", "Classic analogue (BMW E36 M3 style)", null) { carE36(it) }, t("car_e36_night", "Night lighting (BMW E36 M3 style)", null) { carE36Night(it) },
+        t("car_e36_us", "US mph (BMW E36 M3 style)", null) { carE36Us(it) })
+    // luxury chronographs (no logos; the brand only names the style). The hands keep real time, the music runs the chronograph
+    fun <T> w(id: String, model: String, brand: String, list: List<Pair<String, T>>, f: DrawScope.(VisState, T) -> Unit) =
+        list.forEachIndexed { i, (name, d) -> l += VisDef("w_${id}_$i", (if (model.isEmpty()) name else "$model — $name") + " ($brand style)", "Watches", null) { f(it, d) } }
+    w("daytona", "Daytona", "Rolex", DAYTONAS) { s, d -> wDaytona(s, d) }
+    w("sub", "Submariner chrono", "Rolex", SUBS) { s, d -> wSub(s, d) }
+    w("monaco", "Monaco", "TAG Heuer", MONACOS) { s, d -> wMonaco(s, d) }
+    w("carrera", "Carrera", "TAG Heuer", CARRERAS) { s, d -> wCarrera(s, d) }
+    w("planet", "Seamaster Planet Ocean", "Omega", PLANETS) { s, d -> wPlanet(s, d) }
+    w("rm", "RM chronograph", "Richard Mille", RICHARDS) { s, d -> wRichard(s, d) }
+    w("patek", "", "Patek Philippe", PATEKS) { s, d -> wPatek(s, d) }
+    w("naut", "", "Patek Philippe", NAUTILUSES) { s, d -> wNautilus(s, d) }
+    w("ro", "Royal Oak chrono", "Audemars Piguet", ROYALS) { s, d -> wRoyalOak(s, d) }
+    w("port", "Portugieser chrono", "IWC", PORTUGIESERS) { s, d -> wPortugieser(s, d) }
+    w("pilot", "Pilot's chrono", "IWC", PILOTS) { s, d -> wPilot(s, d) }
     l
 }
 

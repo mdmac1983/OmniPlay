@@ -17,7 +17,26 @@ import org.json.JSONObject
 object Library {
     fun read(store: Store, sourceId: String): List<Item> {
         val raw = store.readLibrary(sourceId); if (raw.isEmpty()) return emptyList()
-        return try { JSONObject(raw).optJSONArray("items")?.let { a -> (0 until a.length()).map { Item.of(a.getJSONObject(it)) } } ?: emptyList() } catch (_: Exception) { emptyList() }
+        return try { JSONObject(raw).optJSONArray("items")?.let { a -> (0 until a.length()).map { fixSong(Item.of(a.getJSONObject(it))) } } ?: emptyList() } catch (_: Exception) { emptyList() }
+    }
+
+    private val UNKNOWN = setOf("<unknown>", "unknown", "unknown artist", "unknown album", "")
+    private fun clean(s: String?) = s?.trim()?.takeIf { it.lowercase() !in UNKNOWN }
+    private val NUM = Regex("^\\s*\\d{1,3}\\s*[-._)]\\s*")
+
+    /**
+     * Songs without an artist tag usually carry it in the title or file name: "Artist - Title". Split those so the
+     * online look-ups (Deezer / iTunes / lyrics) search for the right artist and song.
+     */
+    fun fixSong(x: Item): Item {
+        if (x.c != 3) return x
+        var a = clean(x.a); var t = clean(x.t); val al = clean(x.al)
+        if (a == null) {
+            val src = (t ?: x.n.substringBeforeLast('.')).replace('_', ' ').replace(NUM, "")
+            val parts = src.split(" - ", " – ", " — ", limit = 2)
+            if (parts.size == 2 && parts[0].isNotBlank() && parts[1].isNotBlank()) { a = parts[0].trim(); t = parts[1].trim() }
+        }
+        return if (a == x.a && t == x.t && al == x.al) x else x.copy(a = a, t = t, al = al)
     }
     fun write(store: Store, sourceId: String, items: List<Item>) {
         store.writeLibrary(sourceId, JSONObject().put("items", JSONArray(items.map { it.json() })).put("at", System.currentTimeMillis()).toString())
@@ -31,8 +50,25 @@ object Library {
             "cloud" -> scanCloud(store, src, progress)
             else -> emptyList()
         }
-        write(store, src.id, items)
-        return items
+        val stamped = if (src.kind == "device") items else stampAdded(store, src, items)
+        write(store, src.id, stamped)
+        return stamped
+    }
+
+    /**
+     * Cloud and folder files: their date becomes the date they were added to the library (see [Added]) — the phone's
+     * own media store already records that, so device files keep theirs.
+     */
+    private fun stampAdded(store: Store, src: Source, items: List<Item>): List<Item> {
+        val f = java.io.File(store.filesDir, "added_${src.id}.json")
+        val known = Added.parse(Vault.readText(f))
+        val ids = items.map { it.i }
+        // pCloud file ids go up with every upload: the upload order for files already there
+        val pcloud = src.kind == "cloud" && Cloud.account(src.acct)?.provider == "pcloud"
+        val seq = if (pcloud) items.map { java.net.URLDecoder.decode(it.u.substringAfterLast('/'), "UTF-8").removePrefix("f").toLongOrNull() ?: 0L } else null
+        val d = Added.dates(ids, items.map { it.cr }, seq, known, System.currentTimeMillis())
+        Vault.writeText(f, Added.json(known))
+        return items.mapIndexed { k, x -> if (x.cr == d[k]) x else x.copy(cr = d[k]) }
     }
 
     // ---------- device (MediaStore) ----------

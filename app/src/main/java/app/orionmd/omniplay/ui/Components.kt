@@ -72,7 +72,8 @@ private val phBrush = Brush.linearGradient(listOf(C.s3, C.s2))
 /** Picture with a letter placeholder; loads (and caches) only when it's composed, i.e. on screen. */
 @Composable
 fun Thumb(req: Img?, label: String, modifier: Modifier = Modifier, px: Int = 300, corner: Dp = 8.dp, fontSize: TextUnit = 16.sp,
-          contentScale: ContentScale = ContentScale.Crop, alsoLarge: Img? = null, placeholder: Boolean = true, fallback: Img? = null) {
+          contentScale: ContentScale = ContentScale.Crop, alsoLarge: Img? = null, placeholder: Boolean = true, fallback: Img? = null,
+          colorFilter: androidx.compose.ui.graphics.ColorFilter? = null) {
     Box(modifier.clip(RoundedCornerShape(corner)).let { if (placeholder) it.background(phBrush) else it }, contentAlignment = Alignment.Center) {
         val letter = label.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "♫"
         if (placeholder) Text(letter, color = C.mu, fontWeight = FontWeight.Bold, fontSize = fontSize)
@@ -88,11 +89,11 @@ fun Thumb(req: Img?, label: String, modifier: Modifier = Modifier, px: Int = 300
                     if (b != null) { value = b.asImageBitmap(); break }
                 }
             }
-            bmp?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = contentScale) }
+            bmp?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = contentScale, colorFilter = colorFilter) }
         }
         if (alsoLarge != null) {
             val big by produceState<ImageBitmap?>(ImageLoader.cached(alsoLarge, 1024)?.asImageBitmap(), alsoLarge) { value = ImageLoader.load(alsoLarge, 1024)?.asImageBitmap() }
-            big?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = contentScale) }
+            big?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = contentScale, colorFilter = colorFilter) }
         }
     }
 }

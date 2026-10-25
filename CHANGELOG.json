@@ -1,5 +1,225 @@
 [
  {
+  "version": "6.0",
+  "date": "2026-10-25",
+  "notes": "CI: don't let a full artifact storage quota block the release"
+ },
+ {
+  "version": "5.9",
+  "date": "2026-10-25",
+  "notes": "Video player: ambient light (picture colours glow around the video)"
+ },
+ {
+  "version": "5.8",
+  "date": "2026-10-11",
+  "notes": "Movie & Reel: drag text anywhere, song start/stop, split / cut / duplicate clips; gallery auto-next; camera videos stay out of Videos"
+ },
+ {
+  "version": "5.7",
+  "date": "2026-10-11",
+  "notes": "Movie & Reel: pick order kept, drag to reorder, filters & effects, quality / fps / size"
+ },
+ {
+  "version": "5.6",
+  "date": "2026-10-09",
+  "notes": "Visualizers: Watches (45 luxury chronographs) and the BMW E36 M3 cluster"
+ },
+ {
+  "version": "5.5",
+  "date": "2026-10-06",
+  "notes": "Merge branch 'claude/omniplay-hybrid-player-wr31no' of https://github.com/mdmac1983/OmniPlay into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
+  "version": "5.4",
+  "date": "2026-10-06",
+  "notes": "App updates: don't refuse a correctly signed update"
+ },
+ {
+  "version": "5.3",
+  "date": "2026-10-06",
+  "notes": "Gallery: asks for photo access instead of staying empty"
+ },
+ {
+  "version": "5.2",
+  "date": "2026-10-06",
+  "notes": "In-app updates check"
+ },
+ {
+  "version": "5.1",
+  "date": "2026-10-06",
+  "notes": "In-app updates check"
+ },
+ {
+  "version": "5.0",
+  "date": "2026-10-06",
+  "notes": "In-app updates set up"
+ },
+ {
+  "version": "4.9",
+  "date": "2026-10-06",
+  "notes": "App updates from Settings"
+ },
+ {
+  "version": "4.8",
+  "date": "2026-10-06",
+  "notes": "PIN lock for the app and folders, saved-data page, gallery delete fixed"
+ },
+ {
+  "version": "4.7",
+  "date": "2026-10-06",
+  "notes": "TMDB: posters show for automatic matches; names read without episode and quality tags"
+ },
+ {
+  "version": "4.5",
+  "date": "2026-10-06",
+  "notes": "Discover: Deezer albums, links to get the full song, free downloads"
+ },
+ {
+  "version": "4.4",
+  "date": "2026-10-06",
+  "notes": "TMDB matches new folders by themselves; swipe to change songs"
+ },
+ {
+  "version": "4.3",
+  "date": "2026-10-05",
+  "notes": "TV shows: episode details, subtitles per show or movie, Fix match refreshes episodes, edit an episode"
+ },
+ {
+  "version": "4.2",
+  "date": "2026-10-04",
+  "notes": "Merge branch 'claude/omniplay-hybrid-player-wr31no' of https://github.com/mdmac1983/OmniPlay into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
+  "version": "4.1",
+  "date": "2026-10-04",
+  "notes": "Merge branch 'claude/omniplay-hybrid-player-wr31no' of https://github.com/mdmac1983/OmniPlay into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
+  "version": "3.9",
+  "date": "2026-10-04",
+  "notes": "Merge branch 'claude/omniplay-hybrid-player-wr31no' of https://github.com/mdmac1983/OmniPlay into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
+  "version": "3.8",
+  "date": "2026-10-04",
+  "notes": "Merge branch 'claude/omniplay-hybrid-player-wr31no' of https://github.com/mdmac1983/OmniPlay into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
+  "version": "3.7",
+  "date": "2026-10-04",
+  "notes": "Merge branch 'claude/omniplay-hybrid-player-wr31no' of https://github.com/mdmac1983/OmniPlay into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
+  "version": "3.6",
+  "date": "2026-10-04",
+  "notes": "Merge branch 'claude/omniplay-hybrid-player-wr31no' of https://github.com/mdmac1983/OmniPlay into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
+  "version": "3.5",
+  "date": "2026-10-04",
+  "notes": "Merge branch 'claude/omniplay-hybrid-player-wr31no' of https://github.com/mdmac1983/OmniPlay into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
+  "version": "3.4",
+  "date": "2026-10-04",
+  "notes": "Recently added / Date added: real dates for pCloud files"
+ },
+ {
+  "version": "3.3",
+  "date": "2026-10-04",
+  "notes": "Merge remote-tracking branch 'origin/claude/omniplay-hybrid-player-wr31no' into claude/omniplay-hybrid-player-wr31no"
+ },
+ {
+  "version": "3.2",
+  "date": "2026-10-04",
+  "notes": "Fix stuck \"Saving 0 files for offline\" notification"
+ },
+ {
+  "version": "3.1",
+  "date": "2026-10-04",
+  "notes": "Play 10-bit MKV: built-in FFmpeg (LGPL) software decoders"
+ },
+ {
+  "version": "3.0",
+  "date": "2026-10-04",
+  "notes": "Resumable cloud downloads with progress, pause and resume"
+ },
+ {
+  "version": "2.8",
+  "date": "2026-10-04",
+  "notes": "Video: pinch in and out to resize the picture"
+ },
+ {
+  "version": "2.6",
+  "date": "2026-10-04",
+  "notes": "Skins: Gucci, Louis Vuitton, Prada, Ethika, Under Armour, Nike, Jordan, Adidas; skins in the video player"
+ },
+ {
+  "version": "2.5",
+  "date": "2026-10-04",
+  "notes": "Fix audio failing on some devices for good; VLC-style video player"
+ },
+ {
+  "version": "2.4",
+  "date": "2026-10-04",
+  "notes": "Fix \"audio track init failed\"; Guide & Features viewer in Settings"
+ },
+ {
+  "version": "2.3",
+  "date": "2026-10-04",
+  "notes": "Rename to Media Hub; new icon, splash and watermark; direct volume control"
+ },
+ {
+  "version": "2.2",
+  "date": "2026-10-04",
+  "notes": "Sound engine: hi-res output for music and video, parametric EQ"
+ },
+ {
+  "version": "2.1",
+  "date": "2026-10-02",
+  "notes": "AI Eraser: don't crash low-memory phones"
+ },
+ {
+  "version": "2.0",
+  "date": "2026-10-02",
+  "notes": "Gallery: folder filter, inline video playback, reel music preview"
+ },
+ {
+  "version": "1.9",
+  "date": "2026-10-02",
+  "notes": "Gallery: Movies & Reels editor"
+ },
+ {
+  "version": "1.8",
+  "date": "2026-10-02",
+  "notes": "Gallery: on-device AI Eraser (MI-GAN), smaller APK"
+ },
+ {
+  "version": "1.7",
+  "date": "2026-10-02",
+  "notes": "Merge CI changelog update"
+ },
+ {
+  "version": "1.5",
+  "date": "2026-10-02",
+  "notes": "Switch activation to the OrionMD standard gate (v4)"
+ },
+ {
+  "version": "1.4",
+  "date": "2026-10-02",
+  "notes": "Merge CI changelog update"
+ },
+ {
+  "version": "1.2",
+  "date": "2026-10-02",
+  "notes": "Fix API keys not taking effect; split artist from song titles; auto-lookup"
+ },
+ {
+  "version": "1.1",
+  "date": "2026-10-02",
+  "notes": "Merge main (signing key uploads, v1.0 changelog) into the branch"
+ },
+ {
   "version": "1.0",
   "date": "2026-10-02",
   "notes": "Add files via upload"

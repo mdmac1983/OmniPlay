@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.orionmd.omniplay.cloud.Cloud
+import app.orionmd.omniplay.ui.autoCheckUpdates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,6 +22,14 @@ import org.json.JSONObject
 interface Host {
     fun openTree(cb: (Uri?) -> Unit)
     fun launch(intent: Intent)
+    /** Shows a system confirmation (trash / restore / delete media); cb(true) when the user agreed. */
+    fun confirmMedia(sender: android.content.IntentSender, cb: (Boolean) -> Unit)
+    /** The phone's own screen lock (PIN / pattern / fingerprint); cb(true) when confirmed. */
+    fun confirmDevice(title: String, cb: (Boolean) -> Unit)
+    /** Leave the app (Back on the lock screen). */
+    fun leave()
+    /** Asks Android for photo & video access (or opens the app's settings when it was refused for good); cb(true) when granted. */
+    fun askPhotoAccess(cb: (Boolean) -> Unit)
 }
 
 sealed class Page {
@@ -35,8 +44,22 @@ sealed class Page {
     data class CloudBrowse(val provider: String, val acctId: String, val folderId: String, val path: String) : Page()
     object Podcasts : Page()
     object Discover : Page()
+    /** Tracks of a Deezer album (previews) or an Internet Archive release (free downloads). */
+    data class TrackList(val src: String, val id: String, val title: String, val sub: String, val cover: String, val head: org.json.JSONObject) : Page()
     object Settings : Page()
     object Downloads : Page()
+    /** Settings → Saved on this device, and one category of it. */
+    object Storage : Page()
+    data class SavedFiles(val key: String) : Page()
+    /** A bundled document (GUIDE.md / FEATURES.md). */
+    data class Doc(val file: String, val title: String) : Page()
+    // Gallery
+    data class GAlbumPage(val key: String) : Page()
+    data class GGroupPage(val id: String) : Page()
+    data class GViewer(val start: Int, val albumKey: String = "") : Page()
+    data class GEditor(val item: GItem) : Page()
+    data class GCreate(val kind: String, val items: List<GItem>) : Page()   // collage | gif | exposure | movie
+    object GTrash : Page()
 }
 
 sealed class Dlg {
@@ -49,6 +72,10 @@ sealed class Dlg {
     data class TextInput(val title: String, val label: String, val initial: String, val password: Boolean = false, val ok: (String) -> Unit) : Dlg()
     data class Choice(val title: String, val msg: String, val options: List<Pair<String, () -> Unit>>) : Dlg()
     data class FixMatch(val key: String, val query: String, val type: String, val year: Int) : Dlg()
+    data class EpisodeEdit(val item: Item) : Dlg()
+    data class PinAsk(val title: String, val then: () -> Unit) : Dlg()
+    data class PinSet(val then: () -> Unit) : Dlg()
+    data object PickLockFolder : Dlg()
     data class ConnectWebDav(val provider: String) : Dlg()
     data class CloudPassword(val provider: String) : Dlg()
     data object AddSource : Dlg()
@@ -72,12 +99,14 @@ class AppState(val ctx: Context, val host: Host) {
     var loading by mutableStateOf(false)
     var online by mutableStateOf(true)
     var scanProg by mutableStateOf<Pair<String, Int>?>(null)
+    val gallery = GalleryState()
+    val sync = SyncState().apply { musicAt = store.getPref("musicSyncAt", "0").toLongOrNull() ?: 0; videoAt = store.getPref("videoSyncAt", "0").toLongOrNull() ?: 0 }
 
     fun songs() = allItems.filter { it.c == 3 }
     fun videos() = allItems.filter { it.c == 2 }
 
     // ---------- navigation / ui ----------
-    var tab by mutableStateOf("home")
+    var tab by mutableStateOf("dash")
     val pages = androidx.compose.runtime.mutableStateListOf<Page>()
     var sheetOpen by mutableStateOf(false)
     var soundOpen by mutableStateOf(false)
@@ -99,7 +128,11 @@ class AppState(val ctx: Context, val host: Host) {
     // ---------- lifecycle ----------
     fun start() {
         Cloud.init(store)
+        DlQueue.onFinished = { _, ok -> scope.launch { refreshDownloads(); if (!ok) say("A download stopped — see Offline to resume it") } }
+        DlQueue.onFreeSaved = { scope.launch { rescanDeviceSoon() } }
+        DlQueue.init(ctx)
         ImageLoader.init(ctx, store)
+        scope.launch { kotlinx.coroutines.delay(8000); autoCheckUpdates() }   // the daily check for a new version
         online = Net.online(ctx)
         loadSources()
         loadLibrary()
@@ -109,7 +142,25 @@ class AppState(val ctx: Context, val host: Host) {
         if (pref("sync", "0") == "1") app.orionmd.omniplay.cloud.SyncWorker.schedule(ctx, pref("syncHours", "24").toLongOrNull() ?: 24, pref("syncWifiOnly", "1") == "1")
         countLyrics()
     }
-    fun onResume() { val o = Net.online(ctx); if (o && !online) ImageLoader.bump(); online = o; refreshDownloads() }
+    /** A store link was opened: when you come back, the phone's music is rescanned so a bought song shows up. */
+    private var storeVisit = false
+    /** Locked folders were changed, shown or hidden: rebuild the library and the gallery. */
+    fun refreshLocks() { loadLibrary(); applyGalleryFilter() }
+    /** A locked-folder key as a readable name. */
+    fun lockName(k: String): String = when {
+        k.startsWith("src:") -> sources.firstOrNull { it.id == k.substring(4) }?.name ?: "A removed source"
+        k.startsWith("dir:") -> k.substring(4)
+        k.startsWith("bucket:") -> (gallery.all ?: emptyList()).firstOrNull { it.bucketId == k.substring(7) }?.bucket?.let { "Gallery · $it" } ?: "A gallery folder"
+        else -> k
+    }
+    fun openStore(u: String) { storeVisit = true; openUrl(u) }
+    private var rescanJob: kotlinx.coroutines.Job? = null
+    /** Rescans "This device" a few seconds from now (once, however many downloads finish meanwhile). */
+    fun rescanDeviceSoon() {
+        if (sources.none { it.id == "device" }) return
+        rescanJob?.cancel(); rescanJob = scope.launch { kotlinx.coroutines.delay(4000); sync("device") }
+    }
+    fun onResume() { if (storeVisit) { storeVisit = false; rescanDeviceSoon() }; resumeTick++; val o = Net.online(ctx); if (o && !online) ImageLoader.bump(); online = o; refreshDownloads() }
 
     fun loadSources() {
         sources = try { JSONArray(pref("sources", "[]")).let { a -> (0 until a.length()).map { Source.of(a.getJSONObject(it)) } } } catch (_: Exception) { emptyList() }
@@ -128,14 +179,26 @@ class AppState(val ctx: Context, val host: Host) {
         scope.launch {
             val loaded = withContext(Dispatchers.IO) {
                 val items = ArrayList<Item>()
-                for (s in sources) items.addAll(Library.read(store, s.id))
+                val fixes = epFixesForLoad()
+                for (s in sources) Library.read(store, s.id).mapTo(items) { applyEpFix(reparse(it), fixes) }
+                // locked sources / folders stay out until shown with the PIN
+                val locked = if (Lock.privateOpen) emptySet() else Lock.folders(store)
+                if (locked.isNotEmpty()) items.removeAll { Lock.hides(locked, it) }
+                // camera videos (DCIM, Pictures) stay in the gallery, not in Videos (Settings → Library to show them there too)
+                if (store.getPref("camVideos", "0") != "1") {
+                    val devices = sources.filter { it.kind == "device" }.map { it.id }.toSet()
+                    items.removeAll { it.c == 2 && it.src in devices && it.f.let { f -> f.startsWith("DCIM", true) || f.startsWith("Pictures", true) } }
+                }
                 val m = parseMeta(store.musicMeta())
                 val t = HashMap<String, JSONObject>(); val tc = store.tmdbCache(); tc.keys().forEach { k -> tc.optJSONObject(k)?.let { t[k] = it } }
                 Triple(items, m, t)
             }
             allItems = loaded.first; meta = loaded.second; tmdb = loaded.third
+            if (autoEnrichOnLoad) { autoEnrichOnLoad = false; autoEnrich() }
         }
     }
+    /** look things up after the first load and after every rescan */
+    var autoEnrichOnLoad = true
 
     /** Rescan one source (or all). */
     fun sync(id: String? = null) {
@@ -147,6 +210,7 @@ class AppState(val ctx: Context, val host: Host) {
                 updateSource(s.id) { it.copy(count = items.size, lastScan = System.currentTimeMillis()) }
             }
             scanProg = null
+            autoEnrichOnLoad = true
             loadLibrary()
             say("Updated the library")
         }
@@ -267,10 +331,8 @@ class AppState(val ctx: Context, val host: Host) {
         scope.launch {
             val list = songs(); lyricsProg = 0 to list.size
             withContext(Dispatchers.IO) {
-                list.forEachIndexed { i, x ->
+                Api.each(list, done = { n -> scope.launch { lyricsProg = n to list.size } }) { x ->
                     if (!Lyrics.has(ctx, x.i)) try { Lyrics.fetch(ctx, x.i, x.title, x.artist, x.album, durOf(x) / 1000) } catch (_: Exception) {}
-                    scope.launch { lyricsProg = (i + 1) to list.size }
-                    Thread.sleep(60)
                 }
             }
             lyricsProg = null; countLyrics(); say("Lyrics downloaded")
@@ -284,16 +346,15 @@ class AppState(val ctx: Context, val host: Host) {
             val list = songs(); val m = store.musicMeta(); var matched = 0
             metaProg = Triple(0, list.size, 0)
             withContext(Dispatchers.IO) {
-                list.forEachIndexed { i, x ->
-                    val key = "s:${x.i}"
-                    if (!force && m.has(key)) return@forEachIndexed
-                    val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { null }
-                    if (r != null) { m.put(key, r); matched++ } else m.put(key, JSONObject().put("none", true))
-                    if (i % 20 == 0) store.saveMusicMeta(m)
-                    val mm = matched; scope.launch { metaProg = Triple(i + 1, list.size, mm) }
-                    Thread.sleep(120)
+                val todo = list.filter { force || !m.has("s:${it.i}") }
+                val hits = java.util.concurrent.atomic.AtomicInteger()
+                Api.each(todo, done = { n -> if (n % 20 == 0) synchronized(m) { store.saveMusicMeta(m) }; val h = hits.get(); scope.launch { metaProg = Triple(n, todo.size, h) } }) { x ->
+                    val r = try { MusicMeta.lookup(x.artist, x.title) } catch (_: Exception) { return@each }   // failed request: try again later
+                    synchronized(m) { m.put("s:${x.i}", r ?: JSONObject().put("none", true).put("t", System.currentTimeMillis())) }
+                    if (r != null) hits.incrementAndGet()
                 }
-                store.saveMusicMeta(m)
+                matched = hits.get()
+                synchronized(m) { store.saveMusicMeta(m) }
             }
             meta = parseMeta(m); metaProg = null; say("Found info for $matched songs")
         }
@@ -310,17 +371,16 @@ class AppState(val ctx: Context, val host: Host) {
             val vids = videos(); tmdbProg = 0 to vids.size
             withContext(Dispatchers.IO) {
                 val cache = store.tmdbCache()
-                vids.forEachIndexed { i, x ->
-                    val key = mkey(x) ?: return@forEachIndexed
-                    if (!force && cache.has(key)) return@forEachIndexed
-                    val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
-                    val m = try { Tmdb.autoMatch(store, o) } catch (_: Exception) { null }
-                    cache.put(key, m?.let { Tmdb.slim(it, x.k ?: "movie") } ?: JSONObject().put("none", true))
-                    if (i % 10 == 0) store.saveTmdb(cache)
-                    scope.launch { tmdbProg = (i + 1) to vids.size }
-                    Thread.sleep(120)
+                // one look-up per movie / show (a show's episodes share one)
+                val todo = vids.mapNotNull { x -> mkey(x)?.let { it to x } }.distinctBy { it.first }.filter { (key, _) ->
+                    cache.optJSONObject(key)?.optBoolean("manual") != true && (force || needsMatch(cache.optJSONObject(key)))   // your own fixes stay
                 }
-                store.saveTmdb(cache)
+                Api.each(todo, done = { n -> if (n % 10 == 0) synchronized(cache) { store.saveTmdb(cache) }; scope.launch { tmdbProg = n to todo.size } }) { (key, x) ->
+                    val o = JSONObject().put("n", x.n).put("f", x.f).put("i", x.i); Tmdb.parse(o)
+                    val m = try { Tmdb.autoMatch(store, o) } catch (_: Exception) { return@each }   // failed request: try again later
+                    synchronized(cache) { cache.put(key, m?.let { if (x.k == "mv") it else Tmdb.slim(it, if (x.k == "tv") "tv" else "movie") } ?: noMatch()) }
+                }
+                synchronized(cache) { store.saveTmdb(cache) }
             }
             loadLibrary(); tmdbProg = null; say("Matched movies & TV")
         }
@@ -337,7 +397,24 @@ class AppState(val ctx: Context, val host: Host) {
     }
     fun fixMatch(x: Item) { mkey(x)?.let { dialog = Dlg.FixMatch(it, x.pt ?: x.title, if (x.k == "tv") "tv" else if (x.k == "mv") "mv" else "movie", x.py) } }
     fun tmdbSetMatch(key: String, m: JSONObject?) {
-        scope.launch { withContext(Dispatchers.IO) { store.updateTmdb { it.put(key, m ?: JSONObject().put("none", true)) } }; loadLibrary() }
+        val v = (m ?: JSONObject().put("none", true)).put("manual", true)
+        // a TV show matched to a different show: its saved episode details and subtitles belonged to the old one
+        val changed = key.startsWith("tv:") && tmdb[key]?.optInt("id") != v.optInt("id")
+        val eps = if (changed) videos().filter { mkey(it) == key } else emptyList()
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                if (changed) forgetShow(key, eps)
+                store.updateTmdb { it.put(key, v) }
+                // the new show's details and episode list straight away, when online
+                if (m != null && changed && Net.online(ctx)) {
+                    try { Tmdb.details(store, v).let { full -> store.updateTmdb { it.put(key, full) } } } catch (_: Exception) {}
+                    val id = v.optInt("id")
+                    val got = eps.map { it.se }.filter { it > 0 }.toSet().mapNotNull { se -> try { "$key#s$se" to Tmdb.season(store, id, se).put("tvid", id) } catch (_: Exception) { null } }
+                    if (got.isNotEmpty()) store.updateTmdb { c -> got.forEach { (k, o) -> c.put(k, o) } }
+                }
+            }
+            loadLibrary()
+        }
     }
     fun loadDetails(x: Item) {
         val key = mkey(x) ?: return; val m = tmdb[key] ?: return
@@ -347,16 +424,24 @@ class AppState(val ctx: Context, val host: Host) {
 
     // ---------- downloads / offline ----------
     var dl by mutableStateOf(mapOf<Long, Boolean>())
-    fun refreshDownloads() { dl = Downloads.index(ctx).let { o -> o.keys().asSequence().associate { it.toLong() to java.io.File(o.optString(it)).exists() } } }
+    fun refreshDownloads() { dl = Downloads.index(ctx).let { o -> o.keys().asSequence().associate { it.toLong() to Downloads.present(ctx, o.optString(it)) } } }
     fun isDownloaded(x: Item) = dl[x.i] == true
+    /** Saving for offline goes through the download queue: progress, pause / resume, carries on after a restart. */
     fun download(list: List<Item>) {
-        scope.launch { var ok = 0; for (x in list) Downloads.download(ctx, x) { if (it) ok++ }; refreshDownloads(); say("Saved $ok for offline") }
+        val n = DlQueue.enqueue(ctx, list) { if (it.c == 2) vtitle(it) else it.title }
+        say(when { n == 0 && list.all { isDownloaded(it) } -> "Already saved for offline"; n == 0 -> "Already downloading"; n == 1 -> "Downloading…"; else -> "Downloading $n files…" })
     }
     fun removeDownload(x: Item) { Downloads.remove(ctx, x.i); refreshDownloads() }
 
     // ---------- search (catalog) ----------
     var catalog by mutableStateOf<List<JSONObject>?>(null)
     fun searchCatalog(q: String) { scope.launch { catalog = withContext(Dispatchers.IO) { MusicMeta.searchCatalog(q) } } }
+    /** Plays songs straight from links (free downloads' full songs, or previews). */
+    fun playLinks(list: List<JSONObject>, start: Int) {
+        val q = JSONArray(); list.forEach { o -> q.put(JSONObject().put("i", idFor("link-" + o.optString("key").ifEmpty { o.optString("id") })).put("t", o.optString("t")).put("a", o.optString("a"))
+            .put("al", o.optString("al")).put("u", o.optString("stream").ifEmpty { o.optString("url").ifEmpty { o.optString("preview") } }).put("cv", o.optString("cover")).put("th", 0).put("d", o.optLong("d"))) }
+        Player.playQueue(ctx, "preview", q, start); pollPlayer(); sheetOpen = true
+    }
     fun playPreview(o: JSONObject) {
         val q = JSONArray().put(JSONObject().put("i", o.optLong("id")).put("t", o.optString("t")).put("a", o.optString("a")).put("al", o.optString("al"))
             .put("u", o.optString("preview")).put("cv", o.optString("cover")).put("th", 0).put("d", o.optLong("d")))

@@ -64,12 +64,12 @@ object Lyrics {
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
     /** Body of a 200 answer, null for 404 (not found); throws for anything else so we retry later. */
-    private fun get(url: String): String? {
+    private fun get(url: String): String? = Api.retry {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 12000; c.readTimeout = 20000
         c.setRequestProperty("User-Agent", Net.UA)
         try {
-            return when (c.responseCode) { 200 -> c.inputStream.bufferedReader().readText(); 404 -> null; else -> throw Exception("HTTP ${c.responseCode}") }
+            when (c.responseCode) { 200 -> c.inputStream.bufferedReader().readText(); 404 -> null; 429 -> throw RateLimited(1000); else -> throw Exception("HTTP ${c.responseCode}") }
         } finally { c.disconnect() }
     }
 

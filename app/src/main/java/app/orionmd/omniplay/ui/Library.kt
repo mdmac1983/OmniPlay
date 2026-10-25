@@ -1,6 +1,8 @@
 package app.orionmd.omniplay.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -25,18 +27,34 @@ import app.orionmd.omniplay.*
 fun MusicLibrary(st: AppState, pad: PaddingValues) {
     var sub by remember { mutableStateOf("songs") }
     var q by remember { mutableStateOf("") }
-    val songs = remember(st.allItems, q) { val s = st.songs(); if (q.isBlank()) s else s.filter { it.title.contains(q, true) || it.artist.contains(q, true) || it.album.contains(q, true) } }
+    var sort by remember { mutableStateOf(st.pref("songSort", "title")) }
+    val songs = remember(st.allItems, q, sort) {
+        val s = st.songs().let { if (q.isBlank()) it else it.filter { x -> x.title.contains(q, true) || x.artist.contains(q, true) || x.album.contains(q, true) } }
+        when (sort) {
+            "added" -> s.sortedByDescending { it.cr }
+            "artist" -> s.sortedWith(compareBy({ it.artist.lowercase() }, { it.album.lowercase() }, { it.tr }))
+            "album" -> s.sortedWith(compareBy({ it.album.lowercase() }, { it.tr }))
+            else -> s.sortedBy { it.title.lowercase() }
+        }
+    }
     Column(Modifier.fillMaxSize()) {
-        TopBar(st, "OmniPlay", actions = {
+        TopBar(st, "Media Hub", actions = {
+            PrivateToggle(st)
+            IconBtn(Ic.search, { st.open(Page.Discover) })
             IconBtn(Ic.podcast, { st.open(Page.Podcasts) })
+            IconBtn(Ic.download, { st.dialog = Dlg.Confirm("Sync all music for offline?", "Downloads album art, song info (genre, year, length), album details and lyrics for every song and saves them on the device. Already-saved items are skipped.") { st.syncMusic() } })
             IconBtn(Ic.sync, { st.sync() })
         })
+        st.sync.music?.let { p -> Column(Modifier.padding(horizontal = 16.dp)) { Progress(if (p.total > 0) p.done.toFloat() / p.total else null); Muted("${p.step} · ${p.done} / ${p.total}", size = 12.sp) } }
         st.scanProg?.let { (name, n) -> Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) { Progress(null); Spacer(Modifier.width(10.dp)); Muted("Scanning $name — $n items", size = 12.sp) } }
         Field(q, { q = it }, "Search songs, artists, albums…", Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth())
         Seg(listOf("songs" to "Songs", "albums" to "Albums", "artists" to "Artists", "genres" to "Genres", "playlists" to "Playlists", "folders" to "Folders"), sub) { sub = it }
         if (st.allItems.isEmpty()) { EmptyLibrary(st); return@Column }
         when (sub) {
-            "songs" -> SongList(st, songs, pad)
+            "songs" -> Column {
+                SortChips(listOf("title" to "A–Z", "added" to "Recently added", "artist" to "Artist", "album" to "Album"), sort) { sort = it; st.setPref("songSort", it) }
+                SongList(st, songs, pad)
+            }
             "albums" -> AlbumGrid(st, songs, pad)
             "artists" -> ArtistList(st, songs, pad)
             "genres" -> GenreList(st, songs, pad)
@@ -130,7 +148,9 @@ private fun FolderList(st: AppState, songs: List<Item>, pad: PaddingValues) {
     LazyColumn(contentPadding = contentPad(pad)) {
         items(folders, key = { it.first }) { (f, n) ->
             Row(Modifier.fillMaxWidth().clickable { st.open(Page.FolderPage(f)) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Ic.folder, null, tint = C.ac); Column(Modifier.padding(start = 12.dp)) { Text(f.substringAfterLast('/'), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted("$n songs", size = 12.sp) }
+                Icon(Ic.folder, null, tint = C.ac); Column(Modifier.padding(start = 12.dp).weight(1f)) { Text(f.substringAfterLast('/'), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted("$n songs", size = 12.sp) }
+                Lock.gen
+                IconBtn(Ic.lock, { st.toggleLock("dir:$f", f.substringAfterLast('/')) }, tint = if (Lock.isLocked(st.store, "dir:$f")) C.ac else C.mu.copy(alpha = .5f), size = 34.dp, iconSize = 18.dp)
             }
         }
     }
@@ -161,16 +181,33 @@ private fun PlaylistList(st: AppState, pad: PaddingValues) {
 fun VideoLibrary(st: AppState, pad: PaddingValues) {
     var sub by remember { mutableStateOf("all") }
     var q by remember { mutableStateOf("") }
-    val vids = remember(st.allItems, q, sub) {
+    var vsort by remember { mutableStateOf(st.pref("videoSort", "title")) }
+    val vids = remember(st.allItems, q, sub, vsort) {
         val v = st.videos().filter { when (sub) { "movies" -> it.k == "movie"; "tv" -> it.k == "tv"; "mv" -> it.k == "mv"; else -> true } }
-        if (q.isBlank()) v else v.filter { st.vtitle(it).contains(q, true) || it.n.contains(q, true) }
+            .let { v -> if (q.isBlank()) v else v.filter { st.vtitle(it).contains(q, true) || it.n.contains(q, true) } }
+        when (vsort) {
+            "added" -> v.sortedByDescending { it.cr }
+            "year" -> v.sortedByDescending { st.match(it)?.year?.take(4)?.toIntOrNull() ?: it.py }
+            else -> v.sortedBy { st.vtitle(it).lowercase() }
+        }
     }
     Column(Modifier.fillMaxSize()) {
-        TopBar(st, "Video", actions = { IconBtn(Ic.sync, { st.sync() }) })
+        var stream by remember { mutableStateOf(false) }
+        if (stream) StreamDialog(st) { stream = false }
+        TopBar(st, "Video", actions = {
+            PrivateToggle(st)
+            IconBtn(Ic.link, { stream = true })
+            IconBtn(Ic.download, { st.dialog = Dlg.Confirm("Sync all videos for offline?", "Downloads TMDB details, posters, backdrops, cast, episode info and subtitles (with a Wyzie key) for every video and saves them on the device. Already-saved items are skipped.") { st.syncVideos() } })
+            IconBtn(Ic.sync, { st.sync() })
+        })
+        st.sync.video?.let { p -> Column(Modifier.padding(horizontal = 16.dp)) { Progress(if (p.total > 0) p.done.toFloat() / p.total else null); Muted("${p.step} · ${p.done} / ${p.total}", size = 12.sp) } }
         Field(q, { q = it }, "Search videos…", Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth())
         Seg(listOf("all" to "All", "movies" to "Movies", "tv" to "TV", "mv" to "Music video"), sub) { sub = it }
         if (st.videos().isEmpty()) { EmptyLibrary(st); return@Column }
-        if (sub == "tv") TvShowGrid(st, pad) else VideoGrid(st, vids, pad)
+        if (sub == "tv") TvShowGrid(st, pad) else Column {
+            SortChips(listOf("title" to "A–Z", "added" to "Recently added", "year" to "Year"), vsort) { vsort = it; st.setPref("videoSort", it) }
+            VideoGrid(st, vids, pad)
+        }
     }
 }
 
@@ -210,5 +247,47 @@ internal fun TopBar(st: AppState, title: String, actions: @Composable RowScope.(
     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, fontSize = 24.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
         actions()
+    }
+}
+
+/** "Open network stream" (like VLC's): a video URL — MP4/WebM/MKV over http(s), HLS (.m3u8) or DASH (.mpd). */
+@Composable
+private fun StreamDialog(st: AppState, onDone: () -> Unit) {
+    var url by remember { mutableStateOf("") }
+    val recent = remember { try { org.json.JSONArray(st.pref("vstreams", "[]")).let { a -> (0 until a.length()).map { a.getString(it) } } } catch (_: Exception) { emptyList() } }
+    fun play(u: String) {
+        val v = u.trim(); if (!v.startsWith("http://") && !v.startsWith("https://") && !v.startsWith("rtsp://")) { st.say("Enter a link starting with http:// or https://"); return }
+        st.setPref("vstreams", org.json.JSONArray((listOf(v) + recent.filter { it != v }).take(8)).toString())
+        val q = org.json.JSONArray().put(org.json.JSONObject().put("i", app.orionmd.omniplay.idFor(v)).put("t", android.net.Uri.parse(v).lastPathSegment ?: v).put("u", v))
+        try { st.host.launch(android.content.Intent(st.ctx, app.orionmd.omniplay.VideoActivity::class.java).putExtra("queue", q.toString()).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
+        onDone()
+    }
+    androidx.compose.ui.window.Dialog(onDone) {
+        Column(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).background(C.s1).padding(16.dp).widthIn(min = 280.dp)) {
+            Text("Open network stream", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            Muted("A video link: MP4, WebM or MKV over http(s), live HLS (.m3u8) or DASH (.mpd).", Modifier.padding(top = 4.dp), 12.sp)
+            Field(url, { url = it }, "https://…", Modifier.fillMaxWidth().padding(vertical = 10.dp))
+            if (recent.isNotEmpty()) {
+                Muted("Recent", size = 12.sp)
+                recent.forEach { r -> Text(r, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, fontSize = 13.sp, color = C.ac2,
+                    modifier = Modifier.fillMaxWidth().clickable { play(r) }.padding(vertical = 6.dp)) }
+            }
+            Row(Modifier.padding(top = 8.dp)) {
+                Btn("Cancel", onDone, Modifier.weight(1f), kind = BtnKind.Ghost); Spacer(Modifier.width(8.dp))
+                Btn("Play", { play(url) }, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/** Sort order chips above a list (the choice is remembered). */
+@Composable
+private fun SortChips(opts: List<Pair<String, String>>, sel: String, onSel: (String) -> Unit) {
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 2.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        opts.forEach { (k, n) ->
+            val on = k == sel
+            Text(n, fontSize = 12.sp, color = if (on) androidx.compose.ui.graphics.Color.Black else C.tx,
+                modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(if (on) C.ac else C.s2).clickable { onSel(k) }.padding(horizontal = 10.dp, vertical = 5.dp))
+        }
     }
 }
