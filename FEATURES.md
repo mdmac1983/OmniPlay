@@ -2,6 +2,9 @@
 
 A standalone, offline-first hybrid **music + video player** by OrionMD.
 
+## Look
+- **Apple style** (the default): follows Apple's Human Interface Guidelines — iOS dark-mode colours and system blue, large page titles, 17-point text, an iOS tab bar, Settings as inset grouped lists with coloured icons, iOS switches, segmented controls, pop-up buttons, capsule buttons and 44-point tap targets. **Classic** brings back Media Hub's original purple look (Settings → Appearance → App style).
+
 ## Dashboard
 - Library at a glance, **Sync all** for music and videos (with progress), continue watching, most played, recently added, and podcast episodes saved offline.
 

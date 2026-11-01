@@ -14,6 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,17 +29,18 @@ fun SettingsScreen(st: AppState, pad: PaddingValues) {
     Column(Modifier.fillMaxSize()) {
         TopBar(st, "Settings")
         LazyColumn(contentPadding = contentPad(pad)) {
-            item { Cat(st, "sources", "Your library sources", Ic.folder) { Sources(st) } }
-            item { Cat(st, "clouds", "Cloud accounts", Ic.cloud) { Clouds(st) } }
-            item { Cat(st, "keys", "API keys", Ic.key) { Keys(st) } }
-            item { Cat(st, "library", "Library tools", Ic.lib) { LibraryTools(st) } }
-            item { Cat(st, "sync", "Sync", Ic.sync) { SyncSettings(st) } }
-            item { Cat(st, "playback", "Playback & subtitles", Ic.movie) { Playback(st) } }
-            item { Cat(st, "appearance", "Appearance", Ic.skin) { Appearance(st) } }
-            item { Cat(st, "lock", "Lock & privacy", Ic.lock) { LockSettings(st) } }
-            item { Cat(st, "storage", "Saved on this device", Ic.offline) { StorageSummary(st) } }
-            item { Cat(st, "security", "Activation & security", Ic.shield) { Security(st) } }
-            item { Cat(st, "updates", "App updates" + if (Updater.result?.available == true) " · new version" else "", Ic.download) { UpdateSettings(st) } }
+            // in the Apple style the categories are inset grouped lists, three groups like iOS Settings
+            item { Cat(st, "sources", "Your library sources", Ic.folder, Color(0xFF0A84FF), first = true) { Sources(st) } }
+            item { Cat(st, "clouds", "Cloud accounts", Ic.cloud, Color(0xFF32ADE6)) { Clouds(st) } }
+            item { Cat(st, "keys", "API keys", Ic.key, Color(0xFF8E8E93), last = true) { Keys(st) } }
+            item { Cat(st, "library", "Library tools", Ic.lib, Color(0xFFFF9F0A), first = true) { LibraryTools(st) } }
+            item { Cat(st, "sync", "Sync", Ic.sync, Color(0xFF30D158)) { SyncSettings(st) } }
+            item { Cat(st, "playback", "Playback & subtitles", Ic.movie, Color(0xFFFF453A)) { Playback(st) } }
+            item { Cat(st, "appearance", "Appearance", Ic.skin, Color(0xFF5E5CE6), last = true) { Appearance(st) } }
+            item { Cat(st, "lock", "Lock & privacy", Ic.lock, Color(0xFF636366), first = true) { LockSettings(st) } }
+            item { Cat(st, "storage", "Saved on this device", Ic.offline, Color(0xFF8E8E93)) { StorageSummary(st) } }
+            item { Cat(st, "security", "Activation & security", Ic.shield, Color(0xFF30D158)) { Security(st) } }
+            item { Cat(st, "updates", "App updates" + if (Updater.result?.available == true) " · new version" else "", Ic.download, Color(0xFF0A84FF), last = true) { UpdateSettings(st) } }
             item {
                 // footer: the user guide and the feature list, as shipped with this version
                 Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -53,8 +56,28 @@ fun SettingsScreen(st: AppState, pad: PaddingValues) {
 }
 
 @Composable
-private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, content: @Composable () -> Unit) {
+private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, iconBg: Color,
+                first: Boolean = false, last: Boolean = false, content: @Composable () -> Unit) {
     val open = st.settingsOpen[key] == true
+    if (C.apple) {
+        // one row of an inset grouped list: rounded at the ends of its group, a hairline between rows (inset past the icon)
+        val r = 12.dp
+        Column(Modifier.padding(top = if (first) 18.dp else 0.dp)
+            .clip(RoundedCornerShape(topStart = if (first) r else 0.dp, topEnd = if (first) r else 0.dp, bottomStart = if (last) r else 0.dp, bottomEnd = if (last) r else 0.dp))
+            .background(C.card)) {
+            if (!first) Box(Modifier.padding(start = 58.dp).fillMaxWidth().height(0.5.dp).background(C.line))
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { st.toggleSettingsCat(key) }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(30.dp).clip(RoundedCornerShape(7.dp)).background(iconBg), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = Color.White, modifier = Modifier.size(19.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(title, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                Icon(Ic.chevron, null, tint = Color(0xFF5A5A5F), modifier = Modifier.size(22.dp).graphicsLayer { rotationZ = if (open) 90f else 0f })
+            }
+            AnimatedVisibility(open) { Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)) { content() } }
+        }
+        return
+    }
     Column(Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(C.card)) {
         Row(Modifier.fillMaxWidth().clickable { st.toggleSettingsCat(key) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = C.ac); Spacer(Modifier.width(12.dp))
@@ -69,7 +92,7 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
     val on = st.pref(k, default) == "1"
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text(title); if (sub.isNotEmpty()) Muted(sub, size = 12.sp) }
-        Switch(on, { st.setPref(k, if (it) "1" else "0"); onChange() }, colors = SwitchDefaults.colors(checkedThumbColor = C.ac, checkedTrackColor = C.ac.copy(alpha = .5f)))
+        Switch(on, { st.setPref(k, if (it) "1" else "0"); onChange() }, colors = switchColors())
     }
 }
 @Composable internal fun Pick(st: AppState, k: String, title: String, options: List<Pair<String, String>>, default: String) {
@@ -244,6 +267,11 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
 
 // ---------------- appearance ----------------
 @Composable private fun Appearance(st: AppState) {
+    Column(Modifier.padding(vertical = 6.dp)) {
+        Text("App style", fontSize = 13.sp)
+        Select(st.pref("uiStyle", "apple"), C.STYLES, { st.setPref("uiStyle", it); C.use(it) }, Modifier.fillMaxWidth().padding(top = 4.dp))
+        Muted("Apple follows Apple's design guidelines: iOS colours, large titles, an iOS tab bar and grouped settings. Classic is Media Hub's original purple look.", Modifier.padding(top = 4.dp), 12.sp)
+    }
     Toggle(st, "splash", "Splash screen when the app opens", "The OrionMD Media Hub artwork, tap to skip", "1")
     Pick(st, "watermark", "Background watermark", listOf("off" to "Off", "light" to "Light", "medium" to "Medium", "strong" to "Strong"), "medium")
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

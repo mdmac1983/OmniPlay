@@ -50,7 +50,7 @@ fun UpdateSettings(st: AppState) {
         Btn(if (Updater.checking) "Checking…" else "Check for updates", { st.checkUpdates(quiet = false) }, Modifier.padding(top = 10.dp), kind = BtnKind.Ghost, small = true)
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) { Text("Check automatically", fontWeight = FontWeight.SemiBold); Muted("Once a day, and tell me when an update is out", size = 12.sp) }
-            Switch(st.pref("autoUpdate", "1") == "1", { st.setPref("autoUpdate", if (it) "1" else "0") })
+            Switch(st.pref("autoUpdate", "1") == "1", { st.setPref("autoUpdate", if (it) "1" else "0") }, colors = switchColors())
         }
         Muted("Android shows its install screen to confirm; your data is kept. Only updates signed with the same key as this app are installed.",
             Modifier.padding(top = 8.dp), 11.sp)

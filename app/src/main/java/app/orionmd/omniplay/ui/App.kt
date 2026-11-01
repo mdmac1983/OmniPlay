@@ -17,6 +17,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.selection.selectable
 import app.orionmd.omniplay.AppState
 import app.orionmd.omniplay.Page
 
@@ -51,7 +53,8 @@ fun OmniApp(st: AppState) {
         bottomBar = {
             Column {
                 MiniPlayer(st)
-                NavigationBar(containerColor = C.s1) {
+                if (C.apple) AppleTabBar(tabs, if (st.pages.isEmpty()) st.tab else "") { id -> if (st.tab == id) st.pages.clear(); st.tab = id }
+                else NavigationBar(containerColor = C.s1) {
                     tabs.forEach { (id, t) ->
                         NavigationBarItem(
                             selected = st.tab == id && st.pages.isEmpty(),
@@ -109,12 +112,37 @@ private fun Router(st: AppState, page: Page, pad: androidx.compose.foundation.la
     }
 }
 
+/**
+ * The iOS tab bar: a translucent bar with a hairline on top, the icon over a small label, the current tab in the tint
+ * colour and the others in grey — no Material "pill" behind the selected icon.
+ */
+@Composable
+private fun AppleTabBar(tabs: List<Pair<String, Pair<String, androidx.compose.ui.graphics.vector.ImageVector>>>, selected: String, onSelect: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().background(Color(0xFA161618))) {
+        Box(Modifier.fillMaxWidth().height(0.5.dp).background(C.line))
+        Row(Modifier.fillMaxWidth().navigationBarsPadding().height(54.dp)) {
+            tabs.forEach { (id, t) ->
+                val on = id == selected
+                val tint = if (on) C.ac else Color(0xFF8E8E93)
+                Column(Modifier.weight(1f).fillMaxHeight().selectable(on, role = androidx.compose.ui.semantics.Role.Tab) { onSelect(id) },
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Icon(t.second, null, tint = tint, modifier = Modifier.size(26.dp))
+                    Text(t.first, color = tint, fontSize = 10.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun Toast(msg: String, onGone: () -> Unit) {
     LaunchedEffect(msg) { kotlinx.coroutines.delay(2600); onGone() }
     Box(Modifier.fillMaxSize().padding(bottom = 150.dp), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
         AnimatedVisibility(true) {
-            Text(msg, color = Color.White, modifier = Modifier.padding(horizontal = 24.dp)
+            // Apple: a capsule in the elevated grey
+            if (C.apple) Text(msg, color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 24.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xF22C2C2E)).padding(horizontal = 20.dp, vertical = 12.dp))
+            else Text(msg, color = Color.White, modifier = Modifier.padding(horizontal = 24.dp)
                 .clip(RoundedCornerShape(12.dp)).background(Color(0xE6202433)).padding(horizontal = 16.dp, vertical = 10.dp))
         }
     }

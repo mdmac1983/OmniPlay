@@ -70,7 +70,7 @@ private fun label(t: org.json.JSONObject) = t.optString("t").ifEmpty { t.optStri
 @Composable
 fun MiniPlayer(st: AppState) {
     val p = st.player; val t = p.track ?: return
-    Box(Modifier.padding(horizontal = 8.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(C.s2).border(1.dp, C.line, RoundedCornerShape(14.dp))) {
+    Box(Modifier.padding(horizontal = 8.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(C.s2).border(1.dp, if (C.apple) Color.Transparent else C.line, RoundedCornerShape(14.dp))) {
         Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).songSwipe(.25f).clickable { st.sheetOpen = true }, verticalAlignment = Alignment.CenterVertically) {
                 Thumb(st.playerArt(t), label(t), Modifier.size(44.dp), fallback = st.playerAlt(t))

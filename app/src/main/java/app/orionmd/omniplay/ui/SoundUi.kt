@@ -92,7 +92,7 @@ fun SoundScreen(st: AppState) {
                             Text(if (c.on) "Sound effects ON" else "Sound effects OFF", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = if (c.on) C.ac else C.mu)
                             EngineStatus(c.on)
                         }
-                        Switch(c.on, { v -> c = c.copy(on = v); Sound.save(st, c); Profiles.saveCurrent(st) }, colors = SwitchDefaults.colors(checkedTrackColor = C.ac))
+                        Switch(c.on, { v -> c = c.copy(on = v); Sound.save(st, c); Profiles.saveCurrent(st) }, colors = switchColors())
                     }
                     // A/B: hold to hear the music without the effects
                     var held by remember { mutableStateOf(false) }
@@ -276,7 +276,7 @@ private fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boolea
     var v by remember(on) { mutableStateOf(on) }
     Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp); if (sub.isNotEmpty()) Muted(sub, size = 12.sp) }
-        Switch(v, { v = it; onChange(it) }, colors = SwitchDefaults.colors(checkedTrackColor = C.ac))
+        Switch(v, { v = it; onChange(it) }, colors = switchColors())
     }
 }
 

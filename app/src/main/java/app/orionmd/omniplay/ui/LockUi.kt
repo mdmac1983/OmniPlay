@@ -135,7 +135,7 @@ fun LockSettings(st: AppState) {
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text("Lock Media Hub", fontWeight = FontWeight.SemiBold); Muted("Ask for the PIN when the app opens", size = 12.sp) }
-        androidx.compose.material3.Switch(Lock.appLockOn(st.store), { on -> st.setPref("lockApp", if (on) "1" else "0") })
+        androidx.compose.material3.Switch(Lock.appLockOn(st.store), { on -> st.setPref("lockApp", if (on) "1" else "0") }, colors = switchColors())
     }
     if (Lock.appLockOn(st.store)) Pick(st, "lockAfter", "Lock again after leaving for", listOf("0" to "Immediately", "60" to "1 minute", "300" to "5 minutes", "1800" to "30 minutes"), "60")
     SectionHeader("Locked folders")

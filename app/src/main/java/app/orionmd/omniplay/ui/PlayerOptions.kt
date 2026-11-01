@@ -105,7 +105,7 @@ fun MusicOptions(st: AppState, onDone: () -> Unit) {
                 SectionHeader("Sound")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text("Sound effects", fontWeight = FontWeight.SemiBold); Muted(if (on) "Equaliser and effects are on" else "Playing the original sound", size = 12.sp) }
-                    Switch(on, { v -> on = v; Sound.save(st, Dsp.cfg.copy(on = v)); Profiles.saveCurrent(st) }, colors = SwitchDefaults.colors(checkedTrackColor = C.ac))
+                    Switch(on, { v -> on = v; Sound.save(st, Dsp.cfg.copy(on = v)); Profiles.saveCurrent(st) }, colors = switchColors())
                 }
                 Row(Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     DspCfg.PRESETS.forEach { (n, l) ->

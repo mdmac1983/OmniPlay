@@ -245,7 +245,9 @@ private fun TvShowGrid(st: AppState, pad: PaddingValues) {
 @Composable
 internal fun TopBar(st: AppState, title: String, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, fontSize = 24.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+        // Apple: a large title (34 sp bold), as at the top of every iOS app's main screens
+        if (C.apple) Text(title, fontSize = 34.sp, lineHeight = 41.sp, fontWeight = FontWeight.Bold, letterSpacing = .2.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(top = 6.dp))
+        else Text(title, fontSize = 24.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
         actions()
     }
 }

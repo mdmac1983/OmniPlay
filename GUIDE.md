@@ -392,7 +392,7 @@ feature.**
 | **Sync** | Background sync schedule, Wi-Fi only |
 | **Playback & subtitles** | Video defaults (resume, autoplay, gestures, picture size, decoder, skip amount, PiP, background sound), player buttons, subtitle look and encoding |
 | **Sound** | Opens the sound engine and equaliser |
-| **Appearance** | Visualizer style, player skin, skin pattern around videos, background watermark, splash screen |
+| **Appearance** | App style (Apple — the iOS look, the default — or Classic, Media Hub's original purple look), visualizer style, player skin, skin pattern around videos, background watermark, splash screen |
 | **Lock & privacy** | Set a PIN, lock Media Hub when it opens, lock folders, show / hide locked folders, change or remove the PIN |
 | **Saved on this device** | See everything Media Hub has saved (pictures, info, lyrics, subtitles, downloads…) and clear it |
 | **Activation & security** | Trial / key status, enter or purchase a key |

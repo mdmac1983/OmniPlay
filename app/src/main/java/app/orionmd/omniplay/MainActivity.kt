@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity(), Host {
         gate = gateState()
         Lock.onReturn(st.store, starting = savedInstanceState == null)
         recheckPending()
+        app.orionmd.omniplay.ui.C.use(st.store.getPref("uiStyle", "apple"))
         setContent {
             AppTheme {
                 var splash by remember { mutableStateOf(savedInstanceState == null && st.store.getPref("splash", "1") == "1") }
