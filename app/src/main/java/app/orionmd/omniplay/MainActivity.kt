@@ -53,8 +53,8 @@ class MainActivity : ComponentActivity(), Host {
         val want = if (android.os.Build.VERSION.SDK_INT >= 33) arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO, android.Manifest.permission.READ_MEDIA_VIDEO,
             android.Manifest.permission.READ_MEDIA_IMAGES, android.Manifest.permission.POST_NOTIFICATIONS) +
             (if (android.os.Build.VERSION.SDK_INT >= 34) arrayOf("android.permission.READ_MEDIA_VISUAL_USER_SELECTED") else emptyArray())
-            else if (android.os.Build.VERSION.SDK_INT >= 29) arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
-            // Android 9 and older: writing too, so downloads can go to the phone's Music / Movies / Pictures
+            else if (android.os.Build.VERSION.SDK_INT >= 30) arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+            // Android 10 and older: writing too, so offline copies can go to the OrionMD folder
             else arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
         val missing = want.filter { checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) try { perms.launch(missing.toTypedArray()) } catch (_: Exception) {}

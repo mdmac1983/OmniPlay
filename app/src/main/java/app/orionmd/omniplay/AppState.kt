@@ -141,6 +141,8 @@ class AppState(val ctx: Context, val host: Host) {
         Profiles.watch(ctx, this)
         if (pref("sync", "0") == "1") app.orionmd.omniplay.cloud.SyncWorker.schedule(ctx, pref("syncHours", "24").toLongOrNull() ?: 24, pref("syncWifiOnly", "1") == "1")
         countLyrics()
+        // once the library has loaded: move older offline copies out of the private storage into the OrionMD folder
+        scope.launch { kotlinx.coroutines.delay(12000); moveOfflineToOrion() }
     }
     /** A store link was opened: when you come back, the phone's music is rescanned so a bought song shows up. */
     private var storeVisit = false

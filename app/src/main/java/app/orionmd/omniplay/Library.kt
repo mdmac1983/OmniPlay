@@ -72,6 +72,9 @@ object Library {
     }
 
     // ---------- device (MediaStore) ----------
+    /** Media Hub's own offline copies in the OrionMD folder are already in the library (as the cloud song, the podcast…), so
+     *  they aren't listed again as device files — except free downloads, which only exist there. */
+    private fun ownCopy(path: String) = path.contains(Downloads.FOLDER + "/") && !path.contains(Downloads.FOLDER + "/Music/Free")
     private fun scanDevice(ctx: Context, srcId: String, progress: (Int) -> Unit): List<Item> {
         val out = ArrayList<Item>()
         val r = ctx.contentResolver
@@ -84,6 +87,7 @@ object Library {
                 while (c.moveToNext()) {
                     val id = c.getLong(0); val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI.buildUpon().appendPath(id.toString()).build().toString()
                     val path = (col.getOrNull(10)?.let { runCatching { c.getString(10) }.getOrNull() } ?: "").trim('/')
+                    if (ownCopy(path)) continue
                     out.add(Item(i = idFor("d-a-$id"), n = c.getString(1) ?: "audio", c = 3, s = c.getLong(8), f = path, src = srcId, u = uri,
                         cr = c.getLong(9) * 1000, t = c.getStringOrNull(2), a = c.getStringOrNull(3), al = c.getStringOrNull(4), g = null,
                         tr = (c.getIntOrNull(7) ?: 0) % 1000, d = c.getLong(5), y = c.getIntOrNull(6) ?: 0, th = true,
@@ -99,6 +103,7 @@ object Library {
                 while (c.moveToNext()) {
                     val id = c.getLong(0); val uri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI.buildUpon().appendPath(id.toString()).build().toString()
                     val path = (runCatching { c.getString(5) }.getOrNull() ?: "").trim('/')
+                    if (ownCopy(path)) continue
                     val o = JSONObject().put("n", c.getString(1) ?: "video").put("f", path)
                     Tmdb.parse(o)
                     out.add(Item(i = idFor("d-v-$id"), n = c.getString(1) ?: "video", c = 2, s = c.getLong(3), f = path, src = srcId, u = uri,

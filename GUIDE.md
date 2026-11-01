@@ -315,10 +315,13 @@ A VLC-style player with Media Hub's sound engine and its own subtitle layer.
 **Save downloads to** (Settings → Library tools):
 | Option | Where | Who sees them |
 |---|---|---|
-| **App storage (private)** (default) | Inside Media Hub | Only Media Hub. They're removed if you uninstall. |
-| **Phone storage** | Music, Movies and Pictures → *Media Hub* | Your gallery, file manager and other players. They stay after uninstalling. |
+| **OrionMD folder** (default) | **OrionMD › Media Hub › Music / Videos / Podcasts / Pictures**, at the top of your storage, under their real names (podcasts in a folder per show) | Your file manager and other apps. They stay after uninstalling. |
+| **App storage (private)** | Inside Media Hub | Only Media Hub. They're removed if you uninstall. |
 
-The choice applies to new downloads.
+Files download inside Media Hub first and move into the OrionMD folder when they finish. Downloads saved before this
+option existed are moved there automatically (or tap **Move earlier downloads to the OrionMD folder**). On Android 11
+and newer, the OrionMD folder needs **All files access** (a button in the same place); until it's allowed, files go to
+**Download › OrionMD › Media Hub** instead.
 
 **Sync all** saves everything Media Hub normally looks up online. Run it from the Dashboard, the download icon on the
 Music and Video tabs, or Settings → Library tools.

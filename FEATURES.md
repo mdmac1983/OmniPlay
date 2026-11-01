@@ -12,6 +12,7 @@ A standalone, offline-first hybrid **music + video player** by OrionMD.
 - Plays everything on your device, in any folder you add, and from connected clouds.
 - Gapless queue, shuffle, repeat (off/all/one), sleep timer (with fade-out), background playback with media-notification controls.
 - Guide & Features readable in the app (Settings → footer).
+- **Offline copies in the OrionMD folder**: songs, videos and podcast episodes saved for offline go to OrionMD › Media Hub › Music / Videos / Podcasts under their real names (or the app's private storage, if you prefer).
 - **Resumable downloads** from the cloud: live %, speed, pause / resume / cancel, continue after restarts or dropped connections, background notification.
 - **10-bit MKV and more** via a built-in FFmpeg (LGPL) software decoder: HEVC Main 10, H.264 Hi10P, MPEG-2/4; AC-3, E-AC-3, DTS, TrueHD, ALAC sound — used automatically when the phone's hardware can't.
 - **VLC-style video player**: subtitle & audio track menus, subtitle delay (both ways) and text encodings, load subtitle files, audio delay, speed 0.25–4×, 11 picture sizes and aspect ratios, pinch-zoom, jump to time, bookmarks, playlist, shuffle / repeat all, media info, frame stepping, hardware/software decoder, background audio, network streams (HLS/DASH), "Open with", choose which buttons show.

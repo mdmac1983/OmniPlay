@@ -9,11 +9,12 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * Offline copies. A song or video from a cloud (or a picked folder) can be saved to the device so it plays with no
- * internet. Where (Settings → Offline, pref "dlTarget"): the app's own storage (private, removed with the app — the
- * default), or the phone's storage: Music / Movies / Pictures → Media Hub, where every other app sees them too and
- * they stay after uninstalling. Cloud files are decrypted as they're written, so they're normal, playable files.
- * A small index (pref "dls") maps item id → local path or content:// URI.
+ * Offline copies. A song, video or podcast episode can be saved to the device so it plays with no internet. Where
+ * (Settings → Playback, pref "dlTarget"): the OrionMD folder at the top of the phone's storage — OrionMD › Media Hub ›
+ * Music / Videos / Podcasts / Pictures, under their real names, where you (and every other app) can find them and
+ * they stay after uninstalling (the default) — or the app's own private storage. Files download into the private
+ * storage first and move into the OrionMD folder when finished. Cloud files are decrypted as they're written, so
+ * they're normal, playable files. A small index (pref "dls") maps item id → local path or content:// URI.
  */
 object Downloads {
     private fun dir(ctx: Context) = File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "offline").apply { mkdirs() }
@@ -33,38 +34,86 @@ object Downloads {
     fun isDownloaded(ctx: Context, id: Long) = localPath(ctx, id) != null
     fun count(ctx: Context): Int = index(ctx).let { o -> o.keys().asSequence().count { present(ctx, o.optString(it)) } }
 
-    /** Downloads go to the phone's storage (Music / Movies / Pictures → Media Hub) instead of the app's own. */
-    fun toDevice(ctx: Context) = store(ctx).getPref("dlTarget", "app") == "device" && canPublish(ctx)
-    fun canPublish(ctx: Context) =
-        android.os.Build.VERSION.SDK_INT >= 29 || ctx.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    /** The OrionMD folder at the top of the phone's storage; Media Hub keeps its offline copies in OrionMD › Media Hub. */
+    const val FOLDER = "OrionMD/Media Hub"
+    @Suppress("DEPRECATION") fun orionDir(): File = File(android.os.Environment.getExternalStorageDirectory(), FOLDER)
 
-    /** Moves a finished download into Music / Movies / Pictures → Media Hub/<cloud folder>; returns where it is now. */
-    fun publish(ctx: Context, item: Item, f: File): String {
-        val (dir, coll) = when (item.c) {
-            3 -> android.os.Environment.DIRECTORY_MUSIC to android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-            2 -> android.os.Environment.DIRECTORY_MOVIES to android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            else -> android.os.Environment.DIRECTORY_PICTURES to android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+    /** Media Hub may write straight into the OrionMD folder: the storage permission up to Android 10, "All files access" from Android 11. */
+    fun orionWritable(ctx: Context): Boolean =
+        if (android.os.Build.VERSION.SDK_INT >= 30) android.os.Environment.isExternalStorageManager()
+        else ctx.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /** Where offline copies land right now, in words. Without the access above, Android 10+ only lets it use Download › OrionMD › Media Hub. */
+    fun whereLabel(ctx: Context): String = when {
+        !toDevice(ctx) -> "the app's private storage"
+        orionWritable(ctx) -> "OrionMD › Media Hub"
+        else -> "Download › OrionMD › Media Hub"
+    }
+
+    /** Downloads go to the OrionMD folder (the default) instead of the app's own private storage. */
+    fun toDevice(ctx: Context) = store(ctx).getPref("dlTarget", "orion") != "app" && canPublish(ctx)
+    fun canPublish(ctx: Context) = android.os.Build.VERSION.SDK_INT >= 29 || orionWritable(ctx)
+
+    private fun safe(x: String) = x.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim().trim('.').ifEmpty { "_" }
+    private fun kindOf(item: Item) = when (item.c) { 3 -> "Music"; 2 -> "Videos"; else -> "Pictures" }
+
+    /** Moves a finished download into OrionMD › Media Hub › Music / Videos / Pictures › <cloud folder>; returns where it is now. */
+    fun publish(ctx: Context, item: Item, f: File): String = place(ctx, f, kindOf(item), item.f.split('/'), item.n)
+
+    /**
+     * Moves [f] into OrionMD › Media Hub › [kind] › [sub]… as [name] (never over another file); returns its new path, or
+     * a content:// URI when Android only allows Download › OrionMD › Media Hub.
+     */
+    fun place(ctx: Context, f: File, kind: String, sub: List<String>, name: String): String {
+        val rel = (listOf(kind) + sub.filter { it.isNotBlank() }.map { safe(it) }).joinToString("/")
+        val nm = safe(name)
+        if (orionWritable(ctx)) {
+            val d = File(orionDir(), rel).apply { mkdirs() }
+            val base = nm.substringBeforeLast('.', nm); val ext = if ('.' in nm) "." + nm.substringAfterLast('.') else ""
+            var out = File(d, nm); var k = 2
+            while (out.exists()) out = File(d, "$base (${k++})$ext")
+            if (!f.renameTo(out)) { f.copyTo(out, true); f.delete() }
+            android.media.MediaScannerConnection.scanFile(ctx, arrayOf(out.path), null, null)
+            return out.path
         }
-        fun safe(x: String) = x.replace(Regex("[\\\\:*?\"<>|]"), "_").trim().ifEmpty { "_" }
-        val sub = (listOf("Media Hub") + item.f.split('/').filter { it.isNotBlank() }.map { safe(it) }).joinToString("/")
-        val name = safe(item.n)
         if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val coll = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
             val cv = android.content.ContentValues().apply {
-                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
-                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "$dir/$sub")
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, nm)
+                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "${android.os.Environment.DIRECTORY_DOWNLOADS}/$FOLDER/$rel")
                 put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
             }
-            val uri = ctx.contentResolver.insert(coll, cv) ?: throw Exception("Couldn't save to $dir")
+            val uri = ctx.contentResolver.insert(coll, cv) ?: throw Exception("Couldn't save to Download")
             try {
-                ctx.contentResolver.openOutputStream(uri)?.use { o -> f.inputStream().use { it.copyTo(o) } } ?: throw Exception("Couldn't write to $dir")
+                ctx.contentResolver.openOutputStream(uri)?.use { o -> f.inputStream().use { it.copyTo(o) } } ?: throw Exception("Couldn't write to Download")
                 ctx.contentResolver.update(uri, android.content.ContentValues().apply { put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
             } catch (e: Exception) { ctx.contentResolver.delete(uri, null, null); throw e }
             f.delete(); return uri.toString()
         }
-        @Suppress("DEPRECATION") val out = File(File(android.os.Environment.getExternalStoragePublicDirectory(dir), sub).apply { mkdirs() }, name)
-        if (!f.renameTo(out)) { f.copyTo(out, true); f.delete() }
-        android.media.MediaScannerConnection.scanFile(ctx, arrayOf(out.path), null, null)
-        return out.path
+        return f.path
+    }
+
+    /** Moves the saved copy of [id] out of the private storage into the OrionMD folder and updates the index. True if it moved. */
+    fun moveOut(ctx: Context, id: Long, kind: String, sub: List<String>, name: String): Boolean {
+        val loc = index(ctx).optString(id.toString())
+        val f = File(loc)
+        if (loc.isEmpty() || loc.startsWith("content://") || !f.isFile || !f.path.startsWith(dir(ctx).path)) return false
+        val ext = f.name.substringAfterLast('.', "")
+        val nm = if (ext.isNotEmpty() && !name.endsWith(".$ext", true)) "$name.$ext" else name
+        val now = try { place(ctx, f, kind, sub, nm) } catch (_: Exception) { return false }
+        if (now == f.path) return false
+        val o = index(ctx); o.put(id.toString(), now); save(ctx, o)
+        return true
+    }
+
+    /** Moves every offline copy still in the private storage into the OrionMD folder; [what] names each (kind, folders, name). */
+    fun moveAll(ctx: Context, what: (Long) -> Triple<String, List<String>, String>?): Int {
+        var n = 0
+        index(ctx).keys().asSequence().toList().forEach { k -> val id = k.toLongOrNull() ?: return@forEach
+            val (kind, sub, name) = what(id) ?: Triple("Other", emptyList(), id.toString())
+            if (moveOut(ctx, id, kind, sub, name)) n++
+        }
+        return n
     }
     fun bytesUsed(ctx: Context): Long = dir(ctx).walkTopDown().filter { it.isFile }.sumOf { it.length() }
 

@@ -216,7 +216,15 @@ private fun Cat(st: AppState, key: String, title: String, icon: androidx.compose
         Column(Modifier.weight(1f)) { Text("Download lyrics for all songs"); st.lyricsProg?.let { (d, t) -> Muted("$d / $t", size = 12.sp) } ?: Muted("${if (st.lyricsSaved >= 0) st.lyricsSaved else 0} saved · LRCLIB", size = 12.sp) }
         Btn("Run", { st.fetchAllLyrics() }, small = true)
     }
-    Pick(st, "dlTarget", "Save downloads to", listOf("app" to "App storage (private)", "device" to "Phone storage (Music / Movies / Pictures)"), "app")
+    Pick(st, "dlTarget", "Save downloads to", listOf("orion" to "OrionMD folder (OrionMD › Media Hub)", "app" to "App storage (private, removed with the app)"), "orion")
+    if (Downloads.toDevice(st.ctx)) {
+        Muted("Songs, videos and podcast episodes you save for offline go to ${Downloads.whereLabel(st.ctx)} › Music / Videos / Podcasts, under their own names.", Modifier.padding(bottom = 4.dp), 12.sp)
+        if (!Downloads.orionWritable(st.ctx) && android.os.Build.VERSION.SDK_INT >= 30) {
+            Muted("To use the OrionMD folder at the top of your storage, Android needs \"All files access\" for Media Hub. Until then they go to Download › OrionMD › Media Hub.", Modifier.padding(bottom = 4.dp), 12.sp)
+            Btn("Allow all files access", { try { st.ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, android.net.Uri.parse("package:" + st.ctx.packageName)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) { st.say("Open Android Settings › Apps › Media Hub › Permissions") } }, small = true, kind = BtnKind.Ghost)
+        }
+        Btn("Move earlier downloads to the OrionMD folder", { st.moveOfflineToOrion(quiet = false) }, Modifier.padding(top = 6.dp), small = true, kind = BtnKind.Ghost)
+    }
     Muted("App storage: only Media Hub sees them and they're removed if you uninstall. Phone storage: saved in Music, Movies and Pictures → Media Hub, so your gallery, file manager and other players see them too, and they stay after uninstalling. Applies to new downloads.", size = 12.sp)
     Btn("Offline downloads", { st.open(Page.Downloads) }, icon = Ic.offline, small = true, kind = BtnKind.Ghost, modifier = Modifier.padding(top = 8.dp))
 }

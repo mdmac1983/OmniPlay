@@ -149,6 +149,27 @@ fun AppState.syncAll() { syncMusic(); scope.launch { while (sync.music != null) 
 private val http by lazy { OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).followRedirects(true).followSslRedirects(true).build() }
 
 /** Episodes saved for offline, newest first: [{id, title, url, image, date, duration, show:{id,title,author,image}}]. */
+/**
+ * Moves offline copies still in the app's private storage (from before the OrionMD folder, or saved while it wasn't
+ * allowed) into OrionMD › Media Hub, named after the song, video or episode.
+ */
+fun AppState.moveOfflineToOrion(quiet: Boolean = true) {
+    if (!Downloads.toDevice(ctx)) return
+    val eps = offlineEpisodes().associateBy { it.optLong("id") }
+    val items = allItems.associateBy { it.i }
+    scope.launch {
+        val n = withContext(Dispatchers.IO) {
+            Downloads.moveAll(ctx) { id ->
+                eps[id]?.let { e -> Triple("Podcasts", listOf(e.optJSONObject("show")?.optString("title").orEmpty()), e.optString("title").ifBlank { id.toString() }) }
+                    ?: items[id]?.let { x -> Triple(when (x.c) { 3 -> "Music"; 2 -> "Videos"; else -> "Pictures" }, x.f.split('/'), x.n) }
+            }
+        }
+        refreshDownloads()
+        if (n > 0) say("Moved $n offline file" + (if (n == 1) "" else "s") + " to ${Downloads.whereLabel(ctx)}")
+        else if (!quiet) say("Everything saved offline is already in ${Downloads.whereLabel(ctx)}")
+    }
+}
+
 fun AppState.offlineEpisodes(): List<JSONObject> { prefGen; return try { JSONArray(pref("podDl", "[]")).let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } } } catch (_: Exception) { emptyList() } }
 fun AppState.isEpisodeSaved(id: Long) = offlineEpisodes().any { it.optLong("id") == id } && Downloads.isDownloaded(ctx, id)
 val podBusy = androidx.compose.runtime.mutableStateMapOf<Long, Boolean>()
@@ -170,6 +191,8 @@ fun AppState.downloadEpisode(show: Podcasts.Show, e: Podcasts.Episode) {
                 if (last == null) break
             }
             if (last == null) {
+                // into OrionMD › Media Hub › Podcasts › <show> as "<episode title>.mp3"
+                if (Downloads.toDevice(ctx)) Downloads.moveOut(ctx, e.id, "Podcasts", listOf(show.title), e.title)
                 if (e.image.isNotEmpty()) try { MusicMeta.cover(store, e.image) } catch (_: Exception) {}
                 if (show.image.isNotEmpty()) try { MusicMeta.cover(store, show.image) } catch (_: Exception) {}
             }
