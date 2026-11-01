@@ -17,22 +17,44 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.selection.selectable
 import app.orionmd.omniplay.AppState
 import app.orionmd.omniplay.Page
 
 @Composable
 fun OmniApp(st: AppState) {
+    // phone Back: close full-screen panels / selection / sub-pages before leaving the app
+    androidx.activity.compose.BackHandler(enabled = st.visFull || st.soundOpen || (st.sheetOpen && st.player.track != null) || st.gallery.sel.isNotEmpty() || st.pages.isNotEmpty() || st.tab != "dash") {
+        when {
+            st.visFull -> st.visFull = false
+            st.soundOpen -> st.soundOpen = false
+            st.sheetOpen -> st.sheetOpen = false
+            st.gallery.sel.isNotEmpty() -> st.gallery.sel.clear()
+            st.pages.isNotEmpty() -> st.back()
+            else -> st.tab = "dash"
+        }
+    }
     // when a full-screen surface is up, show only that
-    if (st.visFull) { VisualizerFull(st); return }
-    if (st.soundOpen) { SoundScreen(st); return }
+    // (dialogs are drawn on top of these too — the skin / visualizer pickers open from the Sound screen)
+    if (st.visFull) { VisualizerFull(st); Dialogs(st); return }
+    if (st.soundOpen) { SoundScreen(st); Dialogs(st); st.toast?.let { (m, _) -> Toast(m) { st.toast = null } }; return }
     if (st.sheetOpen && st.player.track != null) { NowPlaying(st); Dialogs(st); return }
+    // full-screen gallery pages (no tab bar)
+    when (val top = st.pages.lastOrNull()) {
+        is Page.GViewer -> { androidx.activity.compose.BackHandler { st.back() }; GViewerScreen(st, top); Dialogs(st); st.toast?.let { (m, _) -> Toast(m) { st.toast = null } }; return }
+        is Page.GEditor -> { androidx.activity.compose.BackHandler { st.back() }; GEditorScreen(st, top); Dialogs(st); st.toast?.let { (m, _) -> Toast(m) { st.toast = null } }; return }
+        is Page.GCreate -> { androidx.activity.compose.BackHandler { st.back() }; Box(Modifier.fillMaxSize().background(C.bg)) { GCreateScreen(st, top, PaddingValues()) }; Dialogs(st); st.toast?.let { (m, _) -> Toast(m) { st.toast = null } }; return }
+        else -> {}
+    }
 
-    val tabs = listOf("home" to ("Music" to Ic.lib), "video" to ("Video" to Ic.movie), "search" to ("Discover" to Ic.search), "set" to ("Settings" to Ic.settings))
+    val tabs = listOf("dash" to ("Home" to Ic.home), "home" to ("Music" to Ic.lib), "video" to ("Video" to Ic.movie), "gallery" to ("Gallery" to Ic.gallery), "set" to ("Settings" to Ic.settings))
     Scaffold(
         bottomBar = {
             Column {
                 MiniPlayer(st)
-                NavigationBar(containerColor = C.s1) {
+                if (C.apple) AppleTabBar(tabs, if (st.pages.isEmpty()) st.tab else "") { id -> if (st.tab == id) st.pages.clear(); st.tab = id }
+                else NavigationBar(containerColor = C.s1) {
                     tabs.forEach { (id, t) ->
                         NavigationBarItem(
                             selected = st.tab == id && st.pages.isEmpty(),
@@ -50,8 +72,10 @@ fun OmniApp(st: AppState) {
             val top = st.pages.lastOrNull()
             if (top != null) Router(st, top, pad)
             else when (st.tab) {
+                "dash" -> DashboardScreen(st, pad)
                 "home" -> MusicLibrary(st, pad)
                 "video" -> VideoLibrary(st, pad)
+                "gallery" -> GalleryScreen(st, pad)
                 "search" -> DiscoverScreen(st, pad)
                 "set" -> SettingsScreen(st, pad)
             }
@@ -75,8 +99,38 @@ private fun Router(st: AppState, page: Page, pad: androidx.compose.foundation.la
         is Page.CloudBrowse -> CloudBrowsePage(st, page, pad)
         Page.Podcasts -> PodcastsPage(st, pad)
         Page.Discover -> DiscoverScreen(st, pad)
+        is Page.TrackList -> TrackListPage(st, page, pad)
         Page.Settings -> SettingsScreen(st, pad)
         Page.Downloads -> DownloadsPage(st, pad)
+        Page.Storage -> StoragePage(st, pad)
+        is Page.SavedFiles -> SavedFilesPage(st, page.key, pad)
+        is Page.Doc -> DocPage(st, page, pad)
+        is Page.GAlbumPage -> GAlbumScreen(st, page, pad)
+        is Page.GGroupPage -> GGroupScreen(st, page, pad)
+        Page.GTrash -> GTrashScreen(st, pad)
+        is Page.GViewer, is Page.GEditor, is Page.GCreate -> {}
+    }
+}
+
+/**
+ * The iOS tab bar: a translucent bar with a hairline on top, the icon over a small label, the current tab in the tint
+ * colour and the others in grey — no Material "pill" behind the selected icon.
+ */
+@Composable
+private fun AppleTabBar(tabs: List<Pair<String, Pair<String, androidx.compose.ui.graphics.vector.ImageVector>>>, selected: String, onSelect: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().background(Color(0xFA161618))) {
+        Box(Modifier.fillMaxWidth().height(0.5.dp).background(C.line))
+        Row(Modifier.fillMaxWidth().navigationBarsPadding().height(54.dp)) {
+            tabs.forEach { (id, t) ->
+                val on = id == selected
+                val tint = if (on) C.ac else Color(0xFF8E8E93)
+                Column(Modifier.weight(1f).fillMaxHeight().selectable(on, role = androidx.compose.ui.semantics.Role.Tab) { onSelect(id) },
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Icon(t.second, null, tint = tint, modifier = Modifier.size(26.dp))
+                    Text(t.first, color = tint, fontSize = 10.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
+                }
+            }
+        }
     }
 }
 
@@ -85,7 +139,10 @@ private fun Toast(msg: String, onGone: () -> Unit) {
     LaunchedEffect(msg) { kotlinx.coroutines.delay(2600); onGone() }
     Box(Modifier.fillMaxSize().padding(bottom = 150.dp), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
         AnimatedVisibility(true) {
-            Text(msg, color = Color.White, modifier = Modifier.padding(horizontal = 24.dp)
+            // Apple: a capsule in the elevated grey
+            if (C.apple) Text(msg, color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 24.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xF22C2C2E)).padding(horizontal = 20.dp, vertical = 12.dp))
+            else Text(msg, color = Color.White, modifier = Modifier.padding(horizontal = 24.dp)
                 .clip(RoundedCornerShape(12.dp)).background(Color(0xE6202433)).padding(horizontal = 16.dp, vertical = 10.dp))
         }
     }

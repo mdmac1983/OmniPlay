@@ -1,6 +1,6 @@
 # Build a signed release APK on every push. The OmniPlay keystore lives in this (private) repo, so each build is a
 # ready-to-install release that updates over the last one. Each build bumps the version by 0.1, tags vX.Y and publishes
-# OmniPlay-vX.Y.apk under Releases.
+# MediaHub-vX.Y.apk under Releases.
 name: Build APK
 on:
   push:
@@ -57,7 +57,7 @@ jobs:
           log.insert(0, {"version": ver, "date": datetime.date.today().isoformat(), "notes": notes})
           json.dump(log, open(path,'w'), indent=1)
           open(os.environ['GITHUB_OUTPUT'],'a').write(f"version={ver}\ncode={n}\n")
-          open('release-notes.md','w').write(f"## OmniPlay v{ver}\n\n{notes}\n\nInstall **OmniPlay-v{ver}.apk**. It updates over the previous version and keeps your data.\n")
+          open('release-notes.md','w').write(f"## Media Hub v{ver}\n\n{notes}\n\nInstall **MediaHub-v{ver}.apk**. It updates over the previous version and keeps your data.\n")
           print("Version", ver)
           PY
         env: { INPUT_NOTES: "${{ github.event.inputs.notes }}" }
@@ -71,13 +71,16 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon -PappVersionCode=${{ steps.ver.outputs.code }} -PappVersionName=${{ steps.ver.outputs.version }}
-          mkdir -p out && cp app/build/outputs/apk/release/app-release.apk "out/OmniPlay-v${{ steps.ver.outputs.version }}.apk"
+          mkdir -p out && cp app/build/outputs/apk/release/app-release.apk "out/MediaHub-v${{ steps.ver.outputs.version }}.apk"
 
+      # the APK also goes to the release; a full Actions storage quota mustn't block that
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         if: steps.sign.outputs.ok == 'true'
         with:
-          name: OmniPlay-v${{ steps.ver.outputs.version }}
-          path: out/OmniPlay-v${{ steps.ver.outputs.version }}.apk
+          retention-days: 3
+          name: MediaHub-v${{ steps.ver.outputs.version }}
+          path: out/MediaHub-v${{ steps.ver.outputs.version }}.apk
 
       - name: Save changelog
         if: steps.sign.outputs.ok == 'true'
@@ -96,7 +99,28 @@ jobs:
         with:
           tag_name: v${{ steps.ver.outputs.version }}
           target_commitish: ${{ steps.save.outputs.sha }}
-          name: OmniPlay v${{ steps.ver.outputs.version }}
+          name: Media Hub v${{ steps.ver.outputs.version }}
           body_path: release-notes.md
-          files: out/OmniPlay-v${{ steps.ver.outputs.version }}.apk
+          files: out/MediaHub-v${{ steps.ver.outputs.version }}.apk
           make_latest: true
+
+      # The repos are private, so the apps look for updates in the public mdmac1983/releases (APKs only, no code).
+      # Needs the RELEASES_TOKEN secret: a fine-grained token with "Contents: read and write" on mdmac1983/releases.
+      - name: Public update repo set up?
+        id: pub
+        if: steps.sign.outputs.ok == 'true'
+        env: { T: "${{ secrets.RELEASES_TOKEN }}" }
+        run: if [ -n "$T" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "::notice::RELEASES_TOKEN isn't set, so this build isn't published to mdmac1983/releases (in-app updates won't see it)"; fi
+
+      - name: Publish to the public update repo
+        if: steps.sign.outputs.ok == 'true' && steps.pub.outputs.ok == 'true'
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: mdmac1983/releases
+          token: ${{ secrets.RELEASES_TOKEN }}
+          tag_name: mediahub-v${{ steps.ver.outputs.version }}
+          name: Media Hub v${{ steps.ver.outputs.version }}
+          body_path: release-notes.md
+          files: out/MediaHub-v${{ steps.ver.outputs.version }}.apk
+          make_latest: false

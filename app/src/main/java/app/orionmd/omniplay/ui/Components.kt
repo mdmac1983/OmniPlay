@@ -67,12 +67,13 @@ import kotlinx.coroutines.delay
 import app.orionmd.omniplay.ImageLoader
 import app.orionmd.omniplay.Img
 
-private val phBrush = Brush.linearGradient(listOf(C.s3, C.s2))
+private val phBrush get() = Brush.linearGradient(listOf(C.s3, C.s2))
 
 /** Picture with a letter placeholder; loads (and caches) only when it's composed, i.e. on screen. */
 @Composable
 fun Thumb(req: Img?, label: String, modifier: Modifier = Modifier, px: Int = 300, corner: Dp = 8.dp, fontSize: TextUnit = 16.sp,
-          contentScale: ContentScale = ContentScale.Crop, alsoLarge: Img? = null, placeholder: Boolean = true, fallback: Img? = null) {
+          contentScale: ContentScale = ContentScale.Crop, alsoLarge: Img? = null, placeholder: Boolean = true, fallback: Img? = null,
+          colorFilter: androidx.compose.ui.graphics.ColorFilter? = null) {
     Box(modifier.clip(RoundedCornerShape(corner)).let { if (placeholder) it.background(phBrush) else it }, contentAlignment = Alignment.Center) {
         val letter = label.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "♫"
         if (placeholder) Text(letter, color = C.mu, fontWeight = FontWeight.Bold, fontSize = fontSize)
@@ -88,49 +89,60 @@ fun Thumb(req: Img?, label: String, modifier: Modifier = Modifier, px: Int = 300
                     if (b != null) { value = b.asImageBitmap(); break }
                 }
             }
-            bmp?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = contentScale) }
+            bmp?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = contentScale, colorFilter = colorFilter) }
         }
         if (alsoLarge != null) {
             val big by produceState<ImageBitmap?>(ImageLoader.cached(alsoLarge, 1024)?.asImageBitmap(), alsoLarge) { value = ImageLoader.load(alsoLarge, 1024)?.asImageBitmap() }
-            big?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = contentScale) }
+            big?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = contentScale, colorFilter = colorFilter) }
         }
     }
 }
 
 @Composable
 fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(C.card)
+    // Apple: an inset grouped cell — no outline, the grey of the cell is the edge
+    if (C.apple) Column(modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(12.dp)).background(C.card).padding(16.dp), content = content)
+    else Column(modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(C.card)
         .border(1.dp, C.line, RoundedCornerShape(14.dp)).padding(14.dp), content = content)
 }
 
 @Composable
 fun CardTitle(title: String, small: String? = null) {
     Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f))
-        if (small != null) Text(small, color = C.mu, fontSize = 12.sp)
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = if (C.apple) 17.sp else 15.sp, modifier = Modifier.weight(1f))
+        if (small != null) Text(small, color = C.mu, fontSize = if (C.apple) 13.sp else 12.sp)
     }
 }
 
 @Composable
-fun SectionHeader(t: String) = Text(t.uppercase(), color = C.mu, fontSize = 12.sp, letterSpacing = 1.sp, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
+fun SectionHeader(t: String) =
+    if (C.apple) Text(t.uppercase(), color = C.mu, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, top = 24.dp, bottom = 7.dp))
+    else Text(t.uppercase(), color = C.mu, fontSize = 12.sp, letterSpacing = 1.sp, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
 
 enum class BtnKind { Primary, Ghost, Danger, Pill }
 
 @Composable
 fun Btn(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: BtnKind = BtnKind.Primary, icon: ImageVector? = null,
         small: Boolean = false, enabled: Boolean = true) {
-    val (bg, fg) = when (kind) { BtnKind.Primary -> C.ac to Color.White; BtnKind.Ghost -> C.s2 to C.tx; BtnKind.Danger -> C.danger to C.dangerTx; BtnKind.Pill -> Color(0x47000000) to Color.White }
-    val shape = if (kind == BtnKind.Pill) CircleShape else RoundedCornerShape(if (small) 8.dp else 10.dp)
+    val apple = C.apple
+    // Apple: filled (tint), tinted (tint at 15 % with tint-coloured text) and destructive buttons; small ones are capsules
+    val (bg, fg) = when (kind) {
+        BtnKind.Primary -> C.ac to Color.White
+        BtnKind.Ghost -> if (apple) C.ac.copy(alpha = .16f) to C.ac else C.s2 to C.tx
+        BtnKind.Danger -> C.danger to C.dangerTx
+        BtnKind.Pill -> Color(0x47000000) to Color.White
+    }
+    val shape = if (kind == BtnKind.Pill || (apple && small)) CircleShape else RoundedCornerShape(if (apple) 12.dp else if (small) 8.dp else 10.dp)
     Row(modifier.clip(shape).background(bg.copy(alpha = if (enabled) bg.alpha else bg.alpha * .5f)).clickable(enabled = enabled, onClick = onClick)
-        .padding(horizontal = if (small) 10.dp else 16.dp, vertical = if (small) 7.dp else 10.dp),
+        .padding(horizontal = if (small) (if (apple) 14.dp else 10.dp) else (if (apple) 20.dp else 16.dp), vertical = if (small) (if (apple) 8.dp else 7.dp) else (if (apple) 14.dp else 10.dp)),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
         if (icon != null) { Icon(icon, null, tint = fg.copy(alpha = if (enabled) 1f else .5f), modifier = Modifier.size(if (small) 16.dp else 18.dp)); Spacer(Modifier.width(6.dp)) }
-        Text(text, color = fg.copy(alpha = if (enabled) 1f else .5f), fontWeight = FontWeight.SemiBold, fontSize = if (small) 13.sp else 15.sp, maxLines = 1)
+        Text(text, color = fg.copy(alpha = if (enabled) 1f else .5f), fontWeight = FontWeight.SemiBold, fontSize = if (small) (if (apple) 15.sp else 13.sp) else (if (apple) 17.sp else 15.sp), maxLines = 1)
     }
 }
 
 @Composable
-fun IconBtn(icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier, tint: Color = C.tx, size: Dp = 40.dp, iconSize: Dp = 26.dp) {
+fun IconBtn(icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier, tint: Color = C.tx, size: Dp = if (C.apple) 44.dp else 40.dp, iconSize: Dp = 26.dp) {
     Box(modifier.size(size).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = tint, modifier = Modifier.size(iconSize))
     }
@@ -148,7 +160,7 @@ fun Tiles(tiles: List<Pair<String, String>>) {
         tiles.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { (v, l) ->
-                    Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(14.dp)).padding(14.dp)) {
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(if (C.apple) 12.dp else 14.dp)).background(C.card).border(1.dp, if (C.apple) Color.Transparent else C.line, RoundedCornerShape(14.dp)).padding(14.dp)) {
                         Text(v, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(l, color = C.mu, fontSize = 12.sp)
                     }
@@ -178,10 +190,13 @@ fun Bars(rows: List<Pair<String, Int>>, onTap: ((String) -> Unit)? = null) {
 /** Segmented tabs (Songs / Artists / …). */
 @Composable
 fun Seg(tabs: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min).padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xBF171923)).border(1.dp, C.line, RoundedCornerShape(12.dp)).padding(3.dp)) {
+    // Apple: the iOS segmented control — a fill-grey track with the chosen segment raised in a lighter grey
+    val apple = C.apple
+    Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min).padding(bottom = 10.dp).clip(RoundedCornerShape(if (apple) 9.dp else 12.dp))
+        .background(if (apple) Color(0x3D767680) else Color(0xBF171923)).border(1.dp, if (apple) Color.Transparent else C.line, RoundedCornerShape(12.dp)).padding(if (apple) 2.dp else 3.dp)) {
         tabs.forEach { (k, l) ->
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(9.dp)).background(if (k == selected) C.s3 else Color.Transparent).clickable { onSelect(k) }.padding(vertical = 8.dp, horizontal = 2.dp), contentAlignment = Alignment.Center) {
-                Text(l, fontSize = if (l.contains('\n')) 12.sp else 13.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, color = if (k == selected) C.tx else C.mu,
+            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(if (apple) 7.dp else 9.dp)).background(if (k == selected) (if (apple) Color(0xFF636366) else C.s3) else Color.Transparent).clickable { onSelect(k) }.padding(vertical = 8.dp, horizontal = 2.dp), contentAlignment = Alignment.Center) {
+                Text(l, fontSize = if (l.contains('\n')) 12.sp else if (apple) 14.sp else 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold, color = if (k == selected) C.tx else if (apple) C.tx.copy(alpha = .85f) else C.mu,
                     maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
@@ -195,7 +210,7 @@ fun Field(value: String, onChange: (String) -> Unit, placeholder: String, modifi
         visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions = if (password) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions.Default,
         shape = RoundedCornerShape(10.dp),
-        colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = C.s2, unfocusedContainerColor = C.s2, unfocusedBorderColor = C.line, focusedBorderColor = C.ac))
+        colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = C.s2, unfocusedContainerColor = C.s2, unfocusedBorderColor = if (C.apple) Color.Transparent else C.line, focusedBorderColor = C.ac))
 }
 
 /** Compact select box. */
@@ -203,10 +218,12 @@ fun Field(value: String, onChange: (String) -> Unit, placeholder: String, modifi
 fun Select(value: String, options: List<Pair<String, String>>, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        Row(Modifier.clip(RoundedCornerShape(10.dp)).background(C.s2).border(1.dp, C.line, RoundedCornerShape(10.dp)).clickable { open = true }
+        // Apple: a pop-up button — the choice in the tint colour with the up/down chevron
+        val apple = C.apple
+        Row(Modifier.clip(RoundedCornerShape(10.dp)).background(C.s2).border(1.dp, if (apple) Color.Transparent else C.line, RoundedCornerShape(10.dp)).clickable { open = true }
             .padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(options.firstOrNull { it.first == value }?.second ?: value, fontSize = 14.sp, modifier = Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Icon(Ic.arrowDrop, null, tint = C.mu, modifier = Modifier.size(20.dp))
+            Text(options.firstOrNull { it.first == value }?.second ?: value, fontSize = if (apple) 17.sp else 14.sp, color = if (apple) C.ac else C.tx, modifier = Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(if (apple) Ic.unfold else Ic.arrowDrop, null, tint = if (apple) C.ac else C.mu, modifier = Modifier.size(20.dp))
         }
         DropdownMenu(open, { open = false }) {
             options.forEach { (k, l) -> DropdownMenuItem(text = { Text(l, fontWeight = if (k == value) FontWeight.Bold else FontWeight.Normal) }, onClick = { open = false; onChange(k) }) }
@@ -241,7 +258,7 @@ fun ListRow(req: Img?, label: String, title: String, sub: String, onClick: () ->
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold, color = if (highlight) C.ac else C.tx, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(sub, color = C.mu, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(sub, color = C.mu, fontSize = if (C.apple) 15.sp else 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (downloaded) Icon(Ic.done, "Downloaded", tint = C.ac2, modifier = Modifier.padding(start = 8.dp).size(16.dp))
         if (trailing != null) Text(trailing, color = C.mu, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp))

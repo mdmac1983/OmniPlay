@@ -2,6 +2,7 @@ package app.orionmd.omniplay.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,7 +56,8 @@ fun Dialogs(st: AppState) {
             }
         }
         Dlg.VisPick -> DlgBox(st, "Visualizer style") {
-            for ((group, styles) in VIS_GROUPS) { Text(group, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)); BtnRow { styles.forEach { (id, name) -> Btn(name, { st.visStyle = id; st.setPref("visStyle", id); st.dialog = null }, kind = if (st.visStyle == id) BtnKind.Primary else BtnKind.Ghost, small = true) } } }
+            Muted("${VIS_STYLES.size} styles in ${VIS_GROUPS.size} groups — tap a group to open it.", size = 13.sp)
+            VisGroupList(st)
             Btn("Close", { st.dialog = null }, Modifier.fillMaxWidth().padding(top = 12.dp), kind = BtnKind.Ghost)
         }
         Dlg.SkinPick -> DlgBox(st, "Player skin") {
@@ -63,6 +65,7 @@ fun Dialogs(st: AppState) {
             Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 SKINS.chunked(3).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { row.forEach { sk -> SkinSwatch(sk, sk.id == cur, Modifier.weight(1f).clickable { st.setPref("playerSkin", sk.id); Profiles.saveCurrent(st) }) }; repeat(3 - row.size) { Spacer(Modifier.weight(1f)) } } }
             }
+            SkinLogoEditor(st, cur)
             Btn("Done", { st.dialog = null }, Modifier.fillMaxWidth().padding(top = 12.dp))
         }
         is Dlg.AddToPlaylist -> DlgBox(st, if (d.queue) "Save queue to a playlist" else "Add to playlist") {
@@ -75,6 +78,10 @@ fun Dialogs(st: AppState) {
         }
 
         is Dlg.FixMatch -> FixMatchDialog(st, d)
+        is Dlg.EpisodeEdit -> EpisodeEditDialog(st, d.item)
+        is Dlg.PinAsk -> PinAskDialog(st, d)
+        is Dlg.PinSet -> PinSetDialog(st, d)
+        Dlg.PickLockFolder -> PickLockFolderDialog(st)
         is Dlg.CloudPassword -> { val p = Cloud.provider(d.provider)!!; var u by remember { mutableStateOf("") }; var pw by remember { mutableStateOf("") }
             DlgBox(st, "Connect ${p.name}") { Muted(p.help, size = 12.sp); Field(u, { u = it }, "Email", Modifier.fillMaxWidth().padding(top = 8.dp)); Field(pw, { pw = it }, "Password", Modifier.fillMaxWidth().padding(top = 8.dp), password = true)
                 Buttons(ok = "Connect", onCancel = { st.dialog = null }) { st.dialog = null; st.connectWithFields(d.provider, mapOf("user" to u.trim(), "pass" to pw)) } } }
@@ -111,5 +118,108 @@ private fun FixMatchDialog(st: AppState, d: Dlg.FixMatch) {
                 { st.tmdbSetMatch(d.key, m); st.dialog = null; st.say("Matched: " + m.optString("title")) }, thumbW = if (mv) 64.dp else 40.dp, thumbRatio = if (mv) 16f / 9f else 2f / 3f)
         }
         Buttons(cancel = "Close", ok = "No match", okKind = BtnKind.Danger, onCancel = { st.dialog = null }) { st.tmdbSetMatch(d.key, null); st.dialog = null }
+    }
+}
+
+/** Add / change / remove your own logo on the chosen skin. */
+@Composable
+private fun SkinLogoEditor(st: AppState, skinId: String) {
+    val sk = skinOf(skinId)
+    val has = remember(skinId, SkinLogos.gen) { SkinLogos.has(st.ctx, skinId) }
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) st.say(if (SkinLogos.save(st.ctx, skinId, uri)) "Logo added to ${sk.name}" else "Couldn't read that picture")
+    }
+    Column(Modifier.padding(top = 14.dp).fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(C.s2).padding(12.dp)) {
+        Text("Logo for \"${sk.name}\"", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+        Muted("Add your own logo to this skin — any picture on your phone (a transparent PNG looks best). It shows above the song title, in the video player and on the skin's swatch, and stays on this device.", size = 12.sp)
+        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            SkinLogo(skinId, Modifier.size(44.dp).padding(end = 8.dp))
+            Btn(if (has) "Change logo" else "Add logo…", { pick.launch("image/*") }, small = true)
+            if (has) { Spacer(Modifier.width(8.dp)); Btn("Remove", { SkinLogos.remove(st.ctx, skinId) }, small = true, kind = BtnKind.Ghost) }
+        }
+        Row(Modifier.padding(top = 6.dp).clickable { st.setPref("skinLogoWm", if (st.pref("skinLogoWm", "0") == "1") "0" else "1") }, verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Checkbox(st.pref("skinLogoWm", "0") == "1", { st.setPref("skinLogoWm", if (it) "1" else "0") })
+            Text("Also show it large and faint in the background", fontSize = 13.sp)
+        }
+    }
+}
+
+/** The visualizer picker's groups, each collapsible (tap the header); the one holding the current style starts open. */
+@Composable
+internal fun VisGroupList(st: AppState) {
+    val curGroup = VIS_GROUPS.firstOrNull { (_, l) -> l.any { it.first == st.visStyle } }?.first
+    for ((group, styles) in VIS_GROUPS) {
+        val key = "visOpen_" + group
+        var open by androidx.compose.runtime.remember(group) { androidx.compose.runtime.mutableStateOf(st.pref(key, if (group == curGroup) "1" else "0") == "1") }
+        val sel = styles.any { it.first == st.visStyle }
+        androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(top = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .background(if (open) C.s3 else C.s2).clickable { open = !open; st.setPref(key, if (open) "1" else "0") }.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(group, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (sel) C.ac else C.tx, modifier = Modifier.weight(1f))
+            Text("${styles.size}", fontSize = 12.sp, color = C.mu, modifier = Modifier.padding(end = 8.dp))
+            Text(if (open) "▾" else "▸", fontSize = 16.sp, color = C.mu)
+        }
+        if (open) BtnRow { styles.forEach { (id, name) -> Btn(name, { st.visStyle = id; st.setPref("visStyle", id); st.dialog = null }, kind = if (st.visStyle == id) BtnKind.Primary else BtnKind.Ghost, small = true) } }
+    }
+}
+
+/** One TV episode: play it, put it under the right season / episode (pick from TMDB's list or type the numbers), subtitles. */
+@Composable
+private fun EpisodeEditDialog(st: AppState, x0: Item) {
+    val x = st.allItems.firstOrNull { it.i == x0.i } ?: x0
+    val key = st.mkey(x) ?: return
+    val m = st.match(x)
+    var se by remember(x.i) { mutableStateOf(maxOf(1, x.se)) }
+    var seTxt by remember(x.i) { mutableStateOf(if (x.se > 0) x.se.toString() else "") }
+    var epTxt by remember(x.i) { mutableStateOf(if (x.ep > 0) x.ep.toString() else "") }
+    LaunchedEffect(key, se) { st.loadSeasons(key, listOf(se)) }
+    val season = st.seasonOf(key, se)
+    val scope = rememberCoroutineScope()
+    DlgBox(st, (st.vtitle(x) + " " + epLabel(x)).trim()) {
+        Muted(x.n, size = 12.sp)
+        st.epInfo(x)?.optString("name")?.takeIf { it.isNotBlank() }?.let { Muted("TMDB: $it", Modifier.padding(top = 2.dp), 13.sp) }
+        Btn("Play", { st.dialog = null; st.openVideo(x, listOf(x)) }, Modifier.fillMaxWidth().padding(top = 12.dp), icon = Ic.play)
+
+        Text("Wrong episode? Pick the right one", color = C.mu, fontSize = 13.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+        val count = m?.seasons ?: 0
+        if (count > 0) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            (1..count).forEach { n ->
+                val on = n == se
+                Text("Season $n", fontSize = 13.sp, color = if (on) androidx.compose.ui.graphics.Color.Black else C.tx,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) C.ac else C.s2).clickable { se = n }.padding(horizontal = 12.dp, vertical = 6.dp))
+            }
+        }
+        when {
+            m == null -> Muted("Match the show first (Fix match below).", size = 13.sp)
+            season == null -> Muted(if (Net.online(st.ctx)) "Loading season $se…" else "Connect to the internet to see TMDB's episode list.", Modifier.padding(top = 6.dp), 13.sp)
+            else -> season.keys().asSequence().mapNotNull { it.toIntOrNull() }.sorted().forEach { n ->
+                val e = season.optJSONObject(n.toString()) ?: return@forEach
+                val cur = x.se == se && x.ep == n
+                Column(Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(10.dp)).background(if (cur) C.ac.copy(alpha = .18f) else C.s2)
+                    .clickable { st.setEpisode(x, se, n); st.dialog = null }.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    Text(epLabel(se, n) + " · " + e.optString("name"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    e.optString("air").takeIf { it.isNotBlank() }?.let { Muted(it + if (cur) " · this file" else "", size = 12.sp) }
+                }
+            }
+        }
+
+        Text("Or type the numbers", color = C.mu, fontSize = 13.sp, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Field(seTxt, { seTxt = it.filter(Char::isDigit).take(3) }, "Season", Modifier.weight(1f))
+            Field(epTxt, { epTxt = it.filter(Char::isDigit).take(4) }, "Episode", Modifier.weight(1f))
+            Btn("Set", {
+                val a = seTxt.toIntOrNull(); val b = epTxt.toIntOrNull()
+                if (a == null || b == null || a < 1 || b < 1) st.say("Enter a season and an episode number") else { st.setEpisode(x, a, b); st.dialog = null }
+            }, small = true)
+        }
+        if (st.episodeFixed(x)) Btn("Use the number from the file name", { st.resetEpisode(x); st.dialog = null }, Modifier.fillMaxWidth().padding(top = 8.dp), kind = BtnKind.Ghost, small = true)
+
+        Column(Modifier.fillMaxWidth().padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (st.wyzieOn()) Btn(if (st.hasOnlineSub(x)) "Get subtitles again" else "Get subtitles for this episode", {
+                scope.launch { if (st.hasOnlineSub(x)) st.removeOnlineSub(x); st.say(st.fetchSub(x)) }
+            }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost, icon = Ic.cc)
+            Btn("Wrong show? Fix match", { st.fixMatch(x) }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
+            Btn("Close", { st.dialog = null }, Modifier.fillMaxWidth(), kind = BtnKind.Ghost)
+        }
     }
 }

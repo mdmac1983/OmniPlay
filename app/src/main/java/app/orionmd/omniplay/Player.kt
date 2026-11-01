@@ -52,6 +52,11 @@ object Player {
             }
         }
         override fun onIsPlayingChanged(isPlaying: Boolean) { app?.let { PlaybackService.refresh(it) } }
+        // ReplayGain: read the new song's loudness tags for the sound engine
+        override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+            val f = tracks.groups.firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }?.let { g -> (0 until g.length).firstOrNull { g.isTrackSelected(it) }?.let { g.getTrackFormat(it) } }
+            Dsp.readReplayGain(f?.metadata)
+        }
         override fun onPlayerError(e: PlaybackException) {
             preparing = false
             error = if (e.errorCode in 2000..2999) "Can't reach the file — check your connection" else "Can't play this file (${e.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')})"
@@ -59,7 +64,7 @@ object Player {
         }
     }
 
-    private fun exo(ctx: Context): ExoPlayer = exo ?: ExoPlayer.Builder(ctx, Visual.Renderers(ctx))
+    private fun exo(ctx: Context): ExoPlayer = exo ?: ExoPlayer.Builder(ctx, Visual.renderers(ctx))
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
         .setHandleAudioBecomingNoisy(true)
         .setWakeMode(C.WAKE_MODE_NETWORK)
@@ -142,6 +147,9 @@ object Player {
         if (pos > 3000 || index <= 0) seek(0) else { index--; playIndex() }
     }
 
+    /** Swipe back: the previous song (the start of this one when it's the first). */
+    fun back() { when { index > 0 -> { index--; playIndex() }; repeat == "all" && queue.length() > 1 -> { index = queue.length() - 1; playIndex() }; else -> seek(0) } }
+
     fun jump(i: Int) { if (i in 0 until queue.length()) { index = i; playIndex() } }
 
     fun seek(ms: Int) { try { exo?.let { it.seekTo(ms.toLong()); Visual.basePosMs = ms.toLong() } } catch (_: Exception) {} }
@@ -150,6 +158,7 @@ object Player {
 
     /** Where the song is now (ms) — read every frame by the visualizer. */
     fun positionMs(): Long = try { exo?.currentPosition ?: 0L } catch (_: Exception) { 0L }
+    fun durationMs(): Long = try { exo?.duration?.takeIf { it > 0 } ?: 0L } catch (_: Exception) { 0L }
 
     fun stop() {
         token++

@@ -1,0 +1,170 @@
+package app.orionmd.omniplay
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.log10
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+class SoundEngineTest {
+    private fun sine(hz: Double, rate: Int, n: Int, amp: Double = 0.5) = DoubleArray(n) { amp * sin(2 * PI * hz * it / rate) }
+
+    private fun resample(x: DoubleArray, from: Int, to: Int, chunk: Int = x.size): DoubleArray {
+        val r = Resampler(); r.setup(from, to)
+        val out = ArrayList<Double>()
+        var oL = DoubleArray(0); var oR = DoubleArray(0)
+        var i = 0
+        while (i < x.size) {
+            val n = minOf(chunk, x.size - i)
+            val a = x.copyOfRange(i, i + n)
+            val k = r.process(a, a.copyOf(), n) { need -> if (oL.size < need) { oL = DoubleArray(need); oR = DoubleArray(need) }; oL to oR }
+            for (j in 0 until k) { out += oL[j]; assertEquals("left and right differ", oL[j], oR[j], 1e-12) }
+            i += n
+        }
+        return out.toDoubleArray()
+    }
+
+    /** Least-squares fit of a sine at [hz] over the steady middle part: (amplitude, residual in dB relative to the signal). */
+    private fun fit(y: DoubleArray, hz: Double, rate: Int): Pair<Double, Double> {
+        val a = y.size / 4; val b = y.size * 3 / 4
+        var ss = 0.0; var cc = 0.0; var sc = 0.0; var ys = 0.0; var yc = 0.0
+        for (i in a until b) { val sn = sin(2 * PI * hz * i / rate); val cs = kotlin.math.cos(2 * PI * hz * i / rate)
+            ss += sn * sn; cc += cs * cs; sc += sn * cs; ys += y[i] * sn; yc += y[i] * cs }
+        val det = ss * cc - sc * sc; val s = (ys * cc - yc * sc) / det; val c = (yc * ss - ys * sc) / det
+        var err = 0.0; var pow = 0.0
+        for (i in a until b) { val m = s * sin(2 * PI * hz * i / rate) + c * kotlin.math.cos(2 * PI * hz * i / rate); err += (y[i] - m) * (y[i] - m); pow += y[i] * y[i] }
+        return sqrt(s * s + c * c) to 10 * log10(err / pow)
+    }
+
+    @Test fun upsample_44k_to_48k_is_clean() {
+        val y = resample(sine(1000.0, 44100, 44100), 44100, 48000)
+        assertTrue("length ${y.size}", abs(y.size - 48000) < 40)
+        val (amp, noiseDb) = fit(y, 1000.0, 48000)
+        assertEquals(0.5, amp, 0.0005)
+        assertTrue("distortion+noise $noiseDb dB", noiseDb < -90)
+    }
+
+    @Test fun chunked_equals_one_shot() {
+        val x = sine(997.0, 44100, 20000)
+        val a = resample(x, 44100, 48000)
+        val b = resample(x, 44100, 48000, chunk = 333)
+        assertEquals(a.size, b.size)
+        for (i in a.indices) assertEquals(a[i], b[i], 1e-9)
+    }
+
+    @Test fun downsample_96k_keeps_audio_and_blocks_aliases() {
+        val (passAmp, _) = fit(resample(sine(18000.0, 96000, 96000), 96000, 48000), 18000.0, 48000)
+        assertTrue("18 kHz level $passAmp", abs(20 * log10(passAmp / 0.5)) < 0.2)
+        // 30 kHz can't exist at 48 kHz: it must be removed, not folded down to 18 kHz
+        val y = resample(sine(30000.0, 96000, 96000), 96000, 48000)
+        val rms = sqrt(y.copyOfRange(y.size / 4, y.size * 3 / 4).sumOf { it * it } / (y.size / 2))
+        val db = 20 * log10(rms / (0.5 / sqrt(2.0)))
+        assertTrue("alias $db dB", db < -90)
+    }
+
+    @Test fun flat_engine_is_transparent() {
+        Dsp.set(DspCfg(on = true))
+        val core = DspCore(video = false); core.configure(48000)
+        val x = sine(440.0, 48000, 4800, 0.7); val l = x.copyOf(); val r = x.copyOf()
+        core.process(l, r, x.size, true)
+        val d = core.latency   // the limiter looks 1.5 ms ahead: the output trails by that much, otherwise untouched
+        for (i in d until x.size) { assertEquals(x[i - d], l[i], 1e-9); assertEquals(x[i - d], r[i], 1e-9) }
+    }
+
+    @Test fun balance_and_replaygain() {
+        Dsp.set(DspCfg(on = true, balance = 0.5f, rg = "track", rgPre = 0f)); Dsp.rgTrack = -6f
+        val core = DspCore(video = false); core.configure(48000)
+        val l = DoubleArray(400) { 0.4 }; val r = DoubleArray(400) { 0.4 }
+        core.process(l, r, 400, true)
+        val g = Math.pow(10.0, -6 / 20.0)
+        assertEquals(0.4 * g * 0.5, l[300], 1e-9); assertEquals(0.4 * g, r[300], 1e-9)
+        Dsp.rgTrack = Float.NaN
+    }
+
+    @Test fun eq31_curve_from_10_band_preset() {
+        val p = DspCfg.PRESETS.first { it.first == "Bass boost" }.second
+        val e = DspCfg.to31(p)
+        assertEquals(31, e.size); assertEquals(6f, e[0], 0.01f); assertEquals(0f, e[30], 0.01f)
+        val c = DspCfg(bands = 31, eq31 = e)
+        val resp = Dsp.response(c, listOf(31.5, 1000.0, 16000.0))
+        assertTrue("bass ${resp[0]}", resp[0] > 4.5); assertTrue("mid ${resp[1]}", abs(resp[1]) < 0.6); assertTrue("treble ${resp[2]}", abs(resp[2]) < 0.6)
+    }
+
+    @Test fun parametric_eq() {
+        val c = DspCfg(bands = 0, peq = listOf(Filt('P', 1000f, 6f, 1f), Filt('h', 80f, 0f, .7f), Filt('H', 10000f, -4f, .7f)))
+        val r = Dsp.response(c, listOf(20.0, 1000.0, 300.0, 18000.0))
+        assertEquals(6.0, r[1], 0.1)                       // peak lands where it's set
+        assertTrue("low cut ${r[0]}", r[0] < -15)          // 80 Hz low cut removes deep bass
+        assertTrue("300 Hz ${r[2]}", abs(r[2]) < 1.5)      // little effect away from the filters
+        assertTrue("shelf ${r[3]}", r[3] < -3.5)
+        // saved and loaded intact (profiles store this JSON)
+        val back = DspCfg.parse(c.json().toString())
+        assertEquals(0, back.bands); assertEquals(c.peq, back.peq)
+    }
+
+    @Test fun preamp_and_limiter() {
+        // quiet music gets the full preamp gain
+        Dsp.set(DspCfg(on = true, preamp = 6f))
+        var core = DspCore(video = false); core.configure(48000)
+        var l = sine(440.0, 48000, 4800, 0.1); var r = l.copyOf()
+        core.process(l, r, l.size, true)
+        val g = Math.pow(10.0, 6 / 20.0)
+        assertEquals(0.1 * g, l.copyOfRange(2400, 4800).maxOf { abs(it) }, 0.002)
+        // loud music pushed +12 dB never goes over the ceiling
+        Dsp.set(DspCfg(on = true, preamp = 12f))
+        core = DspCore(video = false); core.configure(48000)
+        // music-like: a steady part at 0.2 with short drum hits up to 0.95
+        val src = DoubleArray(48000) { i -> 0.2 * kotlin.math.sin(2 * PI * 440 * i / 48000) + (if (i % 4800 < 40) 0.75 else 0.0) }
+        l = src.copyOf(); r = l.copyOf()
+        core.process(l, r, l.size, true)
+        assertTrue("peak ${l.maxOf { abs(it) }}", l.maxOf { abs(it) } <= 0.99)
+        // much louder overall than the original, without going over the top
+        val rmsIn = sqrt(src.sumOf { it * it } / src.size); val rmsOut = sqrt(l.sumOf { it * it } / l.size)
+        assertTrue("rms $rmsIn → $rmsOut", rmsOut > rmsIn * 2.0)   // at least +6 dB
+    }
+
+    @Test fun bass_boost_is_not_turned_down_any_more() {
+        Dsp.set(DspCfg(on = true, bass = 6f))
+        val core = DspCore(video = false); core.configure(48000)
+        val l = sine(60.0, 48000, 48000, 0.2); val r = l.copyOf()
+        core.process(l, r, l.size, true)
+        assertTrue("level ${l.copyOfRange(24000, 48000).maxOf { abs(it) }}", l.copyOfRange(24000, 48000).maxOf { abs(it) } > 0.2 * 1.6)   // ~+5 dB at 60 Hz
+        // the old behaviour is still there as an option
+        Dsp.set(DspCfg(on = true, bass = 6f, autoHeadroom = true))
+        val c2 = DspCore(video = false); c2.configure(48000)
+        val l2 = sine(60.0, 48000, 48000, 0.2); c2.process(l2, l2.copyOf(), l2.size, true)
+        assertTrue(l2.copyOfRange(24000, 48000).maxOf { abs(it) } < l.copyOfRange(24000, 48000).maxOf { abs(it) })
+    }
+
+    /** Every spatial / effect setting must audibly change a stereo music-like signal (difference vs flat, in dB). */
+    @Test fun every_effect_changes_the_sound() {
+        val n = 48000; val rnd = java.util.Random(3)
+        // stereo: a shared (centre) part plus different left/right parts, with lows and highs
+        val baseL = DoubleArray(n); val baseR = DoubleArray(n)
+        for (i in 0 until n) { val c = .15 * kotlin.math.sin(2 * PI * 80 * i / 48000) + .1 * kotlin.math.sin(2 * PI * 1000 * i / 48000)
+            baseL[i] = c + .08 * (rnd.nextDouble() - .5); baseR[i] = c + .08 * (rnd.nextDouble() - .5) + .05 * kotlin.math.sin(2 * PI * 6000 * i / 48000) }
+        fun run(cfg: DspCfg): Pair<DoubleArray, DoubleArray> { Dsp.set(cfg); val core = DspCore(false); core.configure(48000); val l = baseL.copyOf(); val r = baseR.copyOf(); core.process(l, r, n, true); return l to r }
+        val (fl, fr) = run(DspCfg(on = true))
+        val sig = sqrt((0 until n).sumOf { fl[it] * fl[it] + fr[it] * fr[it] })
+        val cases = mapOf(
+            "bass +6" to DspCfg(on = true, bass = 6f), "treble +6" to DspCfg(on = true, treble = 6f), "vocal +6" to DspCfg(on = true, vocal = 6f),
+            "width 2" to DspCfg(on = true, width = 2f), "width 0 (mono)" to DspCfg(on = true, width = 0f), "surround 1" to DspCfg(on = true, surround = 1f),
+            "reverb .5" to DspCfg(on = true, reverb = .5f), "leveler 1" to DspCfg(on = true, leveler = 1f),
+            "balance L" to DspCfg(on = true, balance = -.6f), "output +4" to DspCfg(on = true, gain = 4f), "preamp +6" to DspCfg(on = true, preamp = 6f))
+        val report = cases.map { (k, cfg) ->
+            val (l, r) = run(cfg)
+            val diff = sqrt((n / 2 until n).sumOf { (l[it] - fl[it]).let { d -> d * d } + (r[it] - fr[it]).let { d -> d * d } } * 2)
+            k to 20 * kotlin.math.log10(diff / sig)
+        }
+        println(report.joinToString("\n") { (k, db) -> "%-16s %6.1f dB".format(k, db) })
+        report.forEach { (k, db) -> assertTrue("$k changes the sound by only $db dB", db > -20) }
+        // crossfeed only touches the difference between the ears (voice and bass stay as they are): it must narrow it
+        fun side(l: DoubleArray, r: DoubleArray) = (n / 2 until n).sumOf { ((l[it] - r[it]) / 2).let { d -> d * d } }
+        val (xl, xr) = run(DspCfg(on = true, crossfeed = 1f))
+        val narrower = 10 * kotlin.math.log10(side(fl, fr) / side(xl, xr))
+        assertTrue("crossfeed narrows the stereo image by only $narrower dB", narrower > 1.5)
+    }
+}

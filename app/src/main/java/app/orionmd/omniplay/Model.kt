@@ -128,7 +128,8 @@ fun ago(ms: Long): String {
 }
 fun mmss(ms: Long): String { val s = maxOf(0, ms) / 1000; val h = s / 3600; return if (h > 0) "$h:${(s % 3600 / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}" else "${s / 60}:${(s % 60).toString().padStart(2, '0')}" }
 fun hms(ms: Long): String { val h = ms / 3600000; val m = ms % 3600000 / 60000; return if (h > 0) "${fmt(h)} h $m min" else "$m min" }
-fun epLabel(x: Item) = if (x.se > 0) "S${x.se.toString().padStart(2, '0')}E${x.ep.toString().padStart(2, '0')}" else ""
+fun epLabel(x: Item) = if (x.se > 0) epLabel(x.se, x.ep) else ""
+fun epLabel(se: Int, ep: Int) = "S${se.toString().padStart(2, '0')}E${ep.toString().padStart(2, '0')}"
 val natural: Comparator<String> = Comparator { a, b -> naturalCompare(a, b) }
 fun naturalCompare(a: String, b: String): Int {
     var i = 0; var j = 0

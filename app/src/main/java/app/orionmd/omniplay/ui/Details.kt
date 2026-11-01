@@ -1,6 +1,8 @@
 package app.orionmd.omniplay.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,7 +29,14 @@ fun AlbumPage(st: AppState, p: Page.Album, pad: PaddingValues) {
     val list = remember(st.allItems, p.key) { st.songs().filter { it.albKey == p.key }.sortedWith(compareBy({ it.tr.takeIf { t -> t > 0 } ?: 9999 }, { it.title.lowercase() })) }
     val art = list.firstOrNull { it.th } ?: list.firstOrNull()
     var info by remember(p.key) { mutableStateOf<JSONObject?>(null) }
-    LaunchedEffect(p.key, st.online) { if (st.online) info = withContext(Dispatchers.IO) { try { MusicMeta.album(list.firstOrNull()?.artist ?: "", p.name) } catch (_: Exception) { null } } }
+    LaunchedEffect(p.key, st.online) {
+        // saved by "Sync all" (works offline); otherwise look it up and save it
+        info = withContext(Dispatchers.IO) {
+            st.store.albumInfo().optJSONObject(p.key)?.takeIf { !it.optBoolean("none") } ?: if (!st.online) null else try {
+                MusicMeta.album(list.firstOrNull()?.artist ?: "", p.name)?.also { r -> st.store.updateAlbumInfo { it.put(p.key, r) } }
+            } catch (_: Exception) { null }
+        }
+    }
     LazyColumn(contentPadding = contentPad(pad)) {
         item { BackBar(st) }
         item {
@@ -50,6 +59,20 @@ fun AlbumPage(st: AppState, p: Page.Album, pad: PaddingValues) {
         } }
         item { SectionHeader("${list.size} songs") }
         items(list, key = { it.i }) { x -> SongRow(st, x, list) }
+        // the full album from Deezer / iTunes, with what you have marked
+        info?.optJSONArray("tracks")?.takeIf { it.length() > 0 }?.let { t ->
+            val mine = list.map { MusicMeta.norm(it.title) }.toSet()
+            item { SectionHeader("Full album · ${info?.optString("src")?.replaceFirstChar { it.uppercase() }}") }
+            items(t.length()) { k -> val o = t.getJSONObject(k); val have = MusicMeta.norm(o.optString("t")) in mine
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${o.optInt("n")}", color = C.mu, fontSize = 12.sp, modifier = Modifier.width(26.dp))
+                    Text(o.optString("t"), color = if (have) C.tx else C.mu, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (have) Icon(Ic.done, "In your library", tint = C.ac2, modifier = Modifier.size(16.dp))
+                    else if (o.optString("preview").startsWith("https") && st.online) IconBtn(Ic.play, { st.playPreview(JSONObject().put("id", -(k + 1L)).put("t", o.optString("t")).put("a", o.optString("a")).put("al", p.name).put("preview", o.optString("preview")).put("cover", info?.optString("cover") ?: "")) }, size = 30.dp, iconSize = 18.dp, tint = C.mu)
+                    Text(if (o.optLong("d") > 0) mmss(o.optLong("d")) else "", color = C.mu, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
     }
 }
 
@@ -120,8 +143,13 @@ fun MoviePage(st: AppState, p: Page.Movie, pad: PaddingValues) {
                     if (m != null && m.rating > 0) Text("★ %.1f".format(m.rating), color = C.ac, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                     Row(Modifier.padding(top = 10.dp)) { Btn("Play", { st.openVideo(x) }, icon = Ic.play, small = true) }
                     Row(Modifier.padding(top = 6.dp)) {
-                        Btn(if (st.isDownloaded(x)) "Saved" else "Download", { st.download(listOf(x)) }, icon = Ic.download, small = true, kind = BtnKind.Ghost)
+                        DownloadButton(st, x)
                         Spacer(Modifier.width(6.dp)); Btn("Fix match", { st.fixMatch(x) }, small = true, kind = BtnKind.Ghost)
+                    }
+                    if (st.wyzieOn() && x.k == "movie") {
+                        val scope = rememberCoroutineScope(); var tick by remember { mutableIntStateOf(0) }
+                        val have = remember(tick, x.i) { x.subs != null || st.hasOnlineSub(x) }
+                        Btn(if (have) "Subtitles ✓" else "Get subtitles", { scope.launch { st.say(st.fetchSub(x)); tick++ } }, Modifier.padding(top = 6.dp), icon = Ic.cc, small = true, kind = BtnKind.Ghost, enabled = !have)
                     }
                 }
             }
@@ -137,6 +165,8 @@ fun ShowPage(st: AppState, p: Page.Show, pad: PaddingValues) {
     val first = eps.firstOrNull() ?: run { BackBar(st); Empty("No episodes."); return }
     val m = st.match(first)
     LaunchedEffect(p.key) { st.loadDetails(first) }
+    val seasons = remember(eps) { eps.map { it.se }.filter { it > 0 }.toSet() }
+    LaunchedEffect(p.key, m?.json?.optInt("id"), seasons) { if (m != null) st.loadSeasons(p.key, seasons) }
     LazyColumn(contentPadding = contentPad(pad)) {
         item { BackBar(st) }
         item {
@@ -147,19 +177,15 @@ fun ShowPage(st: AppState, p: Page.Show, pad: PaddingValues) {
                     m?.let { Muted(listOf(it.year, it.genres).filter { s -> s.isNotEmpty() }.joinToString(" · "), size = 12.sp) }
                     Muted("${eps.size} episodes", size = 12.sp)
                     Row(Modifier.padding(top = 10.dp)) { Btn("Play", { st.openVideo(first, eps) }, icon = Ic.play, small = true); Spacer(Modifier.width(6.dp)); Btn("Fix match", { st.fixMatch(first) }, small = true, kind = BtnKind.Ghost) }
+                    if (st.wyzieOn()) subProg?.let { (d, n) -> Btn("Stop subtitles $d / $n", { subProg = null }, Modifier.padding(top = 6.dp), small = true, kind = BtnKind.Ghost) }
+                        ?: Btn("Get subtitles for this show", { st.fetchSubs(eps) }, Modifier.padding(top = 6.dp), icon = Ic.cc, small = true, kind = BtnKind.Ghost)
                 }
             }
         }
         item { TmdbSections(st, m) }
-        item { SectionHeader("Episodes") }
-        items(eps, key = { it.i }) { e ->
-            Row(Modifier.fillMaxWidth().clickable { st.openVideo(e, eps) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(54.dp, 40.dp).clip(RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) { Icon(Ic.play, null, tint = C.mu) }
-                Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                    Text(listOf(epLabel(e), e.pt ?: e.title).filter { it.isNotEmpty() }.joinToString("  "), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                if (st.isDownloaded(e)) Icon(Ic.offline, "Offline", tint = C.ac2, modifier = Modifier.size(16.dp))
-            }
+        eps.groupBy { it.se }.forEach { (se, list) ->
+            item { SectionHeader(if (se > 0) "Season $se" else "Episodes") }
+            items(list, key = { it.i }) { e -> EpisodeRow(st, e, eps) }
         }
     }
 }
@@ -167,8 +193,20 @@ fun ShowPage(st: AppState, p: Page.Show, pad: PaddingValues) {
 @Composable
 fun DownloadsPage(st: AppState, pad: PaddingValues) {
     val offline = remember(st.allItems, st.dl) { st.allItems.filter { st.isDownloaded(it) } }
+    val active = app.orionmd.omniplay.DlQueue.entries.values.sortedBy { it.title.lowercase() }
     LazyColumn(contentPadding = contentPad(pad)) {
         item { BackBar(st); Text("Offline", fontSize = 22.sp, fontWeight = FontWeight.Bold); Muted("${offline.size} items · ${bytes(Downloads.bytesUsed(st.ctx))}", size = 13.sp) }
+        if (active.isNotEmpty()) {
+            item {
+                Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Downloading (${active.size})", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    val allPaused = active.all { it.state == app.orionmd.omniplay.DlQueue.State.PAUSED || it.state == app.orionmd.omniplay.DlQueue.State.FAILED }
+                    Btn(if (allPaused) "Resume all" else "Pause all", { if (allPaused) app.orionmd.omniplay.DlQueue.resumeAll() else app.orionmd.omniplay.DlQueue.pauseAll() }, small = true, kind = BtnKind.Ghost)
+                }
+            }
+            items(active, key = { "dl" + it.id }) { e -> DownloadRow(e) }
+            item { Muted("Paused and unfinished downloads carry on from where they stopped — even after closing Media Hub.", Modifier.padding(vertical = 6.dp), 12.sp) }
+        }
         if (offline.isEmpty()) item { Empty("Nothing saved for offline yet.\nUse Download on a song, album or video.") }
         items(offline, key = { it.i }) { x ->
             Row(Modifier.fillMaxWidth().clickable { if (x.c == 2) st.openVideo(x, offline.filter { it.c == 2 }) else st.playItem(x, offline.filter { it.c == 3 }) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -177,5 +215,64 @@ fun DownloadsPage(st: AppState, pad: PaddingValues) {
                 IconBtn(Ic.trash, { st.removeDownload(x) }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
             }
         }
+    }
+}
+
+/** "Download" button that turns into live progress: 45 % (tap to pause), Paused 45 % (tap to resume), Saved. */
+@Composable
+internal fun DownloadButton(st: AppState, x: app.orionmd.omniplay.Item) {
+    val e = app.orionmd.omniplay.DlQueue.entries[x.i]
+    when {
+        st.isDownloaded(x) -> Btn("Saved", { st.open(Page.Downloads) }, icon = Ic.offline, small = true, kind = BtnKind.Ghost)
+        e == null -> Btn("Download", { st.download(listOf(x)) }, icon = Ic.download, small = true, kind = BtnKind.Ghost)
+        e.state == app.orionmd.omniplay.DlQueue.State.PAUSED || e.state == app.orionmd.omniplay.DlQueue.State.FAILED ->
+            Btn("Resume" + if (e.pct >= 0) " ${e.pct}%" else "", { app.orionmd.omniplay.DlQueue.resume(x.i) }, icon = Ic.play, small = true, kind = BtnKind.Ghost)
+        else -> Btn(if (e.pct >= 0) "${e.pct}%" else "Starting…", { app.orionmd.omniplay.DlQueue.pause(x.i) }, icon = Ic.pause, small = true, kind = BtnKind.Ghost)
+    }
+}
+
+@Composable
+private fun DownloadRow(e: app.orionmd.omniplay.DlQueue.Entry) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(e.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val size = if (e.total > 0) "${bytes(e.done)} of ${bytes(e.total)}" else if (e.done > 0) bytes(e.done) else ""
+                val status = when (e.state) {
+                    app.orionmd.omniplay.DlQueue.State.RUNNING -> listOf(if (e.pct >= 0) "${e.pct}%" else "Starting…", size, if (e.speed > 0) "${bytes(e.speed)}/s" else "", e.error).filter { it.isNotEmpty() }.joinToString(" · ")
+                    app.orionmd.omniplay.DlQueue.State.QUEUED -> listOf("Waiting", size).filter { it.isNotEmpty() }.joinToString(" · ")
+                    app.orionmd.omniplay.DlQueue.State.PAUSED -> listOf("Paused", if (e.pct >= 0) "${e.pct}%" else "", size).filter { it.isNotEmpty() }.joinToString(" · ")
+                    app.orionmd.omniplay.DlQueue.State.FAILED -> "Stopped: ${e.error}" + if (e.pct > 0) " · ${e.pct}% saved" else ""
+                }
+                Muted(status, size = 12.sp)
+            }
+            if (e.state == app.orionmd.omniplay.DlQueue.State.RUNNING || e.state == app.orionmd.omniplay.DlQueue.State.QUEUED) IconBtn(Ic.pause, { app.orionmd.omniplay.DlQueue.pause(e.id) }, size = 36.dp, iconSize = 22.dp)
+            else IconBtn(Ic.play, { app.orionmd.omniplay.DlQueue.resume(e.id) }, tint = C.ac, size = 36.dp, iconSize = 22.dp)
+            IconBtn(Ic.close, { app.orionmd.omniplay.DlQueue.cancel(e.id) }, tint = C.mu, size = 36.dp, iconSize = 20.dp)
+        }
+        androidx.compose.material3.LinearProgressIndicator(progress = { if (e.pct >= 0) e.pct / 100f else 0f }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            color = if (e.state == app.orionmd.omniplay.DlQueue.State.FAILED) C.warn else C.ac, trackColor = C.s3)
+    }
+}
+
+/** One episode: TMDB still, name, air date / length and summary. Tap plays; ⋮ (or press and hold) opens its edit menu. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun EpisodeRow(st: AppState, e: app.orionmd.omniplay.Item, eps: List<app.orionmd.omniplay.Item>) {
+    val info = st.epInfo(e)
+    val still = info?.optString("still")?.takeIf { it.isNotEmpty() }?.let { app.orionmd.omniplay.Img.Poster("w300", it) }
+    Row(Modifier.fillMaxWidth().combinedClickable(onClick = { st.openVideo(e, eps) }, onLongClick = { st.dialog = Dlg.EpisodeEdit(e) }).padding(vertical = 8.dp)) {
+        Box {
+            Thumb(still ?: st.artReq(e), epLabel(e), Modifier.width(120.dp).aspectRatio(16f / 9f), px = 300, corner = 8.dp)
+            Icon(Ic.play, null, tint = Color.White, modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).size(18.dp).clip(RoundedCornerShape(4.dp)).background(Color(0x99000000)))
+        }
+        Column(Modifier.padding(start = 12.dp).weight(1f)) {
+            val name = info?.optString("name")?.takeIf { it.isNotBlank() }
+            Text(listOfNotNull(epLabel(e).ifEmpty { null }, name ?: e.pt ?: e.title).joinToString(" · "), fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Muted(listOfNotNull(info?.optString("air")?.takeIf { it.isNotBlank() }, info?.optInt("runtime")?.takeIf { it > 0 }?.let { "$it min" },
+                if (st.isDownloaded(e)) "offline" else null, if (e.subs != null || st.hasOnlineSub(e)) "CC" else null).joinToString(" · "), size = 12.sp)
+            info?.optString("overview")?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 13.sp, lineHeight = 18.sp, color = C.tx.copy(alpha = .8f), maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
+        }
+        IconBtn(Ic.more, { st.dialog = Dlg.EpisodeEdit(e) }, size = 36.dp, iconSize = 20.dp, tint = C.mu)
     }
 }

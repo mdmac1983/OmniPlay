@@ -22,7 +22,7 @@ import kotlin.math.tanh
  * The music player's own sound engine (runs inside ExoPlayer's audio chain, so it works the same on every device and
  * doesn't depend on the phone's built-in effects): 10-band graphic equaliser, headphone correction (parametric filters
  * measured for a model, see [Headphones]), bass / treble, vocal (dialogue) enhancer, stereo width, surround
- * virtualizer, headphone crossfeed, reverb, volume leveler (compressor) and a soft limiter so nothing clips.
+ * virtualizer, headphone crossfeed, reverb, volume leveler (compressor), a preamp and a peak limiter so nothing clips.
  * Settings are a [DspCfg] (saved as JSON in pref "dsp"); a new one takes effect on the next audio buffer.
  */
 data class DspCfg(
@@ -40,20 +40,55 @@ data class DspCfg(
     val room: String = "room",                      // room | hall | stadium
     val leveler: Float = 0f,                        // 0..1 volume leveler (compressor)
     val gain: Float = 0f,                           // dB output trim, -6..+6
+    val balance: Float = 0f,                        // -1 (left) .. +1 (right)
+    val rg: String = "off",                         // ReplayGain: off | track | album
+    val rgPre: Float = 0f,                          // dB added to ReplayGain-tagged songs, -6..+12
+    val video: Boolean = true,                      // use the same engine for videos
+    val bands: Int = 10,                            // equaliser: 10 or 31 graphic bands, 0 = parametric
+    val peq: List<Filt> = emptyList(),              // parametric equaliser filters (up to 12)
+    val eq31: List<Float> = List(31) { 0f },        // dB per band (31-band mode), ±12
+    val hiRes: Boolean = true,                      // OmniPlay's own hi-res output (32-bit float, own resampler)
+    val resample: Boolean = true,                   // convert to the phone's native rate ourselves (skips Android's resampler)
+    val preamp: Float = 0f,                         // dB before the limiter, -12..+15 (like Poweramp's preamp)
+    val autoHeadroom: Boolean = false,              // turn everything down by part of the EQ's biggest boost (quieter, never limits)
 ) {
     fun json(): JSONObject = JSONObject().put("on", on).put("eq", JSONArray(eq.map { it.toDouble() })).put("corr", corr).put("corrAmt", corrAmt.toDouble())
         .put("bass", bass.toDouble()).put("treble", treble.toDouble()).put("vocal", vocal.toDouble()).put("width", width.toDouble())
         .put("surround", surround.toDouble()).put("crossfeed", crossfeed.toDouble()).put("reverb", reverb.toDouble()).put("room", room)
         .put("leveler", leveler.toDouble()).put("gain", gain.toDouble())
+        .put("balance", balance.toDouble()).put("rg", rg).put("rgPre", rgPre.toDouble()).put("video", video)
+        .put("preamp", preamp.toDouble()).put("autoHeadroom", autoHeadroom).put("bands", bands).put("peq", JSONArray(peq.map { JSONObject().put("t", it.type.toString()).put("f", it.f.toDouble()).put("g", it.g.toDouble()).put("q", it.q.toDouble()) })).put("eq31", JSONArray(eq31.map { it.toDouble() })).put("hiRes", hiRes).put("resample", resample)
 
     companion object {
         val FREQS = intArrayOf(31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
+        /** Parametric filter types: peak, low shelf, high shelf, low cut (high-pass), high cut (low-pass). */
+        val PEQ_TYPES = listOf('P' to "Peak", 'L' to "Low shelf", 'H' to "High shelf", 'h' to "Low cut", 'l' to "High cut")
+        /** Starting point when switching to parametric: three gentle, flat filters. */
+        val PEQ_START = listOf(Filt('L', 105f, 0f, .7f), Filt('P', 1000f, 0f, 1f), Filt('H', 8000f, 0f, .7f))
+        /** ISO third-octave centres for the 31-band equaliser. */
+        val FREQS31 = doubleArrayOf(20.0, 25.0, 31.5, 40.0, 50.0, 63.0, 80.0, 100.0, 125.0, 160.0, 200.0, 250.0, 315.0, 400.0, 500.0, 630.0, 800.0,
+            1000.0, 1250.0, 1600.0, 2000.0, 2500.0, 3150.0, 4000.0, 5000.0, 6300.0, 8000.0, 10000.0, 12500.0, 16000.0, 20000.0)
+        /** A 10-band curve spread over the 31 bands (smooth in log-frequency) — for presets and switching modes. */
+        fun to31(eq: List<Float>): List<Float> = FREQS31.map { hz ->
+            val x = kotlin.math.ln(hz); val xs = FREQS.map { kotlin.math.ln(it.toDouble()) }
+            when {
+                x <= xs.first() -> eq.first()
+                x >= xs.last() -> eq.last()
+                else -> { val i = xs.indexOfLast { it <= x }; val t = ((x - xs[i]) / (xs[i + 1] - xs[i])).toFloat(); eq[i] + (eq[i + 1] - eq[i]) * t }
+            }.let { Math.round(it * 2) / 2f }
+        }
         fun parse(s: String?): DspCfg = try {
             val o = JSONObject(s ?: "")
             fun f(k: String, d: Float) = o.optDouble(k, d.toDouble()).toFloat()
             DspCfg(o.optBoolean("on", true), o.optJSONArray("eq")?.let { a -> List(10) { a.optDouble(it, 0.0).toFloat() } } ?: List(10) { 0f },
                 o.optString("corr"), f("corrAmt", 1f), f("bass", 0f), f("treble", 0f), f("vocal", 0f), f("width", 1f), f("surround", 0f),
-                f("crossfeed", 0f), f("reverb", 0f), o.optString("room", "room"), f("leveler", 0f), f("gain", 0f))
+                f("crossfeed", 0f), f("reverb", 0f), o.optString("room", "room"), f("leveler", 0f), f("gain", 0f),
+                f("balance", 0f), o.optString("rg", "off"), f("rgPre", 0f), o.optBoolean("video", true),
+                o.optInt("bands", 10).let { if (it == 31 || it == 0) it else 10 },
+                o.optJSONArray("peq")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { f ->
+                    Filt(f.optString("t", "P").firstOrNull() ?: 'P', f.optDouble("f", 1000.0).toFloat(), f.optDouble("g", 0.0).toFloat(), f.optDouble("q", 1.0).toFloat()) } } ?: emptyList(),
+                o.optJSONArray("eq31")?.let { a -> List(31) { a.optDouble(it, 0.0).toFloat() } } ?: List(31) { 0f },
+                o.optBoolean("hiRes", true), o.optBoolean("resample", true), f("preamp", 0f), o.optBoolean("autoHeadroom", false))
         } catch (_: Exception) { DspCfg() }
 
         /** One-tap sound styles for the 10 bands (like Dolby's "intelligent equaliser" + the usual genre presets). */
@@ -132,139 +167,266 @@ private class Reverb(sr: Int, room: String) {
         for (i in 0 until 2) { val b = bufs[i]; val p = pos[i]; val bo = b[p]; val y = -x + bo; b[p] = x + bo * .5f; pos[i] = (p + 1) % b.size; x = y }
         return x
     }
-    fun l(x: Float) = aps(combs(x * .015f, combL, cpL, lpL), apL, apPL)
-    fun r(x: Float) = aps(combs(x * .015f, combR, cpR, lpR), apR, apPR)
+    fun l(x: Float) = aps(combs(x * .03f, combL, cpL, lpL), apL, apPL)
+    fun r(x: Float) = aps(combs(x * .03f, combR, cpR, lpR), apR, apPR)
 }
 
 @OptIn(UnstableApi::class)
-object Dsp : BaseAudioProcessor() {
+/** Filters for [c] at sample rate [sr] (also used by the UI to draw the response curve). */
+private fun dspChain(c: DspCfg, sr: Double): Array<Biquad> {
+    val l = mutableListOf<Biquad>()
+    if (c.bands == 0) c.peq.forEach { (t, f, g, q) ->
+        // cuts have no gain; peaks and shelves with no gain do nothing
+        if (t == 'h' || t == 'l' || abs(g) > .05f) l += Biquad(t, f.toDouble(), g.toDouble(), q.toDouble().coerceIn(.1, 20.0), sr)
+    }
+    else if (c.bands == 31) c.eq31.forEachIndexed { i, g ->
+        // third-octave peaking filters (Q 4.3); bands too close to the top of this sample rate are left out
+        val hz = DspCfg.FREQS31[i]; if (abs(g) > .05f && hz < sr * .45) l += Biquad('P', hz, g.toDouble(), 4.3, sr)
+    }
+    else c.eq.forEachIndexed { i, g -> if (abs(g) > .05f) l += Biquad(if (i == 0) 'L' else if (i == 9) 'H' else 'P', DspCfg.FREQS[i].toDouble(), g.toDouble(), if (i == 0 || i == 9) .8 else 1.41, sr) }
+    Headphones.of(c.corr)?.let { h -> if (c.corrAmt > .01f) h.filters.forEach { (t, f, g, q) -> l += Biquad(t, f.toDouble(), (g * c.corrAmt).toDouble(), q.toDouble(), sr) } }
+    if (c.bass > .05f) l += Biquad('L', 90.0, c.bass.toDouble(), .7, sr)
+    if (abs(c.treble) > .05f) l += Biquad('H', 9000.0, c.treble.toDouble(), .7, sr)
+    return l.toTypedArray()
+}
+
+/**
+ * Shared settings and status for the sound engine. Every player (music, video, gallery videos) gets its own
+ * [DspProcessor] — they all follow the same [cfg], so the Sound screen tunes music and videos together.
+ */
+object Dsp {
     @Volatile var cfg = DspCfg(); private set
-    private var built: DspCfg? = null
-    private var sr = 44100
-    private var ch = 2
-    private var enc = C.ENCODING_PCM_16BIT
-
-    private var filters = emptyArray<Biquad>()
-    private var vocalF: Biquad? = null
-    private var sideHp: Biquad? = null
-    private var xfL: Biquad? = null
-    private var verb: Reverb? = null
-    private var pre = 1.0
-    private var post = 1.0
-    private val delay = FloatArray(4096); private var dPos = 0; private var dLen = 1
-    private var env = 0.0
-
     fun set(c: DspCfg) { cfg = c }
     /** "Hold to compare": skips the effects while held. */
     @Volatile var bypass = false
+    /** Video players: audio delay in ms (+ = sound later, − = sound earlier), for out-of-sync files — like VLC's. */
+    @Volatile var avDelayMs = 0
+    /** ReplayGain of the song playing now (dB, NaN = not tagged), read from its tags by the music player. */
+    @Volatile var rgTrack = Float.NaN
+    @Volatile var rgAlbum = Float.NaN
 
     // what the engine is doing (shown on the Sound screen, so you can see it's really running)
-    @Volatile var format = ""; private set
-    @Volatile var seen = 0L; private set          // bytes that passed through
-    @Volatile var processed = 0L; private set     // bytes that were processed (effects on)
-    @Volatile var lastSeen = 0L; private set
+    @Volatile var format = ""; internal set
+    @Volatile var seen = 0L; internal set          // bytes that passed through
+    @Volatile var processed = 0L; internal set     // bytes that were processed (effects on)
+    @Volatile var lastSeen = 0L; internal set
+    @Volatile var source = ""; internal set        // "music" | "video"
     val running get() = System.currentTimeMillis() - lastSeen < 2000
 
-    override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        val e = inputAudioFormat.encoding
-        if (e != C.ENCODING_PCM_16BIT && e != C.ENCODING_PCM_FLOAT) return AudioProcessor.AudioFormat.NOT_SET
-        sr = inputAudioFormat.sampleRate; ch = inputAudioFormat.channelCount; enc = e; built = null
-        format = "${sr / 1000.0} kHz · ${ch} ch · ${if (e == C.ENCODING_PCM_FLOAT) "32-bit float" else "16-bit"}"
-        return inputAudioFormat
-    }
-
-    override fun onFlush() { built = null }
-    override fun onReset() { built = null }
-
-    /** Filters for [c] at sample rate [sr] (also used by the UI to draw the response curve). */
-    private fun chain(c: DspCfg, sr: Double): Array<Biquad> {
-        val l = mutableListOf<Biquad>()
-        c.eq.forEachIndexed { i, g -> if (abs(g) > .05f) l += Biquad(if (i == 0) 'L' else if (i == 9) 'H' else 'P', DspCfg.FREQS[i].toDouble(), g.toDouble(), if (i == 0 || i == 9) .8 else 1.41, sr) }
-        Headphones.of(c.corr)?.let { h -> if (c.corrAmt > .01f) h.filters.forEach { (t, f, g, q) -> l += Biquad(t, f.toDouble(), (g * c.corrAmt).toDouble(), q.toDouble(), sr) } }
-        if (c.bass > .05f) l += Biquad('L', 90.0, c.bass.toDouble(), .7, sr)
-        if (abs(c.treble) > .05f) l += Biquad('H', 9000.0, c.treble.toDouble(), .7, sr)
-        return l.toTypedArray()
-    }
-
     /** Overall frequency response (dB) of [c] at [freqs] — drawn as the curve above the sliders. */
-    fun response(c: DspCfg, freqs: List<Double>): List<Double> { val f = chain(c, 48000.0); return freqs.map { hz -> f.sumOf { it.dbAt(hz, 48000.0) } } }
+    fun response(c: DspCfg, freqs: List<Double>): List<Double> { val f = dspChain(c, 48000.0); return freqs.map { hz -> f.sumOf { it.dbAt(hz, 48000.0) } } }
+
+    /** Audio chain for a video player: surround → stereo downmix (so dialogue and effects work), then the engine. */
+    fun videoProcessors(): Array<AudioProcessor> = arrayOf(Downmix(), DspProcessor(video = true))
+
+    /** Reads ReplayGain tags (ID3 TXXX, Vorbis/FLAC comments, MP4 iTunes atoms) from the playing song's format. */
+    fun readReplayGain(meta: androidx.media3.common.Metadata?) {
+        var t = Float.NaN; var a = Float.NaN
+        fun num(v: String?) = v?.trim()?.removeSuffix("dB")?.removeSuffix("db")?.trim()?.replace(',', '.')?.toFloatOrNull()
+        fun take(k: String?, v: String?) {
+            when (k?.trim()?.uppercase()) { "REPLAYGAIN_TRACK_GAIN" -> num(v)?.let { t = it }; "REPLAYGAIN_ALBUM_GAIN" -> num(v)?.let { a = it } }
+        }
+        if (meta != null) for (i in 0 until meta.length()) when (val e = meta.get(i)) {
+            is androidx.media3.extractor.metadata.id3.TextInformationFrame -> take(e.description, e.values.firstOrNull())
+            is androidx.media3.extractor.metadata.vorbis.VorbisComment -> take(e.key, e.value)
+            is androidx.media3.extractor.metadata.id3.InternalFrame -> take(e.description, e.text)
+        }
+        rgTrack = t; rgAlbum = a
+    }
+}
+
+/**
+ * The effects themselves, working on 64-bit samples. One instance per player (filters keep state between buffers).
+ * Used by [DspProcessor] (classic 16-bit chain) and by the hi-res output ([HiResSink]).
+ */
+class DspCore(private val video: Boolean) {
+    private var built: DspCfg? = null
+    private var builtRg = Float.NaN
+    private var sr = 44100
+
+    private var filters = emptyArray<Biquad>()
+    private var vocalF: Biquad? = null
+    private var sideLp: Biquad? = null          // side below ~120 Hz stays as it is (bass stays centred and punchy)
+    private var surHp: Biquad? = null           // the part of the centre the 3D effect spreads out (above ~200 Hz)
+    private var sideHp: Biquad? = null
+    private var xfLp: Biquad? = null            // crossfeed: low-passed copy of each side (l() = left, r() = right)
+    private var verb: Reverb? = null
+    private var pre = 1.0
+    private var post = 1.0
+    private var makeup = 1.0
+    private var balL = 1.0; private var balR = 1.0
+    private val delay = FloatArray(16384); private var dPos = 0; private var dLen = 1
+    private val mDelay = FloatArray(8192); private var mPos = 0; private var tapA = 1; private var tapB = 1; private var tapC = 1
+    private var env = 0.0
+
+    fun configure(sampleRate: Int) { sr = sampleRate; built = null; look = (sampleRate * .0015).toInt().coerceIn(1, LA_MAX - 1) }
+    /** Frames the output trails the input by (the limiter's look-ahead). */
+    val latency get() = look - 1
+    fun reset() { built = null; limG = 1.0; laL.fill(0.0); laR.fill(0.0); laT.fill(1.0); laPos = 0 }
+
+    /** Whether effects run for the next buffer (false = pass the sound through untouched). */
+    fun active(c: DspCfg = Dsp.cfg) = c.on && !Dsp.bypass && !(video && !c.video)
 
     /** Headroom: turn everything down by the biggest boost so loud songs don't distort. */
     private fun headroom(f: Array<Biquad>): Double {
         var peak = 0.0; var hz = 20.0
-        while (hz < 20000) { peak = maxOf(peak, f.sumOf { it.dbAt(hz, sr.toDouble()) }); hz *= 1.12 }
+        while (hz < 20000) { peak = maxOf(peak, f.sumOf { it.dbAt(hz, sr.toDouble()) }); hz *= 1.06 }
         return peak
     }
 
+    /** ReplayGain (dB) to apply now: music only, from the playing song's tags; untagged songs are left alone. */
+    private fun rgNow(c: DspCfg): Float {
+        if (video || c.rg == "off") return 0f
+        val g = if (c.rg == "album" && !Dsp.rgAlbum.isNaN()) Dsp.rgAlbum else Dsp.rgTrack
+        return if (g.isNaN()) 0f else g + c.rgPre
+    }
+
     private fun build(c: DspCfg) {
-        val f = chain(c, sr.toDouble())
+        val f = dspChain(c, sr.toDouble())
         filters = f
-        val boost = (headroom(f) + c.vocal * .5) * .55   // part of the boost is kept (the soft limiter catches peaks), so changes are clearly heard
-        pre = 10.0.pow(-boost / 20)
-        post = 10.0.pow(c.gain / 20.0) * (1 + c.leveler * 1.2) // leveler makeup gain
+        // Poweramp-style: the preamp sets the level and the limiter catches the peaks. "Auto headroom" (old behaviour)
+        // instead turns everything down by part of the biggest EQ boost — cleaner but quieter.
+        val boost = if (c.autoHeadroom) (headroom(f) + c.vocal * .5) * .55 else 0.0
+        pre = 10.0.pow((c.preamp - boost) / 20)
+        val rg = rgNow(c); builtRg = rg
+        post = 10.0.pow((c.gain + rg) / 20.0)
+        // leveller make-up: brings the squeezed peaks back up to (nearly) full scale, so it really makes things louder
+        val ratio = 1 + c.leveler * 4.0
+        makeup = if (c.leveler > .01f) (1 / LEV_THR).pow((1 - 1 / ratio) * .9) else 1.0
+        // balance: turn the other side down (constant at the centre)
+        balL = if (c.balance > 0) 1.0 - c.balance else 1.0; balR = if (c.balance < 0) 1.0 + c.balance else 1.0
         vocalF = if (c.vocal > .05f) Biquad('P', 2500.0, c.vocal.toDouble(), .8, sr.toDouble()) else null
+        sideLp = Biquad('l', 120.0, 0.0, .7, sr.toDouble())
+        surHp = Biquad('h', 200.0, 0.0, .7, sr.toDouble())
         sideHp = Biquad('h', 180.0, 0.0, .7, sr.toDouble())
-        xfL = if (c.crossfeed > .01f) Biquad('l', 700.0, 0.0, .7, sr.toDouble()) else null
+        xfLp = if (c.crossfeed > .01f) Biquad('l', 700.0, 0.0, .7, sr.toDouble()) else null
         verb = if (c.reverb > .01f) Reverb(sr, c.room) else null
         dLen = (sr * .012).toInt().coerceIn(1, delay.size - 1); delay.fill(0f); dPos = 0
+        // 3D: three short delays of the centre, different for each ear (complementary, so it still sums to mono cleanly)
+        tapA = (sr * .0071).toInt(); tapB = (sr * .0127).toInt(); tapC = (sr * .0193).toInt(); mDelay.fill(0f); mPos = 0
         built = c
     }
+
+    /** Stereo width 0..2 → gain on the side (above the bass): 1 = as recorded, 2 = about 3.2× (+10 dB). */
+    private fun widthGain(w: Double) = if (w <= 1) w else 1 + (w - 1) * 2.2
+
+    /** Runs the effects on [n] frames in place ([stereo] false: only [L] is used and copied to [R]). Includes the preamp and the peak limiter. */
+    fun process(L: DoubleArray, R: DoubleArray, n: Int, stereo: Boolean) {
+        val c = Dsp.cfg
+        if (built !== c || rgNow(c) != builtRg) build(c)
+        val wg = widthGain(c.width.toDouble()); val sur = c.surround.toDouble(); val xf = c.crossfeed.toDouble() * .5
+        val wet = c.reverb.toDouble() * 1.4; val dry = 1 - c.reverb * .12; val lev = c.leveler.toDouble()
+        val att = exp(-1.0 / (sr * .01)); val rel = exp(-1.0 / (sr * .25))
+        val ratio = 1 + lev * 4
+        val relL = limRel
+        for (i in 0 until n) {
+            var l = L[i] * pre
+            var r = if (stereo) R[i] * pre else l
+            for (f in filters) { l = f.l(l); r = f.r(r) }
+            var m = (l + r) * .5; var s = (l - r) * .5
+            vocalF?.let { m = it.l(m) }
+            // width: the side above the bass is scaled; the bass side stays put (keeps the low end tight and centred)
+            val sLow = sideLp!!.l(s); s = sLow + (s - sLow) * wg
+            if (sur > .01) {
+                // 3D / surround: (1) spread the centre itself — delayed copies of it go to the left and right ears with
+                // opposite signs, so even a mono-ish recording gets a wide, out-of-the-head stage; (2) a 12 ms echo of
+                // the side pushes the edges further out
+                val mh = surHp!!.l(m)
+                mDelay[mPos] = mh.toFloat()
+                fun tap(d: Int) = mDelay[(mPos - d + mDelay.size) % mDelay.size].toDouble()
+                val spread = tap(tapA) * .55 - tap(tapB) * .4 + tap(tapC) * .25
+                mPos = (mPos + 1) % mDelay.size
+                val sh = sideHp!!.l(s)
+                val d = delay[(dPos - dLen + delay.size) % delay.size].toDouble()
+                delay[dPos] = sh.toFloat(); dPos = (dPos + 1) % delay.size
+                s += spread * sur * .85 + d * sur * .7 + sh * sur * .3
+            }
+            l = m + s; r = m - s
+            // crossfeed (headphones): each ear hears a little of the other side's lows, minus its own — mono content
+            // (voice, bass) is untouched, so it doesn't get quieter
+            // (plus a little of the highs, like the shadow of your head)
+            xfLp?.let { f -> val lpL = f.l(l); val lpR = f.r(r); val d = (lpR - lpL) * xf + (r - l) * xf * .3; l += d; r -= d }
+            verb?.let { v -> val mono = ((l + r) * .5).toFloat(); val vl = v.l(mono); val vr = v.r(mono); l = l * dry + vl * wet; r = r * dry + vr * wet }
+            if (lev > .01) {
+                val lvl = maxOf(abs(l), abs(r))
+                env = if (lvl > env) att * env + (1 - att) * lvl else rel * env + (1 - rel) * lvl
+                if (env > LEV_THR) { val g = (LEV_THR * (env / LEV_THR).pow(1 / ratio)) / env; l *= g; r *= g }
+                l *= makeup; r *= makeup
+            }
+            l *= post * balL; r *= post * balR
+            // look-ahead peak limiter (stereo-linked, 1.5 ms): the gain starts coming down just before a peak arrives
+            // instead of chopping it, so a high preamp / big boosts stay clean; ~60 ms release
+            val peak = maxOf(abs(l), abs(r))
+            laL[laPos] = l; laR[laPos] = r; laT[laPos] = if (peak > CEIL) CEIL / peak else 1.0
+            var want = 1.0; for (k in 0 until look) { val t = laT[(laPos - k + LA_MAX) % LA_MAX]; if (t < want) want = t }
+            limG = if (want < limG) limG + (want - limG) * .35 else limG + (want - limG) * relL
+            val o = (laPos - look + 1 + LA_MAX) % LA_MAX
+            val g = minOf(limG, laT[o])
+            L[i] = soft(laL[o] * g); R[i] = soft(laR[o] * g)
+            laPos = (laPos + 1) % LA_MAX
+        }
+    }
+    private var limG = 1.0
+    private val limRel get() = 1 - exp(-1.0 / (sr * .06))
+    private var look = 72
+    private val laL = DoubleArray(LA_MAX); private val laR = DoubleArray(LA_MAX); private val laT = DoubleArray(LA_MAX) { 1.0 }; private var laPos = 0
+    private companion object {
+        const val CEIL = 0.977        // −0.2 dBFS
+        const val LEV_THR = 0.18      // leveller threshold (−15 dBFS)
+        const val LA_MAX = 1024
+    }
+
+    /** Safety net after the limiter: untouched below 0.98, rounds off anything above instead of clipping. */
+    private fun soft(x: Double): Double { val a = abs(x); return if (a <= .98) x else (if (x < 0) -1 else 1) * (.98 + .02 * tanh((a - .98) / .02)) }
+}
+
+/** The engine as an audio processor for ExoPlayer's standard (16-bit) chain — used when hi-res output is off. */
+class DspProcessor(private val video: Boolean = false) : BaseAudioProcessor() {
+    private val core = DspCore(video)
+    private var ch = 2
+    private var enc = C.ENCODING_PCM_16BIT
+    private var L = DoubleArray(0); private var R = DoubleArray(0)
+
+    override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+        val e = inputAudioFormat.encoding
+        if (e != C.ENCODING_PCM_16BIT && e != C.ENCODING_PCM_FLOAT) return AudioProcessor.AudioFormat.NOT_SET
+        ch = inputAudioFormat.channelCount; enc = e; core.configure(inputAudioFormat.sampleRate)
+        Dsp.format = "${inputAudioFormat.sampleRate / 1000.0} kHz · ${ch} ch · ${if (e == C.ENCODING_PCM_FLOAT) "32-bit float" else "16-bit"} (standard output)"
+        return inputAudioFormat
+    }
+    override fun onFlush() { core.reset() }
+    override fun onReset() { core.reset() }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val size = inputBuffer.remaining()
         if (size == 0) return
         val out = replaceOutputBuffer(size)
-        val c = cfg
-        seen += size; lastSeen = System.currentTimeMillis()
-        if (!c.on || bypass || ch < 1) { out.put(inputBuffer); out.flip(); return }
-        processed += size
-        if (built !== c) build(c)
+        Dsp.seen += size; Dsp.lastSeen = System.currentTimeMillis(); Dsp.source = if (video) "video" else "music"
+        if (!core.active() || ch < 1) { out.put(inputBuffer); out.flip(); return }
+        Dsp.processed += size
         val float = enc == C.ENCODING_PCM_FLOAT
         val bps = if (float) 4 else 2
         val frames = size / (bps * ch)
         val inB = inputBuffer.order(ByteOrder.LITTLE_ENDIAN)
         out.order(ByteOrder.LITTLE_ENDIAN)
+        if (L.size < frames) { L = DoubleArray(frames); R = DoubleArray(frames) }
         val stereo = ch >= 2
-        val width = c.width.toDouble(); val sur = c.surround.toDouble(); val xf = c.crossfeed.toDouble() * .45
-        val wet = c.reverb.toDouble() * .6; val lev = c.leveler.toDouble()
-        val att = exp(-1.0 / (sr * .01)); val rel = exp(-1.0 / (sr * .25))
-        val thr = 0.18; val ratio = 1 + lev * 4
-        fun rd(): Double = if (float) inB.float.toDouble() else inB.short / 32768.0
-        fun wr(v: Double) { val s = soft(v); if (float) out.putFloat(s.toFloat()) else out.putShort((s * 32767).toInt().coerceIn(-32768, 32767).toShort()) }
-        for (n in 0 until frames) {
-            var l = rd() * pre
-            var r = if (stereo) rd() * pre else l
-            for (f in filters) { l = f.l(l); r = f.r(r) }
-            if (stereo) {
-                var m = (l + r) * .5; var s = (l - r) * .5
-                vocalF?.let { m = it.l(m) }
-                s *= width
-                if (sur > .01) {
-                    // virtual surround: a short (12 ms) echo of the side signal widens the stage past the speakers
-                    val sh = sideHp!!.l(s)
-                    val d = delay[(dPos - dLen + delay.size) % delay.size].toDouble()
-                    delay[dPos] = sh.toFloat(); dPos = (dPos + 1) % delay.size
-                    s += d * sur * .9 + sh * sur * .35
-                }
-                l = m + s; r = m - s
-                xfL?.let { f -> val cl = f.l(r); val cr = f.r(l); l = (l + cl * xf) / (1 + xf * .5); r = (r + cr * xf) / (1 + xf * .5) }
-            } else vocalF?.let { l = it.l(l); r = l }
-            verb?.let { v -> val mono = ((l + r) * .5).toFloat(); val vl = v.l(mono); val vr = v.r(mono); l = l * (1 - wet * .4) + vl * wet; r = r * (1 - wet * .4) + vr * wet }
-            if (lev > .01) {
-                val lvl = maxOf(abs(l), abs(r))
-                env = if (lvl > env) att * env + (1 - att) * lvl else rel * env + (1 - rel) * lvl
-                if (env > thr) { val g = (thr * (env / thr).pow(1 / ratio)) / env; l *= g; r *= g }
-            }
-            l *= post; r *= post
-            wr(l); if (stereo) wr(r)
-            for (k in 2 until ch) { val x = rd(); wr(x) } // extra channels pass through
+        val start = inB.position(); val stride = bps * ch
+        for (i in 0 until frames) {
+            val p = start + i * stride
+            L[i] = if (float) inB.getFloat(p).toDouble() else inB.getShort(p) / 32768.0
+            R[i] = if (!stereo) L[i] else if (float) inB.getFloat(p + 4).toDouble() else inB.getShort(p + 2) / 32768.0
+        }
+        core.process(L, R, frames, stereo)
+        for (i in 0 until frames) {
+            val p = start + i * stride
+            fun wr(v: Double) { if (float) out.putFloat(v.toFloat()) else out.putShort((v * 32767).toInt().coerceIn(-32768, 32767).toShort()) }
+            wr(L[i]); if (stereo) wr(R[i])
+            for (k in 2 until ch) { if (float) out.putFloat(inB.getFloat(p + k * 4)) else out.putShort(inB.getShort(p + k * 2)) } // extra channels pass through
         }
         inputBuffer.position(inputBuffer.limit())
         out.flip()
     }
-
-    /** Soft limiter: untouched below 0.9, rounds off above instead of clipping. */
-    private fun soft(x: Double): Double { val a = abs(x); return if (a <= .9) x else (if (x < 0) -1 else 1) * (.9 + .1 * tanh((a - .9) / .1)) }
 }
 
 /**
@@ -317,4 +479,38 @@ object Sound {
         return DspCfg.parse(store.getPref("dsp", "")).also { Dsp.set(it) }
     }
     fun save(st: AppState, c: DspCfg) { Dsp.set(c); st.setPref("dsp", c.json().toString()) }
+}
+
+/**
+ * Folds 5.1 / 7.1 film sound down to stereo (ITU-style: centre and surrounds at -3 dB, LFE at -6 dB) so the
+ * equaliser, dialogue enhancer and spatial effects work on it. Mono and stereo pass through untouched.
+ * Channel order (Android): FL FR FC LFE BL BR [SL SR].
+ */
+class Downmix : BaseAudioProcessor() {
+    private var ch = 2; private var float = false
+    override fun onConfigure(f: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+        if (f.channelCount <= 2 || !Dsp.cfg.on || !Dsp.cfg.video) return AudioProcessor.AudioFormat.NOT_SET
+        if (f.encoding != C.ENCODING_PCM_16BIT && f.encoding != C.ENCODING_PCM_FLOAT) return AudioProcessor.AudioFormat.NOT_SET
+        ch = f.channelCount; float = f.encoding == C.ENCODING_PCM_FLOAT
+        return AudioProcessor.AudioFormat(f.sampleRate, 2, f.encoding)
+    }
+    override fun queueInput(input: ByteBuffer) {
+        val bps = if (float) 4 else 2
+        val frames = input.remaining() / (bps * ch); if (frames == 0) return
+        val out = replaceOutputBuffer(frames * 2 * bps).order(ByteOrder.LITTLE_ENDIAN)
+        val inB = input.order(ByteOrder.LITTLE_ENDIAN)
+        val x = DoubleArray(ch)
+        val k = .7071; val norm = 1.0 / (1 + k + k + (if (ch > 6) k else 0.0))   // keeps full-scale input from clipping
+        for (n in 0 until frames) {
+            for (i in 0 until ch) x[i] = if (float) inB.float.toDouble() else inB.short / 32768.0
+            val c = x[2] * k; val lfe = if (ch > 3) x[3] * .5 else 0.0
+            var l = x[0] + c + lfe; var r = x[1] + c + lfe
+            if (ch > 4) { l += x[4] * k; r += x.getOrElse(5) { 0.0 } * k }
+            if (ch > 6) { l += x[6] * k; r += x.getOrElse(7) { 0.0 } * k }
+            l *= norm * 1.6; r *= norm * 1.6   // a little louder back: film mixes are quiet; the engine's limiter catches peaks
+            if (float) { out.putFloat(l.toFloat()); out.putFloat(r.toFloat()) }
+            else { out.putShort((l * 32767).toInt().coerceIn(-32768, 32767).toShort()); out.putShort((r * 32767).toInt().coerceIn(-32768, 32767).toShort()) }
+        }
+        input.position(input.limit()); out.flip()
+    }
 }

@@ -36,10 +36,15 @@ fun PodcastsPage(st: AppState, pad: PaddingValues) {
         busy = true; err = null
         scope.launch { try { results = withContext(Dispatchers.IO) { Podcasts.search(st, q.trim(), kind == "music") } } catch (e: Exception) { err = e.message ?: "Search failed" }; busy = false }
     }
+    val saved = st.offlineEpisodes()
     LazyColumn(contentPadding = contentPad(pad)) {
         item { BackBar(st) }
+        if (saved.isNotEmpty()) {
+            item { Text("Podcasts", fontSize = 24.sp, fontWeight = FontWeight.Bold); SectionHeader("Saved for offline (${saved.size})") }
+            items(saved, key = { "o" + it.optLong("id") }) { o -> OfflineEpisodeRow(st, o, saved) }
+        }
         item {
-            Text("Podcasts", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            if (saved.isEmpty()) Text("Podcasts", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             if (!keys) {
                 Muted("Add your free Podcast Index API key and secret in Settings → API keys (podcastindex.org → sign up → API Keys).", Modifier.padding(vertical = 10.dp), 13.sp)
                 Btn("Open Settings", { st.pages.clear(); st.tab = "set"; st.openSettingsCat("keys") }, small = true)
@@ -86,6 +91,7 @@ fun PodcastShowPage(st: AppState, p: Page.PodcastShow, pad: PaddingValues) {
             BtnRow(Modifier.padding(vertical = 10.dp)) {
                 eps?.takeIf { it.isNotEmpty() }?.let { l -> Btn("Play latest", { Podcasts.play(st, s, l, 0) }, small = true, icon = Ic.play) }
                 Btn(if (subbed) "★ Subscribed" else "☆ Subscribe", { Podcasts.toggle(st, s); subTick++ }, kind = BtnKind.Ghost, small = true)
+                eps?.takeIf { it.isNotEmpty() }?.let { l -> Btn("Download latest 5", { l.take(5).filter { !st.isEpisodeSaved(it.id) }.forEach { e -> st.downloadEpisode(s, e) } }, kind = BtnKind.Ghost, small = true, icon = Ic.download) }
             }
             if (eps == null && err == null) Progress(null); err?.let { Muted(it, Modifier.padding(vertical = 8.dp)) }
             eps?.let { SectionHeader("Episodes (${it.size})") }
@@ -93,9 +99,25 @@ fun PodcastShowPage(st: AppState, p: Page.PodcastShow, pad: PaddingValues) {
         val list = eps ?: emptyList()
         items(list.size, key = { "e" + list[it].id }) { i ->
             val e = list[i]
-            ListRow(cover(e.image), e.title, e.title,
-                listOf(if (e.date > 0) DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(e.date)) else "", if (e.duration > 0) mmss(e.duration) else "").filter { it.isNotEmpty() }.joinToString(" · "),
-                { Podcasts.play(st, s, list, i) }, highlight = playingId == e.id)
+            val saved = st.isEpisodeSaved(e.id)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    ListRow(cover(e.image), e.title, e.title,
+                        listOf(if (e.date > 0) DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(e.date)) else "", if (e.duration > 0) mmss(e.duration) else "").filter { it.isNotEmpty() }.joinToString(" · "),
+                        { Podcasts.play(st, s, list, i) }, highlight = playingId == e.id, downloaded = saved)
+                }
+                when {
+                    podBusy[e.id] == true -> {
+                        val p = podProg[e.id] ?: -1f
+                        Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+                            if (p < 0f) androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp), color = C.ac, strokeWidth = 2.dp)
+                            else androidx.compose.material3.CircularProgressIndicator(progress = { p }, modifier = Modifier.size(24.dp), color = C.ac, strokeWidth = 2.dp, trackColor = C.s3)
+                        }
+                    }
+                    saved -> IconBtn(Ic.trash, { st.removeEpisode(e.id) }, tint = C.mu, size = 34.dp, iconSize = 20.dp)
+                    else -> IconBtn(Ic.download, { st.downloadEpisode(s, e) }, tint = C.ac, size = 34.dp, iconSize = 20.dp)
+                }
+            }
         }
     }
 }

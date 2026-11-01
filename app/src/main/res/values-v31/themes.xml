@@ -1,5 +1,5 @@
 <resources>
-    <!-- Android 12+: the system splash shows the icon on the same colour as the full OmniPlay splash that follows -->
+    <!-- Android 12+: the system splash shows the icon on the same colour as the full Media Hub splash that follows -->
     <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>

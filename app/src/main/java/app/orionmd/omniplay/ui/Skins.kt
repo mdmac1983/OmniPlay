@@ -28,6 +28,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontFamily
@@ -86,6 +88,23 @@ val SKINS = listOf(
     PlayerSkin("sup_camo", "Box Camo", listOf(Color(0xFF4B5320), Color(0xFF2F3418)), Color(0xFFED1C24), Color.White, Color(0xFFDADFC0), Color(0xFFED1C24), Color.White, art = "square", heavy = true, italic = true, boxTitle = true, pattern = "camo", theme = "Supreme"),
     PlayerSkin("ch_cross", "Chrome Cross", listOf(Color(0xFF1E1E1E), Color(0xFF050505)), Color(0xFFC9CCD1), Color(0xFFEDEFF2), Color(0xFF9EA3AB), Color(0xFFC9CCD1), Color.Black, art = "circle", font = FontFamily.Serif, heavy = true, outlinePlay = true, pattern = "cross", theme = "Chrome Hearts"),
     PlayerSkin("ch_heart", "Silver Heart", listOf(Color(0xFF141014), Color(0xFF000000)), Color(0xFFFF6EB4), Color(0xFFF2F2F5), Color(0xFFB8B8C2), Color(0xFFD9DBE0), Color.Black, font = FontFamily.Serif, heavy = true, glow = true, pattern = "hearts", theme = "Chrome Hearts"),
+    // fashion & sportswear — styles inspired by them (colours, prints and textures only; no logos or monograms)
+    PlayerSkin("gc_web", "Web Stripe", listOf(Color(0xFF0B3B24), Color(0xFF04140C)), Color(0xFFC8102E), Color(0xFFF3EBD8), Color(0xFFBFB59A), Color(0xFFF3EBD8), Color(0xFF0B3B24), font = FontFamily.Serif, pattern = "webstripe", theme = "Gucci"),
+    PlayerSkin("gc_ivory", "Ivory Heritage", listOf(Color(0xFFF4EEDF), Color(0xFFE8DDC6)), Color(0xFF0B5A33), Color(0xFF2A1F14), Color(0xFF6B5B45), Color(0xFF0B5A33), Color(0xFFF4EEDF), font = FontFamily.Serif, light = true, pattern = "webstripe", theme = "Gucci"),
+    PlayerSkin("lv_trunk", "Trunk", listOf(Color(0xFF5B3A22), Color(0xFF2A180C)), Color(0xFFD4A85A), Color(0xFFF6E7C8), Color(0xFFCDB48C), Color(0xFFD4A85A), Color(0xFF2A180C), art = "square", font = FontFamily.Serif, pattern = "trunk", theme = "Louis Vuitton"),
+    PlayerSkin("lv_clasp", "Gold Clasp", listOf(Color(0xFF17120C), Color(0xFF050403)), Color(0xFFC9A55B), Color(0xFFF2E3C2), Color(0xFFAE9467), Color(0xFFC9A55B), Color.Black, art = "circle", font = FontFamily.Serif, outlinePlay = true, pattern = "studs", theme = "Louis Vuitton"),
+    PlayerSkin("pr_nylon", "Black Nylon", listOf(Color(0xFF1C1C1F), Color(0xFF050506)), Color(0xFFB7C4D6), Color.White, Color(0xFFA2A7B0), Color(0xFFB7C4D6), Color.Black, art = "square", outlinePlay = true, pattern = "nylon", theme = "Prada"),
+    PlayerSkin("pr_saffiano", "Saffiano Blush", listOf(Color(0xFFF6D7D9), Color(0xFFE9BFC3)), Color(0xFF1C1C1C), Color(0xFF1C1C1C), Color(0xFF5E4A4C), Color(0xFF1C1C1C), Color(0xFFF6D7D9), art = "square", light = true, pattern = "saffiano", theme = "Prada"),
+    PlayerSkin("et_print", "Loud Print", listOf(Color(0xFFFF2E93), Color(0xFF5B1AB8)), Color(0xFFE4FF1A), Color.White, Color(0xFFFFD1EC), Color(0xFFE4FF1A), Color(0xFF3A0E7A), art = "circle", heavy = true, italic = true, pattern = "neoncamo", theme = "Ethika"),
+    PlayerSkin("et_stripe", "Staple Stripe", listOf(Color(0xFF101014), Color(0xFF000000)), Color(0xFF00F0FF), Color.White, Color(0xFFB9C2D0), Color(0xFF00F0FF), Color.Black, heavy = true, glow = true, pattern = "diag", theme = "Ethika"),
+    PlayerSkin("ua_black", "Armour Black", listOf(Color(0xFF1B1B1D), Color(0xFF000000)), Color(0xFFD50032), Color.White, Color(0xFFA0A0A6), Color(0xFFD50032), Color.White, art = "square", heavy = true, pattern = "carbon", theme = "Under Armour"),
+    PlayerSkin("ua_steel", "Steel", listOf(Color(0xFF3A3F45), Color(0xFF15181B)), Color(0xFFE6E8EB), Color.White, Color(0xFFB3B8BF), Color(0xFFE6E8EB), Color(0xFF15181B), art = "square", heavy = true, pattern = "carbon", theme = "Under Armour"),
+    PlayerSkin("nk_volt", "Volt", listOf(Color(0xFF111111), Color(0xFF000000)), Color(0xFFCEFF00), Color.White, Color(0xFFB0B0B0), Color(0xFFCEFF00), Color.Black, art = "square", heavy = true, italic = true, pattern = "speed", theme = "Nike"),
+    PlayerSkin("nk_box", "Orange Box", listOf(Color(0xFFF26B21), Color(0xFFC2410C)), Color.White, Color.White, Color(0xFFFFE1CF), Color.White, Color(0xFFC2410C), art = "square", heavy = true, boxTitle = true, pattern = "speed", theme = "Nike"),
+    PlayerSkin("jd_bred", "Bred", listOf(Color(0xFF151515), Color(0xFF000000)), Color(0xFFCE1141), Color.White, Color(0xFFB5B5B5), Color(0xFFCE1141), Color.White, art = "square", heavy = true, pattern = "cement", theme = "Jordan"),
+    PlayerSkin("jd_chicago", "Chicago", listOf(Color(0xFFFFFFFF), Color(0xFFECECEC)), Color(0xFFCE1141), Color(0xFF111111), Color(0xFF555555), Color(0xFFCE1141), Color.White, art = "square", heavy = true, italic = true, boxTitle = true, light = true, pattern = "cement", theme = "Jordan"),
+    PlayerSkin("ad_originals", "Originals", listOf(Color(0xFF141414), Color(0xFF000000)), Color.White, Color.White, Color(0xFFA8A8A8), Color.White, Color.Black, art = "square", heavy = true, outlinePlay = true, pattern = "track", theme = "Adidas"),
+    PlayerSkin("ad_terrace", "Terrace Blue", listOf(Color(0xFF0B4FB3), Color(0xFF06275A)), Color(0xFFF2C14E), Color.White, Color(0xFFCFE0FF), Color(0xFFF2C14E), Color(0xFF06275A), art = "square", heavy = true, pattern = "track", theme = "Adidas"),
     PlayerSkin("polaroid", "Polaroid", listOf(Color(0xFFEFE6D8), Color(0xFFD9CDB8)), Color(0xFFD2553F), Color(0xFF2E2A25), Color(0xFF6E6558), Color(0xFF2E2A25), Color(0xFFEFE6D8), art = "polaroid", font = FontFamily.Cursive, light = true),
 )
 
@@ -101,6 +120,7 @@ fun SkinBackground(st: AppState, t: org.json.JSONObject, s: PlayerSkin) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(s.bg)))
         }
         if (s.pattern.isNotEmpty()) Canvas(Modifier.fillMaxSize()) { skinPattern(s) }
+        if (st.pref("skinLogoWm", "0") == "1") SkinLogo(s.id, Modifier.align(Alignment.Center).fillMaxWidth(.75f).aspectRatio(1f), alpha = .1f)
     }
 }
 
@@ -138,6 +158,50 @@ fun androidx.compose.ui.graphics.drawscope.DrawScope.skinPattern(s: PlayerSkin) 
         "hearts" -> { val step = 110f * u; var y = 50f * u; var row = 0
             while (y < h) { var x = (if (row % 2 == 0) 50f else 105f) * u
                 while (x < w) { heart(Offset(x, y), 20f * u, if ((row + (x / step).toInt()) % 3 == 0) Color(0xFFFF6EB4).copy(alpha = .22f) else Color(0xFFD9DBE0).copy(alpha = .08f)); x += step }; y += step * .85f; row++ } }
+        // ---------- fashion & sportswear textures ----------
+        "webstripe" -> {   // green-red-green web band, top and bottom
+            for (y0 in listOf(h * .045f, h * .925f)) {
+                val bh = 30f * u; val third = bh / 3
+                drawRect(Color(0xFFEFE6CF).copy(alpha = .6f), Offset(0f, y0 - 2f * u), androidx.compose.ui.geometry.Size(w, bh + 4f * u))
+                drawRect(Color(0xFF0B6B3A), Offset(0f, y0), androidx.compose.ui.geometry.Size(w, third))
+                drawRect(Color(0xFFC8102E), Offset(0f, y0 + third), androidx.compose.ui.geometry.Size(w, third))
+                drawRect(Color(0xFF0B6B3A), Offset(0f, y0 + third * 2), androidx.compose.ui.geometry.Size(w, third))
+            }
+        }
+        "trunk" -> {   // leather-trimmed edges with brass rivets, like an old travel trunk
+            val trim = Color(0xFFC69C6D).copy(alpha = .32f); val tw = 24f * u
+            drawRect(trim, Offset(0f, 0f), androidx.compose.ui.geometry.Size(tw, h)); drawRect(trim, Offset(w - tw, 0f), androidx.compose.ui.geometry.Size(tw, h))
+            drawRect(trim, Offset(0f, h * .58f), androidx.compose.ui.geometry.Size(w, tw))
+            var y = 30f * u; while (y < h) { for (x in listOf(tw / 2, w - tw / 2)) { drawCircle(Color(0xFFD4A85A).copy(alpha = .7f), 4f * u, Offset(x, y)); drawCircle(Color(0xFF6B4A1E).copy(alpha = .5f), 1.6f * u, Offset(x, y)) }; y += 64f * u }
+            var x = 40f * u; while (x < w - 30f * u) { drawCircle(Color(0xFFD4A85A).copy(alpha = .7f), 4f * u, Offset(x, h * .58f + tw / 2)); x += 64f * u }
+        }
+        "studs" -> { val step = 46f * u; var y = 20f * u; var row = 0
+            while (y < h) { var x = (if (row % 2 == 0) 20f else 43f) * u; while (x < w) { drawCircle(Color(0xFFC9A55B).copy(alpha = .3f), 2.4f * u, Offset(x, y)); x += step }; y += step * .5f; row++ } }
+        "nylon" -> { val step = 7f * u; var k = -h; while (k < w) { drawLine(Color.White.copy(alpha = .035f), Offset(k, 0f), Offset(k + h, h), 1f); drawLine(Color.White.copy(alpha = .025f), Offset(k + h, 0f), Offset(k, h), 1f); k += step } }
+        "saffiano" -> repeat(1400) { val x = rnd.nextFloat() * w; val y = rnd.nextFloat() * h; val l = (3f + rnd.nextFloat() * 5f) * u
+            if (it % 2 == 0) drawLine(Color.Black.copy(alpha = .07f), Offset(x, y), Offset(x + l, y + l), 1.2f) else drawLine(Color.White.copy(alpha = .12f), Offset(x, y + l), Offset(x + l, y), 1.2f) }
+        "neoncamo" -> repeat(80) { val col = listOf(Color(0xFFE4FF1A), Color(0xFF00F0FF), Color(0xFFFF7AD9), Color(0xFF2A0A6B))[it % 4]
+            val x = rnd.nextFloat() * w; val y = rnd.nextFloat() * h; val rw = (50f + rnd.nextFloat() * 110f) * u
+            drawOval(col.copy(alpha = .3f), Offset(x - rw / 2, y - rw / 3), androidx.compose.ui.geometry.Size(rw, rw * (.4f + rnd.nextFloat() * .4f))) }
+        "diag" -> { val cols = listOf(Color(0xFF00F0FF), Color(0xFFFF2E93), Color(0xFFE4FF1A)); var k = -h; var i = 0
+            while (k < w) { val path = androidx.compose.ui.graphics.Path().apply { moveTo(k, h); lineTo(k + 40f * u, h); lineTo(k + 40f * u + h * .6f, 0f); lineTo(k + h * .6f, 0f); close() }
+                drawPath(path, cols[i % 3].copy(alpha = .14f)); k += 120f * u; i++ } }
+        "carbon" -> { val r = 16f * u; val dx = r * 1.732f; var y = 0f; var row = 0
+            while (y < h + r) { var x = if (row % 2 == 0) 0f else dx / 2
+                while (x < w + r) { val hex = androidx.compose.ui.graphics.Path().apply { for (k in 0 until 6) { val a = Math.toRadians(60.0 * k + 30).toFloat(); val px = x + r * kotlin.math.cos(a); val py = y + r * kotlin.math.sin(a); if (k == 0) moveTo(px, py) else lineTo(px, py) }; close() }
+                    drawPath(hex, Color.White.copy(alpha = .05f), style = Stroke(1.2f * u)); x += dx }
+                y += r * 1.5f; row++ } }
+        "speed" -> repeat(26) { val x = rnd.nextFloat() * w * 1.2f - w * .1f; val y = rnd.nextFloat() * h; val l = (80f + rnd.nextFloat() * 160f) * u
+            drawLine(s.accent.copy(alpha = .08f + rnd.nextFloat() * .1f), Offset(x, y), Offset(x + l, y - l * .36f), (2f + rnd.nextFloat() * 4f) * u) }
+        "cement" -> {   // grey crackle print
+            val col = if (s.light) Color(0xFF6E6E6E) else Color(0xFFB0B0B0)
+            repeat(70) { var x = rnd.nextFloat() * w; var y = rnd.nextFloat() * h
+                val path = androidx.compose.ui.graphics.Path().apply { moveTo(x, y); repeat(4) { x += (rnd.nextFloat() * 50f - 25f) * u; y += (rnd.nextFloat() * 50f - 25f) * u; lineTo(x, y) } }
+                drawPath(path, col.copy(alpha = .14f), style = Stroke(1.6f * u)) }
+            repeat(500) { drawCircle(col.copy(alpha = .12f), (0.8f + rnd.nextFloat() * 1.6f) * u, Offset(rnd.nextFloat() * w, rnd.nextFloat() * h)) }
+        }
+        "track" -> { var y = 0f; while (y < h) { drawLine(Color.White.copy(alpha = .04f), Offset(0f, y), Offset(w, y), 1f); y += 12f * u }
+            drawRect(s.accent.copy(alpha = .25f), Offset(w - 22f * u, 0f), androidx.compose.ui.geometry.Size(6f * u, h)) }
     }
 }
 
@@ -210,8 +274,52 @@ fun SkinSwatch(s: PlayerSkin, selected: Boolean, modifier: Modifier = Modifier) 
                 Box(Modifier.padding(top = 8.dp).fillMaxWidth(.6f).aspectRatio(12f).clip(RoundedCornerShape(2.dp)).background(s.accent))
                 Box(Modifier.padding(top = 8.dp).fillMaxWidth(.18f).aspectRatio(1f).clip(CircleShape).background(if (s.outlinePlay) Color.Transparent else s.playBg).border(2.dp, s.playBg, CircleShape))
             }
+            SkinLogo(s.id, Modifier.align(Alignment.TopEnd).padding(5.dp).fillMaxWidth(.32f).aspectRatio(1f))
         }
         if (s.theme.isNotEmpty()) Text(s.theme, fontSize = 10.sp, color = C.mu, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
         Text(s.name, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
     }
+}
+
+/** The skin's background (gradient + pattern) as a bitmap — used behind the video player's picture. */
+fun skinBitmap(s: PlayerSkin, w: Int, h: Int, density: Float, dim: Float = 0f): android.graphics.Bitmap {
+    val img = androidx.compose.ui.graphics.ImageBitmap(w.coerceAtLeast(1), h.coerceAtLeast(1))
+    androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(androidx.compose.ui.unit.Density(density), androidx.compose.ui.unit.LayoutDirection.Ltr,
+        androidx.compose.ui.graphics.Canvas(img), androidx.compose.ui.geometry.Size(w.toFloat(), h.toFloat())) {
+        drawRect(Brush.verticalGradient(s.bg))
+        if (s.pattern.isNotEmpty()) skinPattern(s)
+        if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
+    }
+    return img.asAndroidBitmap()
+}
+
+/**
+ * Your own logo on a skin: any picture from the phone (a transparent PNG looks best), shown as a badge in the music and
+ * video players and, if you like, as a faint watermark. Kept only on this device (Media Hub ships no brand logos).
+ */
+object SkinLogos {
+    /** Bumped when a logo changes, so screens reload it. */
+    private val genState = androidx.compose.runtime.mutableIntStateOf(0)
+    var gen: Int get() = genState.intValue; set(v) { genState.intValue = v }
+    private fun file(ctx: android.content.Context, id: String) = java.io.File(java.io.File(ctx.filesDir, "skinlogos").apply { mkdirs() }, "$id.png")
+    fun has(ctx: android.content.Context, id: String) = file(ctx, id).exists()
+    fun load(ctx: android.content.Context, id: String): android.graphics.Bitmap? = file(ctx, id).takeIf { it.exists() }?.let { try { android.graphics.BitmapFactory.decodeFile(it.path) } catch (_: Throwable) { null } }
+    /** Copies the picked picture (scaled to at most 600 px, transparency kept). */
+    fun save(ctx: android.content.Context, id: String, uri: android.net.Uri): Boolean = try {
+        val src = ctx.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) } ?: error("unreadable")
+        val sc = minOf(1f, 600f / maxOf(src.width, src.height))
+        val b = if (sc < 1f) android.graphics.Bitmap.createScaledBitmap(src, (src.width * sc).toInt().coerceAtLeast(1), (src.height * sc).toInt().coerceAtLeast(1), true) else src
+        file(ctx, id).outputStream().use { b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        gen++; true
+    } catch (_: Throwable) { false }
+    fun remove(ctx: android.content.Context, id: String) { file(ctx, id).delete(); gen++ }
+}
+
+/** The skin's logo badge (nothing if this skin has none). */
+@Composable
+fun SkinLogo(skinId: String, modifier: Modifier = Modifier, alpha: Float = 1f) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val g = SkinLogos.gen
+    val bmp: androidx.compose.ui.graphics.ImageBitmap? = androidx.compose.runtime.remember(skinId, g) { SkinLogos.load(ctx, skinId)?.asImageBitmap() }
+    if (bmp != null) androidx.compose.foundation.Image(bmp, null, modifier.alpha(alpha), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
 }

@@ -51,7 +51,7 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-/** All 50 visualizer styles (id to name), in the order a tap cycles through them. Defined in VisualizerMore.kt. */
+/** All visualizer styles (id to name), in the order a tap cycles through them. Defined in VisualizerMore.kt. */
 val VIS_STYLES: List<Pair<String, String>> get() = VIS_REG.map { it.id to it.name }
 /** Style groups for the picker: group name to its (id, name) styles. */
 val VIS_GROUPS: List<Pair<String, List<Pair<String, String>>>> get() = VIS_REG.groupBy { it.group }.map { (g, l) -> g to l.map { it.id to it.name } }
