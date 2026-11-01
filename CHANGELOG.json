@@ -1,5 +1,10 @@
 [
  {
+  "version": "6.1",
+  "date": "2026-11-01",
+  "notes": "Apple (iOS) look as the new default style, Classic kept"
+ },
+ {
   "version": "6.0",
   "date": "2026-10-25",
   "notes": "CI: don't let a full artifact storage quota block the release"
